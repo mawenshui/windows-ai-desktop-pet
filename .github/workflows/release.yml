@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches VERSION
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath VERSION -Raw -Encoding UTF8).Trim()
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match VERSION $version."
+          }
+
+      - name: Run full tests
+        shell: pwsh
+        run: ./scripts/test.ps1 -CI
+
+      - name: Build portable and installer assets
+        shell: pwsh
+        run: ./scripts/package.ps1
+
+      - name: Verify release notes
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath VERSION -Raw -Encoding UTF8).Trim()
+          $notes = "docs/RELEASE_NOTES_$version.md"
+          if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) {
+            throw "Missing UTF-8 release notes: $notes"
+          }
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content -LiteralPath VERSION -Raw -Encoding UTF8).Trim()
+          $notes = "docs/RELEASE_NOTES_$version.md"
+          $portable = "dist/portable/windows-ai-desktop-pet-v$version-portable.zip"
+          $installer = "dist/installer/windows-ai-desktop-pet-v$version-setup.exe"
+          $checksums = "dist/checksums/SHA256SUMS.txt"
+          gh release create "v$version" $portable $installer $checksums --title "Windows AI Desktop Pet v$version" --notes-file $notes --verify-tag

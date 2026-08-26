@@ -1,0 +1,7 @@
+---
+description: Canonical project governance, testing, versioning, packaging, and release rules
+globs:
+alwaysApply: true
+---
+
+Before any repository work, read and follow `/AGENTS.md` and the documents it references. `/AGENTS.md` is the single source of project rules. Do not create a conflicting Cursor-only workflow.

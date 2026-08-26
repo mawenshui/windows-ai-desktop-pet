@@ -1,0 +1,45 @@
+# Operating system and editors
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.tmp
+*.bak
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+secrets/
+
+# Logs and reports
+*.log
+logs/
+coverage/
+test-results/
+
+# Language/tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+.cache/
+
+# Temporary build output; final release artifacts under dist/ are tracked
+build/*
+!build/.gitkeep
+
+# Local release downloads and temporary staging
+release-staging/
+*.download
+
+# Local-only third-party visual references without redistribution clearance
+res/images/nailong/
