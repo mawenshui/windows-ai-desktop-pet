@@ -19,6 +19,7 @@
     <ProjectReference Include="..\AiPet.AI\AiPet.AI.csproj" />
     <ProjectReference Include="..\AiPet.Secrets\AiPet.Secrets.csproj" />
     <ProjectReference Include="..\AiPet.SystemIntegration\AiPet.SystemIntegration.csproj" />
+    <ProjectReference Include="..\AiPet.Todos\AiPet.Todos.csproj" />
   </ItemGroup>
 
 </Project>

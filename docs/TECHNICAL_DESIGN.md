@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.7.1 |
-| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.1 |
+| 文档版本 | 0.8.0 |
+| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.2 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 软件基线 | `VERSION` 0.7.1 |
-| 状态 | WPF/.NET 8 技术栈已用于可运行源码；打包与完整测试章节仍待发布评审 |
+| 软件基线 | `VERSION` 0.8.0 |
+| 状态 | WPF/.NET 8 技术栈与待办/一次性提醒设计已冻结；系统级通知、安装和完整 E2E 仍待交互环境复核 |
 
 > 本文档定义“代码如何写”，与 PRD（定义产品行为）和 PROJECT_SPEC（定义工程规则）形成三层文档体系。技术栈一旦冻结，章节将标记为 **已冻结**；实现过程中如发生变更，必须先在本文更新并经评审。
 
@@ -91,6 +91,7 @@ src/
 │  └─ ViewModels/
 ├─ AiPet.Search/                   # 本地搜索服务（索引、查询、取消）
 ├─ AiPet.Shortcuts/                # 快捷项 CRUD、排序、图标
+├─ AiPet.Todos/                    # 待办领域模型、JSON 存储、一次性提醒调度
 ├─ AiPet.Storage/                  # 配置持久化、备份/恢复
 ├─ AiPet.Secrets/                  # AI Key 安全存储（CredMan）
 ├─ AiPet.AI/                       # AI 适配器接口与内置实现
@@ -113,7 +114,7 @@ tests/
 ```text
 AiPet.App
    └─> AiPet.ToolWindow
-         └─> AiPet.Search, AiPet.Shortcuts, AiPet.Storage, AiPet.AI
+         └─> AiPet.Search, AiPet.Shortcuts, AiPet.Todos, AiPet.Storage, AiPet.AI
    └─> AiPet.Secrets          (只有 App 与 AiPet.AI 直接依赖)
    └─> AiPet.SystemIntegration
    └─> AiPet.Diagnostics
@@ -133,6 +134,7 @@ AiPet.App
 | `AiPet.ToolWindow` | 主页/扩展页/设置 UI 与导航 | 索引、凭据、网络 |
 | `AiPet.Search` | 用户授权范围元数据采集、模糊查询、状态广播 | UI、凭据 |
 | `AiPet.Shortcuts` | 快捷项持久化、目标校验、启动调用 | UI、网络 |
+| `AiPet.Todos` | 待办校验、`todos.json` 持久化、一次性提醒去重与补发 | UI、凭据、网络 |
 | `AiPet.Storage` | JSON/SQLite 持久化、备份、迁移 | 业务规则 |
 | `AiPet.Secrets` | `CredRead/CredWrite/CredDelete` 封装、掩码生成 | UI |
 | `AiPet.AI` | `IAiClient` 接口、错误分类、并发限流 | 真实凭据、UI |
@@ -160,6 +162,8 @@ AiPet.App
 
 - **搜索索引刷新**：用户新增/撤销范围时触发，单范围工作跑在 Worker；进度通过事件总线广播。
 - **AI 连接测试**：由 ViewModel 的 `IsTestingAi` 状态阻止重复提交，外层超时 20 秒；适配器内部可使用更短的 HTTP 超时。
+- **AI 待办解析**：30 秒外层超时；只发送本次输入、参考绝对时间和时区；结果先进入内存草稿，不直接写入。
+- **提醒调度**：应用启动后单一后台计时器串行检查最近到期待办；页内状态更新通过 WPF Dispatcher 回到 UI 线程。
 - **诊断快照导出**：UI 触发，Worker 写入 `%TEMP%`，完成后切回 UI 线程打开目录。
 
 ## 5. 数据模型与持久化
@@ -173,6 +177,7 @@ AiPet.App
 | 搜索范围 | `%APPDATA%\WindowsAiDesktopPet\ranges.json` | JSON |
 | 搜索元数据缓存 | `%APPDATA%\WindowsAiDesktopPet\index.db` | SQLite |
 | 窗口/宠物位置 | `%APPDATA%\WindowsAiDesktopPet\layout.json` | JSON |
+| 待办与提醒 | `%APPDATA%\WindowsAiDesktopPet\todos.json` | JSON（schema v1，原子替换） |
 | 崩溃/诊断日志 | `%LOCALAPPDATA%\WindowsAiDesktopPet\logs\` | 滚动文本 |
 | AI Key | Windows 凭据管理器（目标名 `WindowsAiDesktopPet:AI:<service>`） | CredMan |
 | 临时下载/缓存 | `%TEMP%\WindowsAiDesktopPet\` | 进程退出清理 |
@@ -443,13 +448,43 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 - 测试请求不带业务数据；响应只读取 `StatusCode` 与最少必要头部；
 - 日志、崩溃、遥测在所有路径下经 `KeyMaskInspector` 自检（见 §8）。
 
-### 6.6 自启
+### 6.6 待办、AI 草稿与提醒
+
+详细产品与状态决策见 `docs/TODO_REMINDER_DESIGN.md`。0.8.0 的实现由三个边界组成：
+
+1. `AiPet.Todos` 提供 `TodoItem`、`TodoStore` 和 `ReminderScheduler`。`TodoStore` 使用 `RecoverableAtomicFile` 写入独立 `todos.json`，损坏文件只在本次会话回退为空列表，不覆盖原文件。
+2. `AiPet.AI` 新增独立 `ITodoAiClient`，不改变只负责连接测试的 `IAiClient`。`OpenAiCompatibleTodoClient` 调用 `/chat/completions`，严格提取 JSON，并把鉴权、权限、限流、地址/模型、网络、超时和格式失败映射为标准状态。
+3. `AiPet.ToolWindow/TodoViewModel` 维护手动编辑、筛选、AI 草稿、唯一目标选择、确认、撤销和页内提醒状态；`HomeViewModel` 只暴露组合后的 `Todo` 子 ViewModel，不承载待办业务逻辑。
+
+#### 6.6.1 数据与时间
+
+- `TodoItem` 包含标题、备注、`DueAt`、`ReminderAt`、完成状态、提醒状态和必要时间戳；时间使用 `DateTimeOffset` 保存绝对瞬间与创建时偏移。
+- 手动输入按 `TimeZoneInfo.Local` 解释并校验夏令时无效区间；页面和 AI 确认卡始终显示完整年月日、`HH:mm` 和 UTC 偏移。
+- 一条待办最多一个一次性提醒；完成待办会停止尚未触发的提醒，恢复待办不会自动恢复已取消或已投递提醒。
+- “仅取消提醒”不删除待办；“10 分钟后提醒”只更新下一次提醒时间和提醒状态。
+
+#### 6.6.2 AI 确认边界
+
+- 创建请求不发送现有待办列表；修改、完成、删除和稍后提醒只在本地按 AI 返回的 `targetTitle` 查找，并在多个同名目标时要求用户选择。
+- AI 返回的标题、时间和操作都视为不可信输入；过去时间、缺失标题、未知操作或非法 ISO 时间转为澄清，不进入存储。
+- 确认前 `TodoStore` 与调度器无新增记录；确认后只执行确认卡中的一次操作。
+- 本版不持久化 AI 对话或原始响应；失败保留输入并提供重试与手动回退，清除按钮立即清空内存草稿。
+
+#### 6.6.3 提醒运行条件
+
+- 应用处于运行状态时，`ReminderScheduler` 默认每 15 秒串行检查 `Pending + Scheduled/Snoozed + ReminderAt <= now` 的记录。
+- 到期时先在待办 ViewModel 生成页内提醒，再提交 WinForms `NotifyIcon` 托盘气泡；两者成功建立后记录为 `Delivered`。
+- 应用退出或系统休眠期间不会后台唤起；下次应用启动时，对仍为待投递状态的过期一次性提醒补发一次并标注“补发提醒”。
+- 回调失败记录为 `Failed`，不伪装为成功，也不会自动重复轰炸；用户可编辑或重新设置提醒后再次调度。
+- 托盘气泡可能被 Windows 专注助手或系统策略隐藏，因此本版把页内提醒作为运行期间的可靠状态，托盘气泡只作补充通道。
+
+### 6.7 自启
 
 - 注册表：`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，值名 `WindowsAiDesktopPet`，值数据 `"<exe> --tray"`；
 - 不写 `HKLM`，不要求管理员；
 - 写入后立即 `RegQueryValueEx` 校验；失败回滚 UI 开关并显示原因。
 
-### 6.7 帮助
+### 6.8 帮助
 
 > 基于 2026-08-26 用户确认：MVP **仅交付离线 HTML 手册**，不内置在线兜底；后续若启用在线方案，需先经过隐私与官网链接评审后再加。
 
@@ -500,7 +535,7 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 ### 11.1 便携版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.7.1
+pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.8.0
 ```
 
 - 入口：`dotnet publish src/AiPet.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true`；
@@ -510,7 +545,7 @@ pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.7.1
 ### 11.2 安装版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.7.1
+pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.8.0
 ```
 
 - 工具：Inno Setup 6.x；
@@ -547,6 +582,9 @@ pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.7.1
 | 透明无边框在锁屏下显示异常 | 焦点切换 | 锁屏时隐藏宠物，登录后恢复 |
 | Inno Setup 升级破坏旧配置 | 用户主动覆盖安装 | 安装器先备份 `settings.json` 再覆盖 |
 | AI 供应商协议差异 | 多供应商 | 统一走 OpenAI 兼容协议；预置国内主流 8 家 + 自定义；选中预设后字段仍可改以应对厂商更新 |
+| AI 待办结构化输出差异 | 多供应商不完全支持 JSON 模式 | 使用纯文本 JSON 契约、本地严格解析和字段校验；失败保留输入并允许手动填写 |
+| 应用退出/休眠导致提醒延迟 | 本版没有系统后台任务 | 启动时对未投递的一次性提醒补发一次；页面明确运行条件，不宣称退出后准点唤起 |
+| 托盘气泡被系统抑制 | 专注助手或账户策略 | 同时保留页内提醒与失败诊断；后续评估 Windows App SDK 通知注册和操作按钮 |
 | 索引大目录耗时 | 桌面/下载含数十万文件 | 仅扫描用户授权范围，跳过重解析点；按范围拆分并缓存查询，后续引入增量索引 |
 | 主题色对比度 | 暗色下文本 | 走 Fluent 主题 + 文本对比度自检 |
 

@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.8.0] - 2026-08-28
+
+### Added
+
+- 新增完整待办页：支持待处理、今天、未来 7 天和已完成筛选，以及手动创建、编辑、完成、恢复、仅取消提醒和删除。
+- 新增 `%APPDATA%\WindowsAiDesktopPet\todos.json` 原子持久化、一次性提醒调度、页内提醒、托盘气泡、10 分钟稍后提醒和启动补发。
+- 新增 OpenAI 兼容的一句话待办解析，覆盖创建、修改、完成、删除和稍后提醒；歧义、过去时间、同名目标和服务错误均先澄清或降级。
+- 新增结构化确认卡、确认前零写入、AI 操作撤销和不落盘的内存会话清理。
+- 新增 16 项待办、提醒、AI 解析和 ViewModel 单元测试。
+
+### Changed
+
+- 将 PRD 中 `TODO-01`～`TODO-08` 从后续候选冻结为 0.8.0 正式范围，并补充提醒运行条件、隐私边界、技术设计、测试矩阵和用户手册。
+
 ## [0.7.1] - 2026-08-28
 
 ### Changed

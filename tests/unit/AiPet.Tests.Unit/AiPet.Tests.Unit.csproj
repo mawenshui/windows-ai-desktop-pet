@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\..\src\AiPet.Search\AiPet.Search.csproj" />
     <ProjectReference Include="..\..\..\src\AiPet.Storage\AiPet.Storage.csproj" />
     <ProjectReference Include="..\..\..\src\AiPet.ToolWindow\AiPet.ToolWindow.csproj" />
+    <ProjectReference Include="..\..\..\src\AiPet.Todos\AiPet.Todos.csproj" />
   </ItemGroup>
 
 </Project>

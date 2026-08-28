@@ -15,6 +15,7 @@ using AiPet.Secrets;
 using AiPet.Shortcuts;
 using AiPet.Storage;
 using AiPet.SystemIntegration;
+using AiPet.Todos;
 using AppToolWindow = AiPet.ToolWindow.PetToolWindow;
 using AiPet.ToolWindow;
 
@@ -36,6 +37,9 @@ public partial class App : System.Windows.Application
     private SearchService? _search;
     private ShortcutStore? _shortcuts;
     private OpenAiCompatibleClient? _ai;
+    private OpenAiCompatibleTodoClient? _todoAi;
+    private TodoStore? _todoStore;
+    private ReminderScheduler? _reminderScheduler;
     private SettingsStore? _settingsStore;
     private HomeViewModel? _homeVm;
 
@@ -141,6 +145,8 @@ public partial class App : System.Windows.Application
         _ = IndexApplicationsSafelyAsync(_search);
         _shortcuts = new ShortcutStore();
         _ai = new OpenAiCompatibleClient();
+        _todoAi = new OpenAiCompatibleTodoClient();
+        _todoStore = new TodoStore(_settingsStore.AppDataDir);
         // _homeVm is attached after the XAML resource graph is built
         // (see TryAttachHomeViewModel below) so the resource lookup
         // can find the XAML-declared instance instead of us creating
@@ -192,7 +198,13 @@ public partial class App : System.Windows.Application
         // the same backing stores the App layer uses.
         if (_tool.FindResource("HomeVM") is HomeViewModel fromXaml)
         {
-            fromXaml.Attach(_search, _shortcuts, _ai, _settingsStore);
+            fromXaml.Attach(
+                _search,
+                _shortcuts,
+                _ai,
+                _settingsStore,
+                todoStore: _todoStore,
+                todoAiClient: _todoAi);
             fromXaml.CharacterChanged += character => _pet?.SetCharacter(character);
             _homeVm = fromXaml;
             DebugLog("[App] home vm attached from XAML resource");
@@ -213,6 +225,7 @@ public partial class App : System.Windows.Application
 
         // --- 4. Tray ---
         _tray = new TrayIcon();
+        _tray.BalloonClicked += (_, _) => ShowTodoPage();
         _tray.PetVisibilityClicked += (_, _) => TogglePetVisibility();
         _tray.ShowPetRequested += (_, _) => ShowPet();
         _tray.ToolWindowClicked += (_, _) => ToggleToolWindow();
@@ -229,6 +242,17 @@ public partial class App : System.Windows.Application
             _tool?.AllowClose();
             Shutdown();
         };
+        _reminderScheduler = new ReminderScheduler(_todoStore);
+        _reminderScheduler.Start(notification => Dispatcher.Invoke(() =>
+        {
+            if (_homeVm is null || _tray is null) return false;
+            _homeVm.Todo.ShowReminder(notification);
+            _tray.ShowBalloon(
+                notification.IsRecovery ? "补发待办提醒" : "待办提醒",
+                notification.Item.Title,
+                ToolTipIcon.Info);
+            return true;
+        }));
         // Patch: the "设置" item is now wired to open the home page
         // (the integrated ToolWindow already shows settings as a tab).
         // The "开机自启" item toggles AutoStart. Both are best-effort;
@@ -322,6 +346,13 @@ public partial class App : System.Windows.Application
         ShowToolWindow(showSettings: true);
     }
 
+    private void ShowTodoPage()
+    {
+        ShowPet();
+        ShowToolWindow(showSettings: false);
+        _tool?.SelectTodoTab();
+    }
+
     private void ShowToolWindow(bool showSettings)
     {
         if (_tool is null || _pet is null) return;
@@ -398,6 +429,7 @@ public partial class App : System.Windows.Application
     {
         try { _tool?.AllowClose(); } catch { }
         try { _wakeCts?.Cancel(); } catch { }
+        try { _reminderScheduler?.Dispose(); } catch { }
         try { _tray?.Dispose(); } catch { }
         try { _singleInstance?.Dispose(); } catch { }
         try { _search?.Dispose(); } catch { }

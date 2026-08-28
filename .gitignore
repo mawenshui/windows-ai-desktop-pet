@@ -51,5 +51,6 @@ dist/installer/windows-ai-desktop-pet-v0.1.0-installer-staging.zip
 dist/portable/windows-ai-desktop-pet-v0.1.0-portable.zip
 dist/portable/windows-ai-desktop-pet-v0.1.0-portable/
 
-# Local-only third-party visual references without redistribution clearance
-res/images/nailong/
+# Local-only reference materials are never repository deliverables.
+# Redistributable assets must be curated into assets/ with license records.
+res/

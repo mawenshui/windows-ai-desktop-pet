@@ -23,6 +23,7 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler? AutostartClicked;
     public event EventHandler? HelpClicked;
     public event EventHandler? ExitClicked;
+    public event EventHandler? BalloonClicked;
 
     public TrayIcon()
     {
@@ -58,6 +59,7 @@ public sealed class TrayIcon : IDisposable
             ContextMenuStrip = _menu,
         };
         _icon.DoubleClick += (_, _) => ShowPetRequested?.Invoke(this, EventArgs.Empty);
+        _icon.BalloonTipClicked += (_, _) => BalloonClicked?.Invoke(this, EventArgs.Empty);
     }
 
     public void SetPetVisible(bool visible) =>

@@ -13,6 +13,7 @@ using AiPet.Secrets;
 using AiPet.Shortcuts;
 using AiPet.Storage;
 using AiPet.SystemIntegration;
+using AiPet.Todos;
 
 namespace AiPet.ToolWindow;
 
@@ -36,12 +37,16 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private int _searchGeneration;
     private bool _isSearching;
 
+    public TodoViewModel Todo { get; } = new();
+
     public HomeViewModel(
         SearchService search,
         ShortcutStore shortcuts,
         IAiClient ai,
         SettingsStore settings,
-        IAiSecretStore? secretStore = null)
+        IAiSecretStore? secretStore = null,
+        TodoStore? todoStore = null,
+        ITodoAiClient? todoAiClient = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -60,6 +65,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         ReloadRanges();
         ReloadAi();
         ReloadAutostart();
+        if (todoStore is not null && todoAiClient is not null)
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection);
     }
 
     public ObservableCollection<SearchItem> Results { get; } = new();
@@ -995,7 +1002,9 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         ShortcutStore shortcuts,
         IAiClient ai,
         SettingsStore settings,
-        IAiSecretStore? secretStore = null)
+        IAiSecretStore? secretStore = null,
+        TodoStore? todoStore = null,
+        ITodoAiClient? todoAiClient = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -1024,6 +1033,29 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         ReloadRanges();
         ReloadAi();
         ReloadAutostart();
+        if (todoStore is not null && todoAiClient is not null)
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection);
+    }
+
+    private TodoAiConnection? CreateTodoAiConnection()
+    {
+        if (_settings is null) return null;
+        try
+        {
+            var settings = _settings.Load();
+            if (!string.Equals(settings.Ai.LastStatus, "Connected", StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(settings.Ai.Endpoint)
+                || string.IsNullOrWhiteSpace(settings.Ai.Model))
+                return null;
+            var apiKey = _secretStore.Load(settings.Ai.SecretTargetName);
+            return string.IsNullOrWhiteSpace(apiKey)
+                ? null
+                : new TodoAiConnection(settings.Ai.Endpoint, settings.Ai.Model, apiKey);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 

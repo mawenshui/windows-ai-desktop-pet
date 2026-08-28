@@ -121,6 +121,11 @@ public partial class PetToolWindow : Window
         }));
     }
 
+    public void SelectTodoTab()
+    {
+        ShellTabs.SelectedIndex = 1;
+    }
+
     /// <summary>
     /// Keeps an already-open popover attached to the moving pet without
     /// changing the active page, focus, activation, or visibility state.
@@ -220,6 +225,28 @@ public partial class PetToolWindow : Window
             ShellTabs.SelectedItem = tab;
             tab.Focus();
         }
+    }
+
+    private void TodoAiInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || DataContext is not HomeViewModel vm) return;
+        if (vm.Todo.ParseAiCommand.CanExecute(null)) vm.Todo.ParseAiCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    private void DeleteTodo_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: TodoRowViewModel row }
+            || DataContext is not HomeViewModel vm)
+            return;
+        var answer = MessageBox.Show(
+            this,
+            $"删除待办“{row.Title}”？\n这会删除待办本身；如果只想停止通知，请选择“仅取消提醒”。",
+            "删除待办",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (answer == MessageBoxResult.Yes) vm.Todo.DeleteTodo(row.Id);
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => HideToTray();
