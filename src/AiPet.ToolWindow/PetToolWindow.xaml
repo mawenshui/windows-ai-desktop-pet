@@ -74,7 +74,7 @@
                                                   ToolTip="选择搜索范围" AutomationProperties.Name="搜索范围" />
                                     </Border>
                                     <Grid Grid.Column="2">
-                                        <TextBox x:Name="SearchBox" Height="44" Style="{StaticResource Field}" Padding="37,0,12,0"
+                                        <TextBox x:Name="SearchBox" Height="44" Style="{StaticResource Field}" Padding="35,0,12,0"
                                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Left"
                                                  Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                                                  TextWrapping="NoWrap" AcceptsReturn="False"
@@ -258,7 +258,7 @@
                                     </Expander>
                                 </Border>
                                 <Button Content="打开用户手册" Style="{StaticResource SecondaryButton}" Command="{Binding OpenHelpCommand}" HorizontalAlignment="Left" />
-                                <TextBlock Text="Windows AI Desktop Pet 0.7.0 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
+                                <TextBlock Text="Windows AI Desktop Pet 0.7.1 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

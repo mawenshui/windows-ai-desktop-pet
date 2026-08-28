@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.7.0（实现阶段维护） |
+| 文档版本 | 0.7.1（实现阶段维护） |
 | 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.1 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 技术基线 | `docs/TECHNICAL_DESIGN.md` 0.7.0 |
-| 软件基线 | `VERSION` 0.7.0 |
+| 技术基线 | `docs/TECHNICAL_DESIGN.md` 0.7.1 |
+| 软件基线 | `VERSION` 0.7.1 |
 | 状态 | 已有可运行 WPF 源码与自动化回归入口；系统级 E2E、安装/卸载和 Release 验证仍待补齐 |
 
 ## 0. 目的

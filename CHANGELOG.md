@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.7.1] - 2026-08-28
+
+### Changed
+
+- Tighten homepage search text spacing beside the leading magnifier icon.
+
 ## [0.7.0] - 2026-08-28
 
 ### Added
