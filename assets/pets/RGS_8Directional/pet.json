@@ -1,0 +1,75 @@
+{
+  "$schema": "../../../assets/pets/pet.schema.json",
+  "id": "rgs-8dir",
+  "displayName": "RGS 8-Direction Hero",
+  "version": "0.1.0",
+  "source": {
+    "author": "RGS_Dev",
+    "platform": "itch.io",
+    "url": "https://rgsdev.itch.io/hand-drawn-square-characters-animated-8-directions-top-down-free-cc0",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attributionRequired": false,
+    "downloadedAt": "2026-08-26",
+    "downloadedBy": "user (manual itch.io download)",
+    "zipSha256": "8171d8d220882dec638d1a56fce63421325468a3765d833ff5d93d4b5be8d174",
+    "zipSizeBytes": 3234518
+  },
+  "frameInventory": {
+    "characters": ["base", "hero", "skeleton", "monster"],
+    "preferred": "hero",
+    "actionsPerCharacter": ["idle", "jump"],
+    "directions": ["down", "down_right", "right", "up_right", "up"],
+    "framesPerAction": {
+      "idle": 4,
+      "jump": 8
+    },
+    "globalActions": [
+      { "name": "death", "frames": 7, "direction": "global" }
+    ],
+    "filePathPattern": "frames/<character>/<action>_<direction>_<NN>.png",
+    "deathFilePathPattern": "frames/_global/death_<NN>.png",
+    "totalFrames": 247
+  },
+  "directionModel": {
+    "authored": ["down", "down_right", "right", "up_right", "up"],
+    "derived": {
+      "left":      { "source": "right",       "transform": "ScaleTransform(-1,1)" },
+      "down_left": { "source": "down_right",  "transform": "ScaleTransform(-1,1)" },
+      "up_left":   { "source": "up_right",    "transform": "ScaleTransform(-1,1)" }
+    },
+    "columnOrder8Dir": ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"],
+    "angleMap8Dir": {
+      "right":       [[337.5, 22.5]],
+      "down_right":  [[22.5, 67.5]],
+      "down":        [[67.5, 112.5]],
+      "down_left":   [[112.5, 157.5]],
+      "left":        [[157.5, 202.5]],
+      "up_left":     [[202.5, 247.5], "derived"],
+      "up":          [[247.5, 292.5]],
+      "up_right":    [[292.5, 337.5]]
+    }
+  },
+  "stateMachine": {
+    "default": { "animation": "idle", "direction": "down" },
+    "transitions": [
+      { "from": "any", "event": "tick-100ms",                       "to": "idle",  "param": "direction = nearest8Dir(cursorAngle)" },
+      { "from": "any", "event": "drag-start",                      "to": "jump",  "param": "direction = nearest8Dir(dragVelocity); playOnce=false; loop" },
+      { "from": "any", "event": "click",                            "to": "jump",  "param": "playOnce=true; return=idle" },
+      { "from": "any", "event": "background-task-running",          "to": "jump",  "param": "direction = last; loop" },
+      { "from": "any", "event": "background-task-failed",           "to": "death", "param": "playOnce=true; return=idle" }
+    ]
+  },
+  "render": {
+    "transparentBackground": true,
+    "defaultScale": 1.0,
+    "anchor": "bottom-center",
+    "fps": 12,
+    "imageFormat": "PNG (RLE8 / 32bpp ARGB, transparent)"
+  },
+  "notes": [
+    "Resource is 5-direction (down / down_right / right / up_right / up) + global death FX; the 3 missing 8-dir angles (left / up_left / down_left) are derived at runtime via ScaleTransform(-1,1) over the mirrored counterpart.",
+    "There is no separate 'walk' animation in this resource; 'jump' doubles as the run/move animation per the author's release notes.",
+    "Death FX is global (no direction) — 7 frames play once on failure, then return to idle."
+  ]
+}

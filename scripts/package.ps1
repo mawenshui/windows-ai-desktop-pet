@@ -39,9 +39,14 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $portableAsset = Join-Path $portableDirectory "windows-ai-desktop-pet-v$Version-portable.zip"
-$installerAsset = Join-Path $installerDirectory "windows-ai-desktop-pet-v$Version-setup.exe"
+$installerSetupAsset  = Join-Path $installerDirectory "windows-ai-desktop-pet-v$Version-setup.exe"
+$installerAsset = $installerSetupAsset
+if (-not (Test-Path -LiteralPath $installerAsset -PathType Leaf)) {
+    throw "Expected real installer asset was not generated: $installerAsset"
+}
 
-foreach ($asset in @($portableAsset, $installerAsset)) {
+$assets = @($portableAsset, $installerAsset)
+foreach ($asset in $assets) {
     if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) {
         throw "Expected release asset was not generated: $asset"
     }
@@ -50,7 +55,7 @@ foreach ($asset in @($portableAsset, $installerAsset)) {
     }
 }
 
-$checksumLines = foreach ($asset in @($portableAsset, $installerAsset)) {
+$checksumLines = foreach ($asset in $assets) {
     $hash = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $([System.IO.Path]::GetFileName($asset))"
 }
@@ -58,6 +63,6 @@ $checksumLines = foreach ($asset in @($portableAsset, $installerAsset)) {
 $checksumPath = Join-Path $checksumDirectory 'SHA256SUMS.txt'
 [System.IO.File]::WriteAllLines($checksumPath, $checksumLines, $utf8NoBom)
 
-Write-Output "Generated portable asset: $portableAsset"
+Write-Output "Generated portable asset:  $portableAsset"
 Write-Output "Generated installer asset: $installerAsset"
 Write-Output "Generated checksum manifest: $checksumPath"

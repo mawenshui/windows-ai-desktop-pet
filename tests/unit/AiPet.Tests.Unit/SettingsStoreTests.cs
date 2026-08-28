@@ -1,0 +1,129 @@
+using System;
+using System.IO;
+using AiPet.Storage;
+using Xunit;
+
+namespace AiPet.Tests.Unit;
+
+public class SettingsStoreTests : IDisposable
+{
+    private readonly string _root;
+
+    public SettingsStoreTests()
+    {
+        _root = Path.Combine(Path.GetTempPath(), "aipet-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_root);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_root, recursive: true); } catch { /* ignore */ }
+    }
+
+    [Fact]
+    public void Defaults_when_no_file()
+    {
+        var s = new SettingsStore(_root);
+        var loaded = s.Load();
+        Assert.Equal("rgs-8dir", loaded.Pet.Id);
+        Assert.Equal("hero", loaded.Pet.PreferredCharacter);
+        Assert.Equal(440, loaded.ToolWindow.Width);
+        Assert.Equal(536, loaded.ToolWindow.Height);
+        Assert.False(loaded.ToolWindow.StayOpen);
+        Assert.True(loaded.ToolWindow.AlwaysOnTop);
+    }
+
+    [Fact]
+    public void Round_trip_preserves_values()
+    {
+        var s = new SettingsStore(_root);
+        var saved = new AppSettings
+        {
+            Pet = new PetSettings { Id = "rgs-8dir", PreferredCharacter = "monster" },
+            ToolWindow = new ToolWindowSettings
+            {
+                Width = 600,
+                Height = 700,
+                StayOpen = true,
+                AlwaysOnTop = false,
+            },
+            Search = new SearchSettings
+            {
+                EnableWildcardSearch = true,
+                EnableRegexSearch = true,
+                LastScopeId = "apps",
+            },
+        };
+        s.Save(saved);
+        var loaded = s.Load();
+        Assert.Equal("monster", loaded.Pet.PreferredCharacter);
+        Assert.Equal(600, loaded.ToolWindow.Width);
+        Assert.Equal(700, loaded.ToolWindow.Height);
+        Assert.True(loaded.ToolWindow.StayOpen);
+        Assert.False(loaded.ToolWindow.AlwaysOnTop);
+        Assert.True(loaded.Search.EnableWildcardSearch);
+        Assert.True(loaded.Search.EnableRegexSearch);
+        Assert.Equal("apps", loaded.Search.LastScopeId);
+    }
+
+    [Fact]
+    public void Corrupted_file_falls_back_to_defaults_without_overwriting()
+    {
+        var s = new SettingsStore(_root);
+        Directory.CreateDirectory(s.AppDataDir);
+        File.WriteAllText(s.SettingsPath, "{ this is not valid json");
+
+        var loaded = s.Load();
+        // Defaults
+        Assert.Equal("hero", loaded.Pet.PreferredCharacter);
+        // The corrupted file is left on disk (no destructive overwrite).
+        Assert.True(File.Exists(s.SettingsPath));
+        Assert.Equal("{ this is not valid json", File.ReadAllText(s.SettingsPath));
+    }
+
+    [Fact]
+    public void Layout_round_trip()
+    {
+        var s = new SettingsStore(_root);
+        Assert.Null(s.TryLoadLayout());
+        s.SaveLayout(new WindowLayout { PetX = 1234, PetY = 567, ToolX = 100, ToolY = 200 });
+        var loaded = s.TryLoadLayout();
+        Assert.NotNull(loaded);
+        Assert.Equal(1234, loaded!.PetX);
+        Assert.Equal(567, loaded.PetY);
+        Assert.Equal(100, loaded.ToolX);
+        Assert.Equal(200, loaded.ToolY);
+    }
+
+    [Fact]
+    public void Save_recovers_when_legacy_build_created_settings_path_as_directory()
+    {
+        var store = new SettingsStore(_root);
+        Directory.CreateDirectory(store.SettingsPath);
+        File.WriteAllText(Path.Combine(store.SettingsPath, "legacy-marker.txt"), "keep");
+
+        store.Save(new AppSettings
+        {
+            Pet = new PetSettings { PreferredCharacter = "skeleton" },
+        });
+
+        Assert.True(File.Exists(store.SettingsPath));
+        Assert.Equal("skeleton", store.Load().Pet.PreferredCharacter);
+        var backup = Directory.GetDirectories(_root, "settings.json.invalid-directory-backup*");
+        Assert.Single(backup);
+        Assert.Equal("keep", File.ReadAllText(Path.Combine(backup[0], "legacy-marker.txt")));
+    }
+
+    [Fact]
+    public void Diagnostic_log_is_kept_in_local_app_data_instead_of_the_install_directory()
+    {
+        var localAppData = Path.Combine(_root, "local-app-data");
+
+        var path = ApplicationDataPaths.GetDiagnosticLogPath(localAppData);
+
+        Assert.Equal(
+            Path.Combine(localAppData, "WindowsAiDesktopPet", "logs", "aipet-debug.log"),
+            path);
+        Assert.DoesNotContain(AppContext.BaseDirectory, path, StringComparison.OrdinalIgnoreCase);
+    }
+}

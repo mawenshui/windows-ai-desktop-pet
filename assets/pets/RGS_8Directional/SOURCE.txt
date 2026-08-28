@@ -1,0 +1,73 @@
+RGS 8-Direction Characters — 资源出处与授权留痕
+================================================
+
+资源名 : Hand-Drawn Square Characters Animated 8 Directions Top Down
+作者   : RGS_Dev（rgsdev）
+平台   : itch.io
+项目页 : https://rgsdev.itch.io/hand-drawn-square-characters-animated-8-directions-top-down-free-cc0
+下载   : 通过 https://rgsdev.itch.io/hand-drawn-square-characters-animated-8-directions-top-down-free-cc0 的「Download」按钮
+授权   : CC0 1.0 Universal（https://creativecommons.org/publicdomain/zero/1.0/）
+        公有领域献礼；可商用、可修改、可再分发；署名非强制。
+
+---
+
+下载记录
+--------
+
+[1] 下载时间 : 2026-08-26 14:45:32 +08:00
+    拉取脚本 : res/images/RGS_8Directional/download.ps1
+    ZIP 哈希 : 8171d8d220882dec638d1a56fce63421325468a3765d833ff5d93d4b5be8d174
+    ZIP 大小 : 3,234,518 bytes
+    校验结果 : OK（ZIP 头完整,文件数 270）
+
+[2] 解压目录 : res/images/RGS_8Directional/downloads/extracted
+    解压工具 : System.IO.Compression.ZipFile（PowerShell 5.1+ 内置）
+    文件清单 : 270 个文件(263 PNG / 1 License.txt / 6 .url 社媒链接)
+    原始结构  : Sprites/{Base Character,Hero,Skeleton,Monster,Death FX}/* + Spritesheets/*.png + 6 个 .url + License.txt
+
+[3] pet.json 校准 : 2026-08-26 14:50:xx +08:00
+    实际资源 : **5 方向**(down / down_right / right / up_right / up)+ 2 状态(idle 4 帧、jump 8 帧)+ 1 全局 death(7 帧,无方向)
+    与 README/pet.json 占位值的关系 : 占位假设"8 方向 + idle/walk/jump/death"是**错误的**;已重写 pet.json 反映真实 5 方向结构,缺失 3 个 8 方向角度(left / up_left / down_left)由运行时 ScaleTransform(-1,1) 派生
+    整理后单帧数 : 247(4 角色 × 60 帧 + 7 帧 death)
+
+---
+
+授权复核
+--------
+
+- 协议文件内容 : 在 itch.io 项目页明确标注 "The license is CC0, so you can use any way you want, even commercially. Credits is not needed."
+- OpenGameArt 镜像 : 同名作品在 https://opengameart.org/content/free-cc0-modular-animated-vector-characters-2d 同样标注 CC0（如启用备用资源）
+- 适用性       : 本项目用于 Windows 桌宠的可视化实现,符合 CC0 的所有允许使用范围
+- 不适用场景   : （无）— CC0 不限制使用场景
+
+---
+
+合规留痕备注
+------------
+
+- 本文件不提交到 Git 仓库（`res/` 已被 .gitignore 排除）;
+- 本文件作为本机合规留痕,如未来需要从 `res/` 迁移到 `assets/pets/RGS_8Directional/`,本文件随素材一并迁移;
+- 任何修改本目录资源（重命名、重新切帧、合成新动画）的记录应在本文件追加条目;
+- 不得把 RGS_Dev 标为本项目素材的「原作者」或「官方」——RGS_Dev 与本项目无任何官方合作关系。
+
+
+[2026-08-26 14:45:32 +08:00] auto-recorded
+    script     : D:\minimaxCode_project\多功能AI桌宠\res\images\RGS_8Directional\download.ps1
+    zip        : D:\minimaxCode_project\多功能AI桌宠\res\images\RGS_8Directional\downloads\rgs-square-8dir.zip
+    size_bytes : 3234518
+    sha256     : 8171d8d220882dec638d1a56fce63421325468a3765d833ff5d93d4b5be8d174
+    character  : hero
+    extract_to : D:\minimaxCode_project\多功能AI桌宠\res\images\RGS_8Directional\downloads\extracted
+    file_count : 270
+    license    : CC0-1.0
+
+
+[2026-08-26 14:50:xx +08:00] organize
+    script      : res/images/RGS_8Directional/organize.ps1
+    src         : downloads\Square characters animated 8 directions top down free cc0
+    dst_layout  : frames/<character>/<action>_<direction>_<NN>.png + spritesheets/<character>.png
+    frames      : 247
+    sheets      : 5
+    license     : copied to root
+    dropped     : bullet.png, gun.png, jumpFX.png, 6 *.url (social)
+    note        : 之前的 README 与 pet.json 占位值(8 方向 + walk)与实际资源不符;本次同步修正

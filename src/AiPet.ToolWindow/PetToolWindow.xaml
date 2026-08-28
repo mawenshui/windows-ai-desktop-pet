@@ -1,0 +1,269 @@
+<Window x:Class="AiPet.ToolWindow.PetToolWindow" x:Name="ToolWindowRoot"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:AiPet.ToolWindow"
+        Title="小方工具袋"
+        Width="440" Height="536" MinWidth="360"
+        WindowStartupLocation="Manual"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" Topmost="True" ResizeMode="NoResize"
+        FontFamily="Microsoft YaHei UI" FontSize="13" Foreground="#FF33302E"
+        SnapsToDevicePixels="True" UseLayoutRounding="True">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ToolWindowTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        <local:HomeViewModel x:Key="HomeVM" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid x:Name="PopoverRoot" DataContext="{StaticResource HomeVM}">
+        <Polygon x:Name="TopPointer" Width="24" Height="13" Points="0,12 12,0 24,12" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2"
+                 Fill="{StaticResource Paper}" Stroke="#66E6DBCF" StrokeThickness="1" Visibility="Collapsed" />
+        <Polygon x:Name="BottomPointer" Width="24" Height="13" Points="0,0 12,12 24,0" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="2"
+                 Fill="{StaticResource Paper}" Stroke="#66E6DBCF" StrokeThickness="1" Visibility="Collapsed" />
+
+        <Border x:Name="PopoverBody" Margin="8,12" Background="{StaticResource Paper}"
+                BorderBrush="#55E6DBCF" BorderThickness="1" CornerRadius="20" ClipToBounds="True"
+                Effect="{StaticResource PopoverShadow}">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="56" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <!-- Keep the three window actions beside the page tabs.  The
+                     tab control spans both rows so its header and content
+                     remain one coherent keyboard navigation surface. -->
+                <Border Grid.Row="0" HorizontalAlignment="Right" Background="{StaticResource Canvas}" Panel.ZIndex="1">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0">
+                            <ToggleButton x:Name="StayOpenButton" Style="{StaticResource WindowStateButton}" Margin="2,0"
+                                          IsChecked="{Binding StayOpen, ElementName=ToolWindowRoot, Mode=TwoWay}"
+                                          ToolTip="常驻工具窗口：失焦时不自动收起"
+                                          AutomationProperties.Name="常驻工具窗口">
+                                <Path Width="14" Height="14" Data="M6,3 H14 L13,8 L16,11 V13 H11 V18 L9,20 V13 H4 V11 L7,8 Z"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                      StrokeThickness="1.6" StrokeLineJoin="Round" Stretch="Uniform" />
+                            </ToggleButton>
+                            <ToggleButton x:Name="AlwaysOnTopButton" Style="{StaticResource WindowStateButton}" Margin="2,0"
+                                          IsChecked="{Binding AlwaysOnTop, ElementName=ToolWindowRoot, Mode=TwoWay}"
+                                          ToolTip="保持窗口置顶：显示在其他普通窗口上方"
+                                          AutomationProperties.Name="保持窗口置顶">
+                                <Path Width="14" Height="14" Data="M3,7 H15 V17 H3 Z M7,3 H19 V13 M8,7 L11,4 L14,7"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                      StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeLineJoin="Round" Stretch="Uniform" />
+                            </ToggleButton>
+                            <Button x:Name="CloseButton" Style="{StaticResource IconButton}" Margin="2,0,0,0" Click="Close_Click" ToolTip="收起工具窗口 (Esc)" AutomationProperties.Name="收起工具窗口">
+                                <Path Width="14" Height="14" Data="M5,5 L15,15 M15,5 L5,15" Stroke="{StaticResource Ink}" StrokeThickness="1.8" StrokeStartLineCap="Round" Stretch="Uniform" />
+                            </Button>
+                    </StackPanel>
+                </Border>
+
+                <TabControl x:Name="ShellTabs" Grid.RowSpan="2" Style="{StaticResource ShellTabsStyle}" Margin="18,8,18,18" SelectedIndex="0" KeyboardNavigation.TabNavigation="Local">
+                    <TabItem Style="{StaticResource ShellTab}" Header="主页" PreviewMouseDown="ShellTab_PreviewMouseDown">
+                        <Grid>
+                            <!-- Search and results are the primary task.  The
+                                 remaining rows stay compact so the shortcut
+                                 strip never pushes the result list away. -->
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Border Background="{StaticResource AccentTint}" CornerRadius="14" Padding="10" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="132" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Height="44" Style="{StaticResource FieldChrome}">
+                                        <ComboBox x:Name="SearchScopeSelector" Style="{StaticResource BareComboBox}"
+                                                  ItemsSource="{Binding SearchScopes}" DisplayMemberPath="DisplayName"
+                                                  SelectedItem="{Binding SelectedSearchScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="选择搜索范围" AutomationProperties.Name="搜索范围" />
+                                    </Border>
+                                    <Grid Grid.Column="2">
+                                        <TextBox x:Name="SearchBox" Height="44" Style="{StaticResource Field}" Padding="37,0,12,0"
+                                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Left"
+                                                 Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextWrapping="NoWrap" AcceptsReturn="False"
+                                                 ToolTip="普通名称、*.pdf 或 re:^报告" AutomationProperties.Name="按文件名搜索" />
+                                        <Path Width="17" Height="17" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0,0,0"
+                                              Data="M8,2 A6,6 0 1 0 8,14 A6,6 0 1 0 8,2 M12.5,12.5 L17,17"
+                                              Stroke="{StaticResource AccentPressed}" StrokeThickness="1.8" StrokeStartLineCap="Round" IsHitTestVisible="False" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Grid.Row="3" Margin="0,8,0,0">
+                                <DockPanel Margin="0,0,0,8">
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Content="＋ 添加入口" Style="{StaticResource SecondaryButton}" Padding="12,7" Command="{Binding AddShortcutCommand}" AutomationProperties.Name="添加文件或应用快捷入口" />
+                                        <Button Content="文件夹" Style="{StaticResource SecondaryButton}" Padding="10,7" Margin="6,0,0,0" Click="BrowseShortcutFolder_Click" AutomationProperties.Name="添加文件夹快捷入口" />
+                                    </StackPanel>
+                                    <TextBlock Text="快捷入口" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0" />
+                                </DockPanel>
+                                <Grid MinHeight="48" MaxHeight="120" AllowDrop="True" DragOver="ShortcutBar_DragOver" Drop="ShortcutBar_Drop">
+                                    <Border x:Name="ShortcutEmptyState" Style="{StaticResource EmptyState}">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <Path Width="18" Height="18" Margin="0,0,8,0" Data="M3,5 H8 L10,7 H17 V16 H3 Z M10,10 V14 M8,12 H12"
+                                                  Stroke="{StaticResource Muted}" StrokeThickness="1.5" Stretch="Uniform" />
+                                            <TextBlock Text="还没有快捷入口，添加常用应用或文件" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center">
+                                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasShortcuts}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                    <ScrollViewer x:Name="ShortcutScroller" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Focusable="False" MaxHeight="116" Visibility="{Binding HasShortcuts, Converter={StaticResource BoolToVisibility}}">
+                                        <ScrollViewer.Resources>
+                                            <Style TargetType="ScrollBar" BasedOn="{StaticResource CreamScrollBar}" />
+                                        </ScrollViewer.Resources>
+                                        <ItemsControl x:Name="ShortcutItems" ItemsSource="{Binding Shortcuts}">
+                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid x:Name="ShortcutGridPanel" Columns="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="48" Height="48" Margin="3" Style="{StaticResource ShortcutCard}">
+                                                        <Border.ToolTip>
+                                                            <ToolTip>
+                                                                <StackPanel MaxWidth="300">
+                                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                                                    <TextBlock Text="{Binding Description}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                                                                    <TextBlock Text="{Binding TargetPath}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                                                                </StackPanel>
+                                                            </ToolTip>
+                                                        </Border.ToolTip>
+                                                        <Grid>
+                                                            <Button Padding="4" Background="Transparent" BorderThickness="0" Foreground="{StaticResource Ink}" Cursor="Hand" Command="{Binding DataContext.LaunchShortcutCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" AutomationProperties.Name="{Binding DisplayName}">
+                                                                <Image Width="30" Height="30" Source="{Binding Converter={StaticResource ShellIconConverter}}" Stretch="Uniform" SnapsToDevicePixels="True" />
+                                                            </Button>
+                                                            <Ellipse Width="7" Height="7" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,3,3,0" Fill="{StaticResource Error}">
+                                                                <Ellipse.ToolTip>目标已失效，请打开管理菜单重新定位或移除。</Ellipse.ToolTip>
+                                                                <Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ExistsNow}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Ellipse.Style>
+                                                            </Ellipse>
+                                                            <Button Content="⋯" Width="18" Height="18" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,1,1" Background="{StaticResource Card}" BorderThickness="0" Foreground="{StaticResource Muted}" Cursor="Hand" Click="OpenShortcutMenu_Click" ToolTip="编辑、排序或重新定位" AutomationProperties.Name="管理快捷入口">
+                                                                <Button.Style>
+                                                                    <Style TargetType="Button">
+                                                                        <Setter Property="Opacity" Value="0" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                                                                                <Setter Property="Opacity" Value="1" />
+                                                                            </DataTrigger>
+                                                                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                                <Setter Property="Opacity" Value="1" />
+                                                                            </Trigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Button.Style>
+                                                            </Button>
+                                                        </Grid>
+                                                        <Border.ContextMenu>
+                                                            <ContextMenu Opened="ShortcutMenu_Opened">
+                                                                <MenuItem Header="编辑名称、描述或图标" Click="EditShortcut_Click" />
+                                                                <MenuItem Header="重新定位" Click="RelocateShortcut_Click" />
+                                                                <Separator />
+                                                                <MenuItem Header="上移" Click="MoveShortcutUp_Click" />
+                                                                <MenuItem Header="下移" Click="MoveShortcutDown_Click" />
+                                                                <Separator />
+                                                                <MenuItem Header="移除" Click="RemoveShortcut_Click" />
+                                                            </ContextMenu>
+                                                        </Border.ContextMenu>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </StackPanel>
+
+                            <DockPanel Grid.Row="1" Margin="0,0,0,8">
+                                <Border DockPanel.Dock="Right" Width="112" MinHeight="40" Style="{StaticResource FieldChrome}">
+                                    <ComboBox x:Name="CategoryFilterSelector" Style="{StaticResource BareComboBox}" MinHeight="38" Padding="9,5"
+                                              ItemsSource="{Binding Categories}" SelectedItem="{Binding Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              AutomationProperties.Name="结果类别" />
+                                </Border>
+                                <TextBlock Text="搜索结果" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0" />
+                            </DockPanel>
+
+                            <Grid Grid.Row="2">
+                                <ListBox x:Name="ResultsList" ItemsSource="{Binding Results}" BorderThickness="0" Background="Transparent" SelectionMode="Single" MouseDoubleClick="Results_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True" ItemContainerStyle="{StaticResource ResultItem}" AutomationProperties.Name="搜索结果">
+                                    <ListBox.Resources>
+                                        <Style TargetType="ScrollBar" BasedOn="{StaticResource CreamScrollBar}" />
+                                    </ListBox.Resources>
+                                    <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Width="30" Height="30" Background="{StaticResource AccentTint}" CornerRadius="8" VerticalAlignment="Center"><Image Width="22" Height="22" Source="{Binding Converter={StaticResource ShellIconConverter}}" Stretch="Uniform" SnapsToDevicePixels="True" /></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding RelativePath}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis" /></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+                                </ListBox>
+                                <Border VerticalAlignment="Stretch" MinHeight="38">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="280">
+                                        <Path Width="17" Height="17" Margin="0,0,8,0" Data="M8,2 A6,6 0 1 0 8,14 A6,6 0 1 0 8,2 M12.5,12.5 L17,17" Stroke="{StaticResource Accent}" StrokeThickness="1.7" Stretch="Uniform" />
+                                        <TextBlock Text="{Binding ResultEmptyMessage}" Foreground="{StaticResource Muted}" FontSize="12" TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Setter Property="Padding" Value="8" />
+                                            <Style.Triggers><DataTrigger Binding="{Binding HasResults}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                            </Grid>
+
+                            <DockPanel Grid.Row="4" Margin="2,7,0,0"><Ellipse Width="6" Height="6" Margin="0,0,7,0" Fill="{StaticResource Accent}" VerticalAlignment="Center" /><TextBlock Text="{Binding Status}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" /></DockPanel>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Style="{StaticResource ShellTab}" Header="计划" PreviewMouseDown="ShellTab_PreviewMouseDown">
+                        <Grid><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="260"><Path Width="44" Height="44" Data="M4,7 H20 V21 H4 Z M8,3 V9 M16,3 V9 M8,13 H16 M8,17 H13" Stroke="{StaticResource Accent}" StrokeThickness="1.5" Stretch="Uniform" /><TextBlock Text="计划功能还在准备" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" Margin="0,16,0,7" /><TextBlock Text="未来会在这里放待办与提醒。首版不展示无法使用的操作。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" /></StackPanel></Grid>
+                    </TabItem>
+
+                    <TabItem Style="{StaticResource ShellTab}" Header="扩展" PreviewMouseDown="ShellTab_PreviewMouseDown">
+                        <Grid><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="260"><Path Width="44" Height="44" Data="M10,2 V8 M10,12 V18 M2,10 H8 M12,10 H18 M5,5 L8,8 M12,12 L15,15 M15,5 L12,8 M8,12 L5,15" Stroke="{StaticResource Accent}" StrokeThickness="1.6" StrokeStartLineCap="Round" Stretch="Uniform" /><TextBlock Text="留一点空间给以后" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" Margin="0,16,0,7" /><TextBlock Text="扩展入口暂不定义用途，避免桌宠再次变成功能清单。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" /></StackPanel></Grid>
+                    </TabItem>
+
+                    <TabItem Style="{StaticResource ShellTab}" Header="设置" PreviewMouseDown="ShellTab_PreviewMouseDown">
+                        <ScrollViewer x:Name="SettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                            <StackPanel Margin="0,0,9,4">
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="桌宠形象" Style="{StaticResource SectionLabel}" />
+                                        <TextBlock Text="选择后立即应用 · RGS CC0 角色资源" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,0,10" />
+                                        <ListBox x:Name="CharacterList" ItemsSource="{Binding PetCharacters}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectedValue="{Binding SelectedCharacter, Mode=TwoWay}" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="桌宠预设形象">
+                                            <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                            <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="13,8" /><Setter Property="Margin" Value="0,0,8,8" /><Setter Property="Background" Value="{StaticResource Canvas}" /><Setter Property="Foreground" Value="{StaticResource Ink}" /><Setter Property="Cursor" Value="Hand" /><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Chip" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" BorderBrush="#66E6DBCF" BorderThickness="1" CornerRadius="10"><ContentPresenter /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentTint}" /></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentTint}" /><Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource Accent}" /><Setter Property="Foreground" Value="{StaticResource AccentPressed}" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chip" Property="BorderThickness" Value="2" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+                                        </ListBox>
+                                        <CheckBox Content="登录 Windows 后自动启动" IsChecked="{Binding AutostartEnabled, Mode=TwoWay}" Command="{Binding ToggleAutostartCommand}" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <DockPanel Margin="0,0,0,10">
+                                            <Button DockPanel.Dock="Right" Content="＋ 添加文件夹" Style="{StaticResource SecondaryButton}" Padding="14,7" Click="BrowseRange_Click" />
+                                            <StackPanel><TextBlock Text="搜索范围" Style="{StaticResource SectionLabel}" Margin="0" /><TextBlock Text="只索引你明确允许的文件夹" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,3,0,0" /></StackPanel>
+                                        </DockPanel>
+                                        <Border Style="{StaticResource EmptyState}" Margin="0,0,0,10">
+                                            <Grid>
+                                                <TextBlock Text="尚未添加文件夹" Foreground="{StaticResource Muted}" FontSize="12" HorizontalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasRanges}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                                <ItemsControl ItemsSource="{Binding Ranges}" Visibility="{Binding HasRanges, Converter={StaticResource BoolToVisibility}}"><ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" /><TextBlock Text="{Binding Items, StringFormat={}{0} 个条目}" Foreground="{StaticResource Muted}" FontSize="11" /></StackPanel><Button Grid.Column="1" Content="移除" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,5" Margin="8,0,0,0" Command="{Binding DataContext.RemoveRangeCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" /></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock Text="文件名匹配方式" FontWeight="SemiBold" FontSize="12" />
+                                        <CheckBox x:Name="WildcardSearchToggle" Content="启用 * 和 ? 通配符" IsChecked="{Binding EnableWildcardSearch, Mode=TwoWay}" MinHeight="40" Margin="0,5,0,0" AutomationProperties.Name="启用文件名通配符搜索" />
+                                        <CheckBox x:Name="RegexSearchToggle" Content="启用 re: 正则表达式" IsChecked="{Binding EnableRegexSearch, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="启用文件名正则表达式搜索" />
+                                        <TextBlock Text="关闭时按普通文字搜索；当前只搜索文件名，不读取文件内容。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                    <Expander x:Name="AiSettingsExpander">
+                                        <Expander.Header><TextBlock Text="AI 接入（可选）" FontWeight="SemiBold" /></Expander.Header>
+                                        <StackPanel Margin="0,12,0,0">
+                                            <TextBlock Text="供应商" Style="{StaticResource SectionLabel}" />
+                                            <Border Style="{StaticResource FieldChrome}"><ComboBox x:Name="ProviderSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding Providers}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectedValue="{Binding Provider, Mode=TwoWay}" AutomationProperties.Name="AI 供应商" /></Border>
+                                            <TextBlock Text="服务地址" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" /><TextBox x:Name="EndpointBox" Style="{StaticResource Field}" Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="AI 服务地址" />
+                                            <TextBlock Text="模型" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" /><TextBox x:Name="ModelBox" Style="{StaticResource Field}" Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="AI 模型" />
+                                            <TextBlock Text="API Key" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" /><Border Style="{StaticResource FieldChrome}"><PasswordBox x:Name="ApiKeyBox" Style="{StaticResource BarePasswordBox}" PasswordChanged="ApiKeyBox_PasswordChanged" AutomationProperties.Name="AI API Key" /></Border>
+                                            <TextBlock Text="{Binding AiActionHint}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0" />
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0"><Button Content="{Binding TestButtonLabel}" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" Margin="0,0,8,0" AutomationProperties.Name="测试 AI 连接" /><Button Content="保存配置" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAiConfigCommand}" AutomationProperties.Name="保存 AI 配置" /></StackPanel>
+                                            <TextBlock Text="{Binding AiStatus}" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="0,12,0,0" /><TextBlock Text="{Binding AiStatusDetail}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </Expander>
+                                </Border>
+                                <Button Content="打开用户手册" Style="{StaticResource SecondaryButton}" Command="{Binding OpenHelpCommand}" HorizontalAlignment="Left" />
+                                <TextBlock Text="Windows AI Desktop Pet 0.7.0 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

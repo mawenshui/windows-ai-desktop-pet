@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AiPet.Tests.Unit</RootNamespace>
+    <AssemblyName>AiPet.Tests.Unit</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\AiPet.AI\AiPet.AI.csproj" />
+    <ProjectReference Include="..\..\..\src\AiPet.Common\AiPet.Common.csproj" />
+    <ProjectReference Include="..\..\..\src\AiPet.Pet\AiPet.Pet.csproj" />
+    <ProjectReference Include="..\..\..\src\AiPet.Search\AiPet.Search.csproj" />
+    <ProjectReference Include="..\..\..\src\AiPet.Storage\AiPet.Storage.csproj" />
+    <ProjectReference Include="..\..\..\src\AiPet.ToolWindow\AiPet.ToolWindow.csproj" />
+  </ItemGroup>
+
+</Project>

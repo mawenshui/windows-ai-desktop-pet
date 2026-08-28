@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Windows AI Desktop Pet 0.7.0 用户手册</title>
+  <style>
+    :root { color-scheme: light; font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; color: #241f1c; background: #f7f4f1; }
+    body { margin: 0; line-height: 1.7; }
+    main { width: min(760px, calc(100% - 40px)); margin: 32px auto; padding: 32px; background: #fffdfc; border: 1px solid #ded7d2; border-radius: 20px; box-shadow: 0 16px 42px rgb(36 31 28 / .10), 0 3px 10px rgb(36 31 28 / .06); }
+    h1 { margin: 0 0 8px; font-size: 30px; letter-spacing: -.02em; }
+    h2 { margin: 32px 0 8px; font-size: 20px; }
+    p, li { font-size: 15px; }
+    .lead, small { color: #756f6b; }
+    .note { margin: 20px 0; padding: 14px 16px; background: #f8e9e5; border-radius: 12px; }
+    kbd { padding: 2px 6px; background: #eee9e5; border: 1px solid #ded7d2; border-radius: 6px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Windows AI Desktop Pet</h1>
+  <p class="lead">0.7.0 本地发布候选 · 桌宠主体，功能附着</p>
+  <div class="note">本地便携包与双击安装包已通过运行、安装和卸载烟雾测试；代码签名与公开 Release 尚未完成。</div>
+
+  <h2>开始使用</h2>
+  <ol>
+    <li>启动后，RGS 桌宠会出现在桌面右下方，托盘区同时出现应用图标。</li>
+    <li>单击桌宠打开紧凑工具气泡；再次单击、按 <kbd>Esc</kbd> 或点击气泡外部可收起。</li>
+    <li>按住桌宠拖动可改变位置，已打开的工具窗口会即时跟随；近距跟随鼠标时只使用正面和左右侧面姿态，鼠标移远后回到正面。</li>
+    <li>长时间未操作时，宠物会低频说一句话、播放动作或短距离漫游；鼠标靠近、拖动或打开工具气泡会立即中断。</li>
+  </ol>
+  <p>工具气泡右上角的图钉用于“常驻”（失焦不自动收起），叠层图标用于“保持置顶”。选中状态会保存到当前账户；关闭按钮、<kbd>Esc</kbd> 和再次点击宠物始终可以主动收起。</p>
+
+  <h2>搜索与快捷入口</h2>
+  <p>首次使用请进入“设置 → 搜索范围”，点击“添加文件夹”。只有明确选择的目录会递归建立文件名索引，不读取文件正文。</p>
+  <p>主页左侧可选择全部、应用或单个授权范围，结果区的类别下拉会立即过滤；已有关键词时切换搜索范围也会立即重新查询。默认按名称片段搜索；设置中可分别开启 <code>*</code>/<code>?</code> 通配符与 <code>re:</code> 正则。双击结果打开目标。</p>
+  <p>快捷入口区域支持“添加入口”和“文件夹”选择器，也可以从资源管理器拖入文件或文件夹。入口默认使用目标的 Windows 图标：应用显示程序图标，文件按扩展名显示关联图标，目录显示文件夹图标。入口以六列正方形图标网格显示，较多时只使用纵向滚动；悬停可查看名称、描述和完整路径，右键或入口上的“⋯”菜单可编辑名称、描述或图标、重新定位、排序和移除；首项的“上移”和末项的“下移”会自动禁用。自定义图标支持 ICO、PNG、JPG、JPEG，格式或内容不可读时会提示并回退目标图标。</p>
+
+  <h2>切换桌宠</h2>
+  <p>进入“设置 → 预设形象”，可在红帽勇者、方块伙伴、骷髅小队长和森林怪兽之间切换。素材来自 RGS_Dev，采用 CC0-1.0。</p>
+
+  <h2>AI 接入与隐私</h2>
+  <p>AI 设置默认折叠。选择内置供应商后，服务地址和模型会立即填入并仍可编辑。填写完整后先测试连接；只有当前配置通过测试，“保存配置”才可用。修改任一字段会使通过状态失效，失败时输入保持不变且不会覆盖已保存配置。API Key 使用当前 Windows 账户的凭据存储，不写入普通设置文件。连接测试不携带搜索词、文件路径或快捷项。</p>
+
+  <h2>托盘菜单</h2>
+  <p>宠物右键可选择“隐藏桌宠”。隐藏后双击托盘图标，或在托盘菜单选择“显示桌宠”即可恢复；工具窗口有独立的显示/收起菜单。</p>
+  <ul>
+    <li>显示 / 隐藏：切换工具气泡。</li>
+    <li>设置：直接打开设置页。</li>
+    <li>开机自启：仅修改当前 Windows 账户的启动项。</li>
+    <li>帮助：打开本离线手册。</li>
+    <li>退出：结束桌宠与后台进程。</li>
+  </ul>
+
+  <h2>遇到问题</h2>
+  <p>如果宠物不显示，请确认安装目录包含 <code>assets/pets/RGS_8Directional/pet.json</code> 与 <code>frames</code>。搜索无结果时，检查搜索范围是否已添加并完成索引。早期预览版误建的配置目录会在首次保存时改名保留并自动修复。</p>
+  <small>完整需求、隐私边界和开发说明见仓库中的 PRD、PROJECT_SPEC 与 USER_MANUAL.md。</small>
+</main>
+</body>
+</html>

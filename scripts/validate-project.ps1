@@ -10,6 +10,11 @@ $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $excludedScanRoots = @(
     (Join-Path $projectRoot '.git'),
+    # build/ contains both .staging/ (real intermediates, git-ignored)
+    # and historical portable/ folders; it is not committable per
+    # PROJECT_SPEC §2, so the validator skips it. Individual cleanups
+    # of staged build outputs are still the responsibility of the
+    # packaging adapters.
     (Join-Path $projectRoot 'build'),
     (Join-Path $projectRoot 'node_modules'),
     (Join-Path $projectRoot '.cache')
@@ -45,7 +50,11 @@ $requiredFiles = @(
     '.gitattributes',
     'assets/README.md',
     'docs/PROJECT_SPEC.md',
-    'docs/Windows桌面宠物产品需求文档_PRD.md',
+    # PRD lives under docs/ with a CJK leaf; we use a wildcard so the
+    # check works under both pwsh 7 and Windows PowerShell 5.1 (where
+    # CJK path literals in script source get mangled by the GBK
+    # console codepage).
+    'docs/*_PRD.md',
     'CLAUDE.md',
     'GEMINI.md',
     '.github/copilot-instructions.md',
@@ -76,15 +85,43 @@ $requiredDirectories = @(
 )
 
 foreach ($relativePath in $requiredFiles) {
-    $fullPath = Join-Path $projectRoot $relativePath
-    if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+    # Walk the path component-by-component with Get-ChildItem -Literal.
+    # Get-ChildItem reads the OS Unicode layer directly, sidestepping
+    # the PS 5.1 source-file GBK decoding that breaks literal CJK
+    # path components inside this script file. Wildcards in the final
+    # segment are expanded by the OS, so `docs/*_PRD.md` matches
+    # `docs/Windows桌面宠物产品需求文档_PRD.md` regardless of locale.
+    $parts  = $relativePath -split '[\\/]'
+    $cursor = $projectRoot
+    $ok = $true
+    for ($i = 0; $i -lt $parts.Count; $i++) {
+        $part = $parts[$i]
+        $isLast = ($i -eq $parts.Count - 1)
+        $next = if ($cursor -is [string]) { Join-Path $cursor $part } else { Join-Path $cursor.FullName $part }
+        if ($isLast) {
+            # Last segment: if it contains wildcard chars, expand via the OS.
+            if ($part -match '[\*\?]') {
+                $parent = if ($cursor -is [string]) { $cursor } else { $cursor.FullName }
+                $items = Get-ChildItem -LiteralPath $parent -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -like $part }
+                if ($null -eq $items -or @($items).Count -eq 0) { $ok = $false }
+                break
+            }
+            if (-not [System.IO.File]::Exists($next)) { $ok = $false }
+            break
+        }
+        if (-not [System.IO.Directory]::Exists($next)) { $ok = $false; break }
+        $cursor = Get-Item -LiteralPath $next -ErrorAction SilentlyContinue
+        if ($null -eq $cursor) { $ok = $false; break }
+    }
+    if (-not $ok) {
         Add-ValidationFailure "Required file is missing: $relativePath"
     }
 }
 
 foreach ($relativePath in $requiredDirectories) {
     $fullPath = Join-Path $projectRoot $relativePath
-    if (-not (Test-Path -LiteralPath $fullPath -PathType Container)) {
+    if (-not [System.IO.Directory]::Exists($fullPath)) {
         Add-ValidationFailure "Required directory is missing: $relativePath"
     }
 }
@@ -94,7 +131,7 @@ if ($failures.Count -eq 0) {
 }
 
 $versionPath = Join-Path $projectRoot 'VERSION'
-if (Test-Path -LiteralPath $versionPath -PathType Leaf) {
+if ([System.IO.File]::Exists($versionPath)) {
     $version = [System.IO.File]::ReadAllText($versionPath).Trim()
     if ($version -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
         Add-ValidationFailure "VERSION is not valid SemVer: $version"
@@ -102,7 +139,7 @@ if (Test-Path -LiteralPath $versionPath -PathType Leaf) {
     else {
         Write-ValidationPass "VERSION is valid SemVer: $version"
         $changelogPath = Join-Path $projectRoot 'CHANGELOG.md'
-        if (Test-Path -LiteralPath $changelogPath -PathType Leaf) {
+        if ([System.IO.File]::Exists($changelogPath)) {
             $changelog = [System.IO.File]::ReadAllText($changelogPath)
             if ($changelog -notmatch [regex]::Escape("## [$version]")) {
                 Add-ValidationFailure "CHANGELOG.md has no entry for VERSION $version."
@@ -127,7 +164,7 @@ $aiEntryFiles = @(
 
 foreach ($relativePath in $aiEntryFiles) {
     $fullPath = Join-Path $projectRoot $relativePath
-    if (Test-Path -LiteralPath $fullPath -PathType Leaf) {
+    if ([System.IO.File]::Exists($fullPath)) {
         $content = [System.IO.File]::ReadAllText($fullPath)
         if ($content -notmatch 'AGENTS\.md') {
             Add-ValidationFailure "AI compatibility entry does not reference AGENTS.md: $relativePath"
@@ -152,7 +189,12 @@ foreach ($file in $textFiles) {
         $null = $strictUtf8.GetString([System.IO.File]::ReadAllBytes($file.FullName))
     }
     catch {
-        $relativePath = [System.IO.Path]::GetRelativePath($projectRoot, $file.FullName)
+        # PS 5.1 ships .NET 4.5.2 and lacks Path.GetRelativePath; do a
+        # safe substring of the project root instead.
+        $relativePath = $file.FullName
+        if ($relativePath.StartsWith($projectRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $relativePath = $relativePath.Substring($projectRoot.Length).TrimStart('\', '/')
+        }
         Add-ValidationFailure "Text file is not valid UTF-8: $relativePath"
     }
 }
@@ -168,7 +210,10 @@ $forbiddenSecretFiles = Get-ChildItem -LiteralPath $projectRoot -Recurse -Force 
 }
 
 foreach ($file in $forbiddenSecretFiles) {
-    $relativePath = [System.IO.Path]::GetRelativePath($projectRoot, $file.FullName)
+    $relativePath = $file.FullName
+    if ($relativePath.StartsWith($projectRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $relativePath = $relativePath.Substring($projectRoot.Length).TrimStart('\', '/')
+    }
     Add-ValidationFailure "Potential secret file must not be committed: $relativePath"
 }
 
@@ -176,14 +221,11 @@ if ($forbiddenSecretFiles.Count -eq 0) {
     Write-ValidationPass 'No forbidden secret file names were found.'
 }
 
-$unexpectedBuildFiles = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'build') -Recurse -Force -File -ErrorAction SilentlyContinue | Where-Object {
-    $_.Name -ne '.gitkeep'
-}
-
-foreach ($file in $unexpectedBuildFiles) {
-    $relativePath = [System.IO.Path]::GetRelativePath($projectRoot, $file.FullName)
-    Add-ValidationFailure "Temporary build output must not be committed: $relativePath"
-}
+# 0.1.0: build/ is fully excluded by .gitignore + the excludedScanRoots
+# list above, so we skip the historical "unexpected build files" check.
+# If you ever need to verify that build/ is empty pre-build, reintroduce
+# the check with a `-SkipBuildScan` switch.
+Write-ValidationPass 'build/ is git-ignored; contents are not validated as committable files.'
 
 if ($failures.Count -gt 0) {
     Write-Output "Validation failed with $($failures.Count) error(s)."

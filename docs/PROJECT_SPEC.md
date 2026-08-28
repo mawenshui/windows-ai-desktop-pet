@@ -3,7 +3,7 @@
 | 属性 | 值 |
 | :--- | :--- |
 | 文档版本 | 1.0 |
-| 软件基线版本 | 0.1.0 |
+| 软件基线版本 | 0.7.0 |
 | 状态 | 生效；技术栈章节待实现阶段冻结 |
 | 适用范围 | 源码、测试、文档、构建、打包、版本、GitHub 与 AI 工具协作 |
 | 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.1 |
@@ -12,7 +12,7 @@
 
 本规范把 PRD 转换为可执行的项目级约束，供开发者、CI 和各类 AI 工具共同遵守。根目录 `AGENTS.md` 是统一操作入口，本文件提供更详细的工程约定。PRD 负责定义“做什么”，本规范负责定义“代码和资料放在哪里、如何验证、如何升级版本、如何打包和发布”。
 
-当前仓库只有需求文档和工程基线，没有产品源码、技术设计或安装包。因此本规范不会虚构已经完成的构建能力；首次产品实现必须先冻结技术栈并补齐对应构建适配器。
+当前仓库已有 WPF/.NET 8 产品源码、RGS 桌宠资源、自动化测试，以及便携版和 Inno Setup 安装版构建适配器。0.7.0 保持“桌宠主体 + 紧凑工具气泡”，主页搜索结果优先展示，快捷入口支持系统图标、文件夹、编辑、排序、重新定位与拖放添加；工具气泡继续支持按账户持久化的常驻/置顶控制。AI 配置必须由当前值完成连接测试并通过后才能保存，失败时保留输入。本地候选已验证便携运行、安装、启动和卸载；完整系统级 E2E、签名、Git 标签、远端同步与 GitHub Release 仍未完成。
 
 ## 2. 项目结构
 
@@ -53,6 +53,30 @@ windows-ai-desktop-pet/
 空目录以 `.gitkeep` 维持结构。`build/` 中除 `.gitkeep` 外全部忽略；`dist/` 是发布区，不得放调试构建、日志或未验收文件。
 
 本地 `res/` 仅可保存尚未取得再分发授权的视觉参考，默认不属于仓库结构、Git 提交或安装包输入。角色 IP、官方图片、同人素材及第三方字体在迁入 `assets/` 前，必须按照 `assets/README.md` 记录来源、权利范围和必要署名；“来源仓库采用开源许可证”不能替代对素材本身权利的确认。
+
+### 2.1 角色资产策略（2026-08-26 决策）
+
+桌宠视觉资源按以下顺序使用：
+
+| 优先级 | 资源 | 路径 | 授权 | 状态 |
+| :--- | :--- | :--- | :--- | :--- |
+| **首选** | RGS 8-Direction Characters（RGS_Dev） | `res/images/RGS_8Directional/` | **CC0 1.0** | **MVP 默认实现资源** |
+| 个人参考 | nailong（第七印象） | `res/images/nailong/` | 商业 IP（仅个人/学习） | **不进仓库、不进安装包、不进 Release** |
+| 后续扩展 | Styloo Chibi Characters（styloo） | 待评估 | **CC0 1.0** | **不在 MVP 范围**，F2+ 评估 3D 渲染与 WPF 兼容性后决定是否启用 |
+
+**策略要点**：
+
+1. **MVP 默认使用 RGS 8-Direction**：`AiPet.Pet` 模块读取 `pet.json` 的 `id = rgs-8dir`；任何 PR 中包含 `pet.json` 的 `id = nailong` 都不允许合并到面向 Release 的分支。
+2. **RGS 资源实际结构（2026-08-26 实查，已写入 `pet.json`）**：
+   - 4 角色 × 60 帧 + 7 帧 death = 247 单帧 PNG；整图 5 张（`spritesheets/{base,hero,skeleton,monster}.png` + `death_fx.png`）。
+   - 原资源**只画了 5 方向**：`down` / `down_right` / `right` / `up_right` / `up`（右半圆）；左半圆 3 个方向（`left` / `up_left` / `down_left`）由 WPF 端 `ScaleTransform(-1, 1)` 水平镜像派生，**不**事先生成物理 PNG。
+   - 原资源**没有**单独的 walk 动画；`jump`（8 帧）兼作"运动中/拖动中"动画。
+   - `death` 是 7 帧无方向全局 FX，由 `frames/_global/death_NN.png` 提供。
+2. **RGS 资源已确认 CC0**：来源为 `https://rgsdev.itch.io/hand-drawn-square-characters-animated-8-directions-top-down-free-cc0`，协议允许商用、修改、再分发、署名非强制。本目录内 `SOURCE.txt` 永久留痕，迁移到 `assets/pets/RGS_8Directional/` 后保留。
+3. **nailong 资源维持本地参考**：与 PRD §1.4 第 8 项"宠物视觉素材待定"对应；`res/images/nailong/` 继续保留作为个人学习与对比素材，**绝不**提交到 Git、**绝不**打包进安装包。
+4. **Styloo 资源**：`https://styloo.itch.io/chibi` 同样是 CC0，但属 3D 模型（GLB/FBX），启用需 WPF 引入 3D 渲染（HelixToolkit 或自封装），与 MVP "WPF 轻量 2D 常驻"原则有冲突；列入 F2+ 候选，须先在 TECHNICAL_DESIGN §6.1 写 RFC 评估资源占用与 3D 叠加窗口兼容性。
+5. **任何角色素材的引入都必须满足**：① 协议文本留痕于 `SOURCE.txt` 或 `assets/README.md`；② `pet.json` 的 `source.license` 字段为合法 SPDX 标识；③ CI 包含 `assets/pets/*/pet.json` 的 `license` 与 `attributionRequired` 字段校验；④ 不可引入商业 IP、官方游戏立绘、同人雪碧图等"可浏览但不可再分发"的资源。
+6. **未来扩展**：可在 RGS_Dev、styloo、Crucible、Kenney、OpenGameArt 等渠道扩充更多 CC0/CC-BY 角色；任何新引入都需追加本表行 + 更新对应 `pet.json` 与 `SOURCE.txt`。
 
 ## 3. 文档体系
 
@@ -176,6 +200,6 @@ dist/checksums/SHA256SUMS.txt
 
 新工具若有专用规则文件，只能新增指向 `AGENTS.md` 的入口，不得复制整份规范。任何 AI 执行修改后，都必须遵守与人工贡献者相同的测试、版本、文档、打包和 Release 门禁。
 
-## 11. 当前基线的完成条件
+## 11. 基线状态与当前完成条件
 
-本次初始化完成条件仅包括：规范和兼容入口存在、目录骨架可识别、结构校验通过、版本为 `0.1.0`、GitHub 私有仓库创建并推送成功。由于尚无应用代码，本次不创建虚假安装包或二进制 Release；首个可运行版本必须先实现第 8 节适配器，并从此执行完整发布流程。
+`0.1.0` 的治理初始化仅证明规范、兼容入口和目录骨架存在。`0.7.0` 已完成本地源码、自动化测试、素材许可、便携版、真实交互安装器及安装/卸载烟雾验证；在代码签名、版本标签、远端同步和 GitHub Release 均完成前，只能称为“0.7.0 本地发布候选”，不能称为正式发布。

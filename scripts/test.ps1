@@ -35,10 +35,13 @@ elseif (Test-Path -LiteralPath (Join-Path $projectRoot 'package.json')) {
     & npm test -- --runInBand
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
-elseif (@(Get-ChildItem -LiteralPath $projectRoot -Filter '*.sln' -File).Count -gt 0) {
+elseif (@(Get-ChildItem -LiteralPath $projectRoot -Recurse -Depth 3 -Filter '*.sln' -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }).Count -gt 0) {
     $testRunnerFound = $true
-    $solution = Get-ChildItem -LiteralPath $projectRoot -Filter '*.sln' -File | Select-Object -First 1
-    & dotnet test $solution.FullName --configuration Release
+    $solution = Get-ChildItem -LiteralPath $projectRoot -Recurse -Depth 3 -Filter '*.sln' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } |
+        Select-Object -First 1
+    Write-Output "[INFO ] running: dotnet test $($solution.FullName) --configuration Release"
+    & dotnet test $solution.FullName --configuration Release --nologo
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 elseif (Test-Path -LiteralPath (Join-Path $projectRoot 'CMakeLists.txt')) {

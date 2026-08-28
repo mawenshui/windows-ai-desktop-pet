@@ -32,14 +32,24 @@ __pycache__/
 .ruff_cache/
 node_modules/
 .cache/
+**/bin/
+**/obj/
 
-# Temporary build output; final release artifacts under dist/ are tracked
+# Temporary build output; final release artifacts under dist/ are tracked.
 build/*
 !build/.gitkeep
 
 # Local release downloads and temporary staging
 release-staging/
 *.download
+
+# Superseded local 0.1.0 verification artefacts (never released).
+dist/_old_*.png
+dist/RUNTIME-VERIFICATION-v0.1.0.md
+dist/e2e-summary.json
+dist/installer/windows-ai-desktop-pet-v0.1.0-installer-staging.zip
+dist/portable/windows-ai-desktop-pet-v0.1.0-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.1.0-portable/
 
 # Local-only third-party visual references without redistribution clearance
 res/images/nailong/

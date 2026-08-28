@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>0.7.0</Version>
+    <AssemblyVersion>0.7.0.0</AssemblyVersion>
+    <FileVersion>0.7.0.0</FileVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>AiPet.App</RootNamespace>
+    <AssemblyName>WindowsAiDesktopPet</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>AiPet.App.Program</StartupObject>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AiPet.Common\AiPet.Common.csproj" />
+    <ProjectReference Include="..\AiPet.Storage\AiPet.Storage.csproj" />
+    <ProjectReference Include="..\AiPet.Pet\AiPet.Pet.csproj" />
+    <ProjectReference Include="..\AiPet.ToolWindow\AiPet.ToolWindow.csproj" />
+    <ProjectReference Include="..\AiPet.Search\AiPet.Search.csproj" />
+    <ProjectReference Include="..\AiPet.Shortcuts\AiPet.Shortcuts.csproj" />
+    <ProjectReference Include="..\AiPet.AI\AiPet.AI.csproj" />
+    <ProjectReference Include="..\AiPet.Secrets\AiPet.Secrets.csproj" />
+    <ProjectReference Include="..\AiPet.SystemIntegration\AiPet.SystemIntegration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Disable WPF's auto-generated Main from App.xaml: we own Main in Program.cs. -->
+    <ApplicationDefinition Remove="App.xaml" />
+  </ItemGroup>
+
+</Project>
