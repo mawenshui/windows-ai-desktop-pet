@@ -126,6 +126,29 @@ public sealed class TodoStore
         ReminderFailureCode = null,
     });
 
+    /// <summary>
+    /// Completes a reminder-only entry after its configured delivery channels
+    /// have accepted the notification.  Unlike <see cref="Complete"/>, the
+    /// delivery state remains <see cref="ReminderState.Delivered"/> so the
+    /// record accurately explains why the completed entry is no longer
+    /// scheduled.
+    /// </summary>
+    public TodoItem CompleteReminder(Guid id) => CompleteReminder(id, _now());
+
+    public TodoItem CompleteReminder(Guid id, DateTimeOffset attemptedAt) => Mutate(id, item =>
+    {
+        if (!item.IsReminder)
+            throw new TodoValidationException("只有提醒项可以在投递后自动完成。");
+        return item with
+        {
+            Status = TodoStatus.Completed,
+            CompletedAt = attemptedAt,
+            ReminderState = ReminderState.Delivered,
+            LastReminderAttemptAt = attemptedAt,
+            ReminderFailureCode = null,
+        };
+    }, validateScheduledTime: false);
+
     public TodoItem Restore(Guid id) => Mutate(id, item => item with
     {
         Status = TodoStatus.Pending,
@@ -196,6 +219,8 @@ public sealed class TodoStore
         if (title.Length == 0) throw new TodoValidationException("标题不能为空。");
         if (title.Length > 200) throw new TodoValidationException("标题不能超过 200 个字符。");
         if (notes.Length > 4000) throw new TodoValidationException("备注不能超过 4000 个字符。");
+        if (item.IsReminder && item.Status == TodoStatus.Pending && item.ReminderAt is null)
+            throw new TodoValidationException("提醒项必须设置提醒时间。");
 
         var reminderState = item.ReminderState;
         if (item.ReminderAt is null && reminderState is ReminderState.Scheduled or ReminderState.Snoozed)

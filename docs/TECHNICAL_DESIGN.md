@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.8.1 |
-| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.2 |
+| 文档版本 | 0.9.0 |
+| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.3 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 软件基线 | `VERSION` 0.8.1 |
-| 状态 | WPF/.NET 8 技术栈与待办/一次性提醒设计已冻结；系统级通知、安装和完整 E2E 仍待交互环境复核 |
+| 软件基线 | `VERSION` 0.9.0 |
+| 状态 | WPF/.NET 8 技术栈、普通待办与独立提醒项设计已冻结；最终包安装/卸载烟雾已通过，系统级通知、漫游视觉和完整 E2E 仍待交互环境复核 |
 
 > 本文档定义“代码如何写”，与 PRD（定义产品行为）和 PROJECT_SPEC（定义工程规则）形成三层文档体系。技术栈一旦冻结，章节将标记为 **已冻结**；实现过程中如发生变更，必须先在本文更新并经评审。
 
@@ -177,7 +177,7 @@ AiPet.App
 | 搜索范围 | `%APPDATA%\WindowsAiDesktopPet\ranges.json` | JSON |
 | 搜索元数据缓存 | `%APPDATA%\WindowsAiDesktopPet\index.db` | SQLite |
 | 窗口/宠物位置 | `%APPDATA%\WindowsAiDesktopPet\layout.json` | JSON |
-| 待办与提醒 | `%APPDATA%\WindowsAiDesktopPet\todos.json` | JSON（schema v1，原子替换） |
+| 待办与提醒 | `%APPDATA%\WindowsAiDesktopPet\todos.json` | JSON（schema v1 向后兼容扩展，原子替换） |
 | 崩溃/诊断日志 | `%LOCALAPPDATA%\WindowsAiDesktopPet\logs\` | 滚动文本 |
 | AI Key | Windows 凭据管理器（目标名 `WindowsAiDesktopPet:AI:<service>`） | CredMan |
 | 临时下载/缓存 | `%TEMP%\WindowsAiDesktopPet\` | 进程退出清理 |
@@ -450,33 +450,38 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 
 ### 6.6 待办、AI 草稿与提醒
 
-详细产品与状态决策见 `docs/TODO_REMINDER_DESIGN.md`。0.8.0 的实现由三个边界组成：
+详细产品与状态决策见 `docs/TODO_REMINDER_DESIGN.md`。0.9.0 的实现由四个边界组成：
 
 1. `AiPet.Todos` 提供 `TodoItem`、`TodoStore` 和 `ReminderScheduler`。`TodoStore` 使用 `RecoverableAtomicFile` 写入独立 `todos.json`，损坏文件只在本次会话回退为空列表，不覆盖原文件。
 2. `AiPet.AI` 新增独立 `ITodoAiClient`，不改变只负责连接测试的 `IAiClient`。`OpenAiCompatibleTodoClient` 调用 `/chat/completions`，严格提取 JSON，并把鉴权、权限、限流、地址/模型、网络、超时和格式失败映射为标准状态。
 3. `AiPet.ToolWindow/TodoViewModel` 维护手动编辑、筛选、AI 草稿、唯一目标选择、确认、撤销和页内提醒状态；`HomeViewModel` 只暴露组合后的 `Todo` 子 ViewModel，不承载待办业务逻辑。
+4. `AiPet.Pet/PetWindow` 公开提醒呈现入口：气泡位于桌宠同一透明窗口内，漫游只更新宿主 `Left/Top`，因此气泡无需额外轮询即可跟随；Windows 动画关闭时跳过漫游。
 
 #### 6.6.1 数据与时间
 
-- `TodoItem` 包含标题、备注、`DueAt`、`ReminderAt`、完成状态、提醒状态和必要时间戳；时间使用 `DateTimeOffset` 保存绝对瞬间与创建时偏移。
+- `TodoItem` 包含标题、备注、`DueAt`、`ReminderAt`、完成状态、提醒状态、`IsReminder`、`ReminderRoamEnabled`、`ReminderBubbleEnabled` 和必要时间戳；时间使用 `DateTimeOffset` 保存绝对瞬间与创建时偏移。
+- schema v1 缺少新增布尔字段的旧记录按 `IsReminder=false` 读取，继续保持普通待办语义；`ReminderBubbleEnabled` 对新提醒项默认开启。
 - 手动输入按 `TimeZoneInfo.Local` 解释并校验夏令时无效区间；页面和 AI 确认卡始终显示完整年月日、`HH:mm` 和 UTC 偏移。
-- 一条待办最多一个一次性提醒；完成待办会停止尚未触发的提醒，恢复待办不会自动恢复已取消或已投递提醒。
-- “仅取消提醒”不删除待办；“10 分钟后提醒”只更新下一次提醒时间和提醒状态。
+- 一条普通待办最多一个一次性提醒；完成普通待办会停止尚未触发的提醒，恢复不会自动恢复已取消或已投递提醒。
+- 独立提醒项必须有 `ReminderAt`。成功投递写入 `Completed + Delivered`，保留原定时间和通道偏好；失败保持 `Pending + Failed`。
+- “仅取消提醒”和提醒操作条只适用于普通待办；独立提醒项不复用恢复/取消规则。
 
 #### 6.6.2 AI 确认边界
 
 - 创建请求不发送现有待办列表；修改、完成、删除和稍后提醒只在本地按 AI 返回的 `targetTitle` 查找，并在多个同名目标时要求用户选择。
 - AI 返回的标题、时间和操作都视为不可信输入；过去时间、缺失标题、未知操作或非法 ISO 时间转为澄清，不进入存储。
 - 确认前 `TodoStore` 与调度器无新增记录；确认后只执行确认卡中的一次操作。
+- 创建草稿只有 `ReminderAt`、没有 `DueAt` 时按独立提醒项确认，默认开启桌宠气泡；同时包含截止时间时仍按普通待办及附属提醒处理。
 - 本版不持久化 AI 对话或原始响应；失败保留输入并提供重试与手动回退，清除按钮立即清空内存草稿。
 
 #### 6.6.3 提醒运行条件
 
 - 应用处于运行状态时，`ReminderScheduler` 默认每 15 秒串行检查 `Pending + Scheduled/Snoozed + ReminderAt <= now` 的记录。
-- 到期时先在待办 ViewModel 生成页内提醒，再提交 WinForms `NotifyIcon` 托盘气泡；两者成功建立后记录为 `Delivered`。
+- 普通待办到期时先在待办 ViewModel 生成页内提醒，再提交 WinForms `NotifyIcon` 托盘气泡；成功后记录为 `Delivered`，不自动完成。
+- 独立提醒项到期时按逐项开关调用 `PetWindow.ShowReminderNotification` 执行漫游/气泡，同时提交托盘提示；成功后 `TodoStore.CompleteReminder` 原子写入完成与投递时间。`ReminderScheduler.Delivered` 在存储更新后通知 UI 刷新，避免短暂回显为待处理。
 - 应用退出或系统休眠期间不会后台唤起；下次应用启动时，对仍为待投递状态的过期一次性提醒补发一次并标注“补发提醒”。
 - 回调失败记录为 `Failed`，不伪装为成功，也不会自动重复轰炸；用户可编辑或重新设置提醒后再次调度。
-- 托盘气泡可能被 Windows 专注助手或系统策略隐藏，因此本版把页内提醒作为运行期间的可靠状态，托盘气泡只作补充通道。
+- 托盘气泡可能被 Windows 专注助手或系统策略隐藏；普通待办保留页内操作条，独立提醒项使用桌宠通道作为显式反馈。两种记录均不声称应用退出后可准点唤醒。
 
 ### 6.7 自启
 
@@ -535,7 +540,7 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 ### 11.1 便携版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.8.1
+pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.9.0
 ```
 
 - 入口：`dotnet publish src/AiPet.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true`；
@@ -545,7 +550,7 @@ pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.8.1
 ### 11.2 安装版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.8.1
+pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.9.0
 ```
 
 - 工具：Inno Setup 6.x；

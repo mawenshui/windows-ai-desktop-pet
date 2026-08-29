@@ -253,7 +253,14 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         }
     }
     public IReadOnlyList<AiProviderDescriptor> Providers => AiProviders.Builtin;
-    public AiProviderDescriptor? SelectedProvider => AiProviders.FindById(_provider);
+    public AiProviderDescriptor? SelectedProvider
+    {
+        get => AiProviders.FindById(_provider);
+        set
+        {
+            if (value is not null) Provider = value.Id;
+        }
+    }
 
     private string _endpoint = string.Empty;
     public string Endpoint { get => _endpoint; set { if (_endpoint == value) return; _endpoint = value; OnPC(); MarkAiConfigurationChanged(); } }

@@ -74,6 +74,41 @@ public sealed class ReminderSchedulerTests : IDisposable
         Assert.Equal(0, await scheduler.CheckNowAsync(_ => true));
     }
 
+    [Fact]
+    public async Task Reminder_item_is_completed_after_delivery_and_exposes_pet_channels()
+    {
+        var now = new DateTimeOffset(2026, 8, 28, 10, 0, 0, TimeSpan.FromHours(8));
+        var clock = now.AddMinutes(-5);
+        var store = new TodoStore(_root, () => clock);
+        var item = store.Create(new TodoItem
+        {
+            Title = "站起来活动",
+            IsReminder = true,
+            ReminderAt = now.AddMinutes(-1),
+            ReminderRoamEnabled = true,
+            ReminderBubbleEnabled = true,
+        });
+        clock = now;
+        using var scheduler = new ReminderScheduler(store, () => clock);
+        ReminderNotification? received = null;
+
+        Assert.Equal(1, await scheduler.CheckNowAsync(notification =>
+        {
+            received = notification;
+            return true;
+        }));
+
+        Assert.NotNull(received);
+        Assert.True(received!.Item.IsReminder);
+        Assert.True(received.Item.ReminderRoamEnabled);
+        Assert.True(received.Item.ReminderBubbleEnabled);
+        var completed = Assert.Single(store.Load());
+        Assert.Equal(item.Id, completed.Id);
+        Assert.Equal(TodoStatus.Completed, completed.Status);
+        Assert.Equal(ReminderState.Delivered, completed.ReminderState);
+        Assert.Equal(0, await scheduler.CheckNowAsync(_ => true));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);

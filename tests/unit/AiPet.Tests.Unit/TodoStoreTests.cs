@@ -82,6 +82,48 @@ public sealed class TodoStoreTests : IDisposable
         Assert.Empty(store.Load());
     }
 
+    [Fact]
+    public void Reminder_item_completion_preserves_delivery_state_and_channel_preferences()
+    {
+        var now = new DateTimeOffset(2026, 8, 28, 9, 0, 0, TimeSpan.FromHours(8));
+        var store = new TodoStore(_root, () => now);
+        var created = store.Create(new TodoItem
+        {
+            Title = "提醒项",
+            IsReminder = true,
+            ReminderAt = now.AddHours(1),
+            ReminderState = ReminderState.Scheduled,
+            ReminderRoamEnabled = true,
+            ReminderBubbleEnabled = false,
+        });
+
+        var completed = store.CompleteReminder(created.Id, now.AddHours(1));
+
+        Assert.Equal(TodoStatus.Completed, completed.Status);
+        Assert.Equal(ReminderState.Delivered, completed.ReminderState);
+        Assert.Equal(now.AddHours(1), completed.ReminderAt);
+        Assert.True(completed.IsReminder);
+        Assert.True(completed.ReminderRoamEnabled);
+        Assert.False(completed.ReminderBubbleEnabled);
+        Assert.Equal(now.AddHours(1), completed.CompletedAt);
+        Assert.Equal(now.AddHours(1), completed.LastReminderAttemptAt);
+    }
+
+    [Fact]
+    public void Ordinary_todo_cannot_use_reminder_item_auto_completion()
+    {
+        var now = new DateTimeOffset(2026, 8, 28, 9, 0, 0, TimeSpan.FromHours(8));
+        var store = new TodoStore(_root, () => now);
+        var todo = store.Create(new TodoItem
+        {
+            Title = "普通待办",
+            ReminderAt = now.AddHours(1),
+        });
+
+        Assert.Throws<TodoValidationException>(() => store.CompleteReminder(todo.Id, now.AddHours(1)));
+        Assert.Equal(TodoStatus.Pending, Assert.Single(store.Load()).Status);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);

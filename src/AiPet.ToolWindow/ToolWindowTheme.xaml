@@ -238,18 +238,20 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
-                    <Border x:Name="Chrome" Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="11">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                    <Grid>
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="11" />
+                        <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}"
                                       HorizontalAlignment="Stretch"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                      HorizontalScrollBarVisibility="Hidden"
-                                      VerticalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                      VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
+                                      SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
                                       CanContentScroll="False" Focusable="False"
                                       TextElement.Foreground="{TemplateBinding Foreground}" />
-                    </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="#FFD6C4B5" />
@@ -294,6 +296,8 @@
                     <Setter Property="Padding" Value="11,8" />
                     <Setter Property="Margin" Value="3,2" />
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Focusable" Value="True" />
+                    <Setter Property="IsTabStop" Value="True" />
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="Foreground" Value="{StaticResource Ink}" />
                     <Setter Property="Template">
@@ -338,11 +342,12 @@
                                           ContentStringFormat="{x:Null}"
                                           TextElement.Foreground="{TemplateBinding Foreground}"
                                           RecognizesAccessKey="True"
-                                          SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                                          SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                          IsHitTestVisible="False" />
                         <Path Grid.Column="1" Width="8" Height="5" HorizontalAlignment="Center" VerticalAlignment="Center"
                               Data="M1,1 L4,4 7,1" Stroke="{StaticResource Muted}" StrokeThickness="1.4"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-                        <ToggleButton x:Name="DropDownToggle" Grid.ColumnSpan="2" Focusable="False" ClickMode="Press"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False" />
+                        <ToggleButton x:Name="DropDownToggle" Grid.ColumnSpan="2" Panel.ZIndex="1" Focusable="False" ClickMode="Press"
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
@@ -351,7 +356,7 @@
                             </ToggleButton.Template>
                         </ToggleButton>
                         <Popup x:Name="PART_Popup" Grid.ColumnSpan="2" Placement="Bottom" AllowsTransparency="True"
-                               Focusable="False" IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="None">
+                               Focusable="False" StaysOpen="False" IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="None">
                             <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="260" Margin="0,5,0,0" Padding="3"
                                     Background="{StaticResource Card}" BorderBrush="{StaticResource Line}"

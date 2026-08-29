@@ -43,6 +43,7 @@ public partial class PetWindow : Window
     // Drag state
     private bool _isDragging;
     private bool _isRoaming;
+    private bool _reminderBubbleActive;
     private bool _companionWindowVisible;
     private DateTime _lastUserInteractionUtc = DateTime.UtcNow;
     private System.Windows.Point _roamStart;
@@ -168,11 +169,12 @@ public partial class PetWindow : Window
         {
             RecordUserInteraction();
             CancelRoam();
-            if (!_isDragging) ShowBubble("点我打开工具", autoHide: false);
+            if (!_isDragging && !_reminderBubbleActive)
+                ShowBubble("点我打开工具", autoHide: false);
         };
         MouseLeave += (_, _) =>
         {
-            if (!_isDragging) HideBubble();
+            if (!_isDragging && !_reminderBubbleActive) HideBubble();
         };
 
         // Apply initial layout if available, otherwise fall back to default
@@ -366,17 +368,52 @@ public partial class PetWindow : Window
         }
     }
 
-    private void ShowBubble(string text, bool autoHide)
+    /// <summary>
+    /// Shows a reminder around the pet and optionally starts a short roaming
+    /// animation.  The bubble is rendered inside the same window as the pet,
+    /// so every Left/Top update during roaming moves both together.
+    /// </summary>
+    public void ShowReminderNotification(string title, bool showBubble, bool roam)
     {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(() => ShowReminderNotification(title, showBubble, roam)));
+            return;
+        }
+
+        RecordUserInteraction();
+        if (showBubble)
+            ShowBubble($"提醒：{title}", autoHide: true, TimeSpan.FromSeconds(8), isReminder: true);
+        else
+            HideBubble();
+
+        // Respect Windows' reduced-motion preference. The bubble remains a
+        // useful reminder even when movement is disabled by accessibility
+        // settings.
+        if (roam && SystemParameters.ClientAreaAnimation)
+            StartRoam();
+    }
+
+    private void ShowBubble(string text, bool autoHide) =>
+        ShowBubble(text, autoHide, duration: null, isReminder: false);
+
+    private void ShowBubble(string text, bool autoHide, TimeSpan? duration, bool isReminder)
+    {
+        _reminderBubbleActive = isReminder;
         StatusText.Text = text;
         StatusBubble.Visibility = Visibility.Visible;
         _bubbleTimer.Stop();
-        if (autoHide) _bubbleTimer.Start();
+        if (autoHide)
+        {
+            _bubbleTimer.Interval = duration ?? TimeSpan.FromSeconds(1.8);
+            _bubbleTimer.Start();
+        }
     }
 
     private void HideBubble()
     {
         _bubbleTimer.Stop();
+        _reminderBubbleActive = false;
         StatusBubble.Visibility = Visibility.Collapsed;
     }
 

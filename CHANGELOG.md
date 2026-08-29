@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.9.0] - 2026-08-29
+
+### Added
+
+- 新增与普通待办语义分离的提醒项；每项可独立启用桌宠漫游、桌宠气泡或两者，AI 仅包含提醒时间的创建草稿也会生成提醒项。
+- 提醒气泡与桌宠同窗呈现，漫游、拖动时保持跟随；提醒项成功投递后自动进入已完成并保留投递状态与原定时间。
+
+### Fixed
+
+- 修复共享下拉框模板及选择绑定，搜索范围、结果类别、待办筛选、AI 目标和 AI 供应商均会显示并应用真实选中项。
+- 保留 0.8.2 的 AI 供应商切换、待办中文输入显示、连接测试后保存状态和快捷入口空状态修复。
+
+## [0.8.2] - 2026-08-29
+
+### Changed
+
+- 修复 AI 供应商选择不生效与待办中文输入文字不可见问题
+
 ## [0.8.1] - 2026-08-29
 
 ### Fixed

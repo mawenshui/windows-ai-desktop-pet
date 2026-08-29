@@ -44,6 +44,33 @@ public sealed class TodoViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Ai_create_with_only_a_reminder_time_creates_a_reminder_item()
+    {
+        var store = new TodoStore(_root, () => _now);
+        var ai = new FakeTodoAiClient(AiTodoParseResult.DraftReady(new AiTodoDraft(
+            AiTodoOperation.Create,
+            "起来活动",
+            null,
+            null,
+            null,
+            _now.AddHours(1),
+            false,
+            false,
+            null)));
+        var vm = CreateViewModel(store, ai);
+        vm.AiInput = "一小时后提醒我起来活动";
+
+        await vm.ParseAiAsync();
+
+        Assert.Equal("创建提醒项", vm.AiOperationText);
+        vm.ConfirmAiCommand.Execute(null);
+        var created = Assert.Single(store.Load());
+        Assert.True(created.IsReminder);
+        Assert.True(created.ReminderBubbleEnabled);
+        Assert.False(created.ReminderRoamEnabled);
+    }
+
+    [Fact]
     public async Task Ai_update_requires_unique_selection_for_same_name_items()
     {
         var store = new TodoStore(_root, () => _now);
@@ -121,6 +148,33 @@ public sealed class TodoViewModelTests : IDisposable
         Assert.Equal(TodoStatus.Pending, Assert.Single(store.Load()).Status);
         Assert.True(vm.DeleteTodo(item.Id));
         Assert.Empty(store.Load());
+    }
+
+    [Fact]
+    public void Manual_reminder_item_requires_and_persists_independent_pet_channels()
+    {
+        var store = new TodoStore(_root, () => _now);
+        var vm = CreateViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")));
+
+        vm.NewTodoCommand.Execute(null);
+        vm.EditorTitle = "伸展提醒";
+        vm.EditorIsReminder = true;
+        vm.EditorReminderDate = _now.LocalDateTime.Date;
+        vm.EditorReminderTime = "10:00";
+        vm.EditorReminderRoamEnabled = true;
+        vm.EditorReminderBubbleEnabled = false;
+        vm.SaveEditorCommand.Execute(null);
+
+        var saved = Assert.Single(store.Load());
+        Assert.True(saved.IsReminder);
+        Assert.True(saved.ReminderRoamEnabled);
+        Assert.False(saved.ReminderBubbleEnabled);
+        Assert.Equal(TodoStatus.Pending, saved.Status);
+        Assert.False(vm.CancelReminderCommand.CanExecute(saved.Id));
+
+        store.CompleteReminder(saved.Id, _now.AddHours(1));
+        vm.RefreshItems();
+        Assert.False(vm.RestoreTodoCommand.CanExecute(saved.Id));
     }
 
     private TodoViewModel CreateViewModel(TodoStore store, ITodoAiClient ai) =>

@@ -243,12 +243,33 @@ public partial class App : System.Windows.Application
             Shutdown();
         };
         _reminderScheduler = new ReminderScheduler(_todoStore);
+        _reminderScheduler.Delivered += notification => Dispatcher.Invoke(() =>
+        {
+            // The scheduler raises this only after persisting Delivered (or
+            // Completed for a reminder-only entry), so the list cannot race
+            // the state transition shown to the user.
+            _homeVm?.Todo.RefreshItems();
+        });
         _reminderScheduler.Start(notification => Dispatcher.Invoke(() =>
         {
             if (_homeVm is null || _tray is null) return false;
             _homeVm.Todo.ShowReminder(notification);
+            if (notification.Item.IsReminder && _pet is not null)
+            {
+                if (notification.Item.ReminderBubbleEnabled || notification.Item.ReminderRoamEnabled)
+                {
+                    if (!_pet.IsVisible) _pet.Show();
+                    _tray.SetPetVisible(true);
+                }
+                _pet.ShowReminderNotification(
+                    notification.Item.Title,
+                    notification.Item.ReminderBubbleEnabled,
+                    notification.Item.ReminderRoamEnabled);
+            }
             _tray.ShowBalloon(
-                notification.IsRecovery ? "补发待办提醒" : "待办提醒",
+                notification.IsRecovery
+                    ? (notification.Item.IsReminder ? "补发提醒项" : "补发待办提醒")
+                    : (notification.Item.IsReminder ? "提醒项" : "待办提醒"),
                 notification.Item.Title,
                 ToolTipIcon.Info);
             return true;

@@ -10,6 +10,13 @@ public sealed class ReminderScheduler : IDisposable
     private Timer? _timer;
     private Func<ReminderNotification, bool>? _deliver;
 
+    /// <summary>
+    /// Raised after a delivery has been accepted and the store has been
+    /// updated.  UI hosts can refresh their list without racing the state
+    /// transition performed by <see cref="CheckNowAsync"/>.
+    /// </summary>
+    public event Action<ReminderNotification>? Delivered;
+
     public ReminderScheduler(TodoStore store, Func<DateTimeOffset>? now = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -58,7 +65,20 @@ public sealed class ReminderScheduler : IDisposable
                 {
                     if (deliver(notification))
                     {
-                        _store.MarkReminderDelivered(item.Id, now);
+                        TodoItem deliveredItem;
+                        if (item.IsReminder)
+                            deliveredItem = _store.CompleteReminder(item.Id, now);
+                        else
+                            deliveredItem = _store.MarkReminderDelivered(item.Id, now);
+                        try
+                        {
+                            Delivered?.Invoke(notification with { Item = deliveredItem });
+                        }
+                        catch
+                        {
+                            // A UI refresh listener must not turn a persisted
+                            // delivery into a false failure state.
+                        }
                         deliveredCount++;
                     }
                     else

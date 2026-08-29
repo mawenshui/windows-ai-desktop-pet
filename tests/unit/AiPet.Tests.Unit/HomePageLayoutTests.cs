@@ -21,8 +21,9 @@ public sealed class HomePageLayoutTests
         Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Padding=\"35,0,12,0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("VerticalContentAlignment=\"Center\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedItem=\"{Binding SelectedSearchScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("SelectedValuePath=\"Id\" SelectedValue=\"{Binding SelectedSearchScopeId", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedValuePath=\"Id\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedValue=\"{Binding SelectedSearchScopeId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedItem=\"{Binding SelectedSearchScope", xaml, StringComparison.Ordinal);
         Assert.Contains("<Grid Grid.Row=\"2\">", xaml, StringComparison.Ordinal);
         Assert.Contains("<StackPanel Grid.Row=\"3\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AllowDrop=\"True\"", xaml, StringComparison.Ordinal);

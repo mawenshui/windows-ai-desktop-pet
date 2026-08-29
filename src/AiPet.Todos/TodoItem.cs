@@ -38,6 +38,14 @@ public sealed record TodoItem
     [JsonPropertyName("status")]
     public TodoStatus Status { get; init; }
 
+    /// <summary>
+    /// Distinguishes a reminder-only entry from an ordinary todo. Missing
+    /// values in schema v1 data deserialize to false, so existing records
+    /// retain their original todo semantics.
+    /// </summary>
+    [JsonPropertyName("isReminder")]
+    public bool IsReminder { get; init; }
+
     [JsonPropertyName("reminderState")]
     public ReminderState ReminderState { get; init; }
 
@@ -55,6 +63,14 @@ public sealed record TodoItem
 
     [JsonPropertyName("reminderFailureCode")]
     public string? ReminderFailureCode { get; init; }
+
+    /// <summary>When true, a reminder-only entry may move the pet at delivery.</summary>
+    [JsonPropertyName("reminderRoamEnabled")]
+    public bool ReminderRoamEnabled { get; init; }
+
+    /// <summary>When true, a reminder-only entry shows a bubble beside the pet.</summary>
+    [JsonPropertyName("reminderBubbleEnabled")]
+    public bool ReminderBubbleEnabled { get; init; } = true;
 }
 
 public sealed record TodoDocument
