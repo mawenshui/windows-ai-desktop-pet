@@ -62,7 +62,7 @@ public sealed class PetToolWindowLifecycleTests
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
-        Assert.True(completed.Wait(TimeSpan.FromSeconds(10)), "WPF lifecycle test timed out.");
+        Assert.True(completed.Wait(TimeSpan.FromSeconds(30)), "WPF lifecycle test timed out.");
         thread.Join();
         if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }
@@ -500,7 +500,7 @@ public sealed class PetToolWindowLifecycleTests
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        Assert.True(completed.Wait(TimeSpan.FromSeconds(10)), "WPF interaction test timed out.");
+        Assert.True(completed.Wait(TimeSpan.FromSeconds(30)), "WPF interaction test timed out.");
         thread.Join();
         if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }

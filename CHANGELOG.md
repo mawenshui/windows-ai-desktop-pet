@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format foll
 - 修复 AI 连接测试成功后“保存配置”仍不可点击的问题，验证通过后会及时刷新保存命令状态。
 - 修复已有快捷入口时空状态背景和“文件夹＋”图标仍显示的问题。
 - 修复统一测试入口可能从 `build/` 历史副本选取解决方案的问题，固定测试当前 `src/AiPet.sln`。
+- 放宽 WPF 交互测试的冷启动等待上限，避免 GitHub Actions 首次加载桌面程序集时产生误报超时。
 - 安装器构建适配器在未配置 PATH 时自动探测标准 Inno Setup 6 安装路径，保持环境变量和 PATH 覆盖优先。
 
 ## [0.8.0] - 2026-08-28
