@@ -38,5 +38,5 @@
 
 | 资产 | 大小（字节） | SHA-256 |
 | :--- | ---: | :--- |
-| `windows-ai-desktop-pet-v0.8.1-portable.zip` | 76,479,145 | `9ed705bed397cb0014682d4a4ad899afa5d2a7ec1408e018cd8c73f76f9ff5a8` |
-| `windows-ai-desktop-pet-v0.8.1-setup.exe` | 53,798,401 | `daed911b14a1b6d281b278ca675ee7390bdb000caa221561e70c3186159767c0` |
+| `windows-ai-desktop-pet-v0.8.1-portable.zip` | 76,479,123 | `5ea03716bc90a55ab54b36cb75e5c9d6634276fcb145a6fdd5140a03cb759994` |
+| `windows-ai-desktop-pet-v0.8.1-setup.exe` | 53,798,177 | `decee8c46a5ec4419e316ec46021d7c4e24d072e84be2835c2da6f43a85d3824` |
