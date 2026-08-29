@@ -51,6 +51,19 @@ dist/installer/windows-ai-desktop-pet-v0.1.0-installer-staging.zip
 dist/portable/windows-ai-desktop-pet-v0.1.0-portable.zip
 dist/portable/windows-ai-desktop-pet-v0.1.0-portable/
 
+# Expanded portable folders and pre-0.7 local archives are retained only as
+# local verification history. Release deliverables remain the versioned ZIP,
+# installer, and checksum files explicitly added for the current release.
+dist/portable/*-portable/
+dist/portable/windows-ai-desktop-pet-v0.2.0-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.2.1-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.2.2-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.2.3-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.3.0-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.4.0-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.5.0-portable.zip
+dist/portable/windows-ai-desktop-pet-v0.6.0-portable.zip
+
 # Local-only reference materials are never repository deliverables.
 # Redistributable assets must be curated into assets/ with license records.
 res/

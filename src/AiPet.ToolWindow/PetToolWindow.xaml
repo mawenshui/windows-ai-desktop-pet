@@ -95,13 +95,21 @@
                                     <TextBlock Text="快捷入口" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0" />
                                 </DockPanel>
                                 <Grid MinHeight="48" MaxHeight="120" AllowDrop="True" DragOver="ShortcutBar_DragOver" Drop="ShortcutBar_Drop">
-                                    <Border x:Name="ShortcutEmptyState" Style="{StaticResource EmptyState}">
+                                    <Border x:Name="ShortcutEmptyState">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Shortcuts.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                             <Path Width="18" Height="18" Margin="0,0,8,0" Data="M3,5 H8 L10,7 H17 V16 H3 Z M10,10 V14 M8,12 H12"
                                                   Stroke="{StaticResource Muted}" StrokeThickness="1.5" Stretch="Uniform" />
-                                            <TextBlock Text="还没有快捷入口，添加常用应用或文件" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center">
-                                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasShortcuts}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                                            </TextBlock>
+                                            <TextBlock Text="还没有快捷入口，添加常用应用或文件" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
                                     <ScrollViewer x:Name="ShortcutScroller" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Focusable="False" MaxHeight="116" Visibility="{Binding HasShortcuts, Converter={StaticResource BoolToVisibility}}">
@@ -446,7 +454,7 @@
                                     </Expander>
                                 </Border>
                                 <Button Content="打开用户手册" Style="{StaticResource SecondaryButton}" Command="{Binding OpenHelpCommand}" HorizontalAlignment="Left" />
-                                <TextBlock Text="Windows AI Desktop Pet 0.8.0 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
+                                <TextBlock Text="Windows AI Desktop Pet 0.8.1 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

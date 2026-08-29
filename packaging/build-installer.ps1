@@ -66,6 +66,28 @@ if (-not [string]::IsNullOrWhiteSpace($env:AIPET_INNO) -and (Test-Path -LiteralP
 } else {
     $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue
     if ($iscc) { $isccPath = $iscc.Source }
+
+    # Inno Setup's installer is commonly installed outside PATH. Probe the
+    # standard per-machine locations after honoring AIPET_INNO/PATH so a
+    # normal developer machine can run the repository packaging entry point
+    # without a one-off shell environment change.
+    if (-not $isccPath) {
+        $standardInnoRoots = @()
+        if (-not [string]::IsNullOrWhiteSpace(${env:ProgramFiles(x86)})) {
+            $standardInnoRoots += ${env:ProgramFiles(x86)}
+        }
+        if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
+            $standardInnoRoots += $env:ProgramFiles
+        }
+        foreach ($innoRoot in ($standardInnoRoots | Select-Object -Unique)) {
+            $candidate = Join-Path $innoRoot 'Inno Setup 6\ISCC.exe'
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                $isccPath = $candidate
+                Write-Output "[INFO ] detected Inno Setup compiler: $isccPath"
+                break
+            }
+        }
+    }
 }
 if (-not $isccPath) {
     throw 'Inno Setup 6 is required to build setup.exe. Install it or set AIPET_INNO to the full ISCC.exe path. No staging ZIP will be treated as an installer.'

@@ -2,10 +2,10 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.8.0 |
+| 文档版本 | 0.8.1 |
 | 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.2 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 软件基线 | `VERSION` 0.8.0 |
+| 软件基线 | `VERSION` 0.8.1 |
 | 状态 | WPF/.NET 8 技术栈与待办/一次性提醒设计已冻结；系统级通知、安装和完整 E2E 仍待交互环境复核 |
 
 > 本文档定义“代码如何写”，与 PRD（定义产品行为）和 PROJECT_SPEC（定义工程规则）形成三层文档体系。技术栈一旦冻结，章节将标记为 **已冻结**；实现过程中如发生变更，必须先在本文更新并经评审。
@@ -535,7 +535,7 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 ### 11.1 便携版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.8.0
+pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.8.1
 ```
 
 - 入口：`dotnet publish src/AiPet.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true`；
@@ -545,7 +545,7 @@ pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.8.0
 ### 11.2 安装版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.8.0
+pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.8.1
 ```
 
 - 工具：Inno Setup 6.x；

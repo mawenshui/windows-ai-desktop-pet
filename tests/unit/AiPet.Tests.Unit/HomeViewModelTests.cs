@@ -70,6 +70,33 @@ public sealed class HomeViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Attach_keeps_bound_commands_and_refreshes_save_state_after_ai_test()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "attached-ai-settings"));
+        var shortcuts = new ShortcutStore(Path.Combine(_root, "attached-ai-shortcuts"));
+        var secrets = new FakeAiSecretStore();
+        var vm = new HomeViewModel();
+        var boundTestCommand = vm.TestConnectionCommand;
+        var boundSaveCommand = vm.SaveAiConfigCommand;
+
+        vm.Attach(
+            _search,
+            shortcuts,
+            new FakeAiClient(AiConnectionResult.Connected(19)),
+            settings,
+            secrets);
+
+        Assert.Same(boundTestCommand, vm.TestConnectionCommand);
+        Assert.Same(boundSaveCommand, vm.SaveAiConfigCommand);
+
+        vm.ApiKey = "attached-test-key";
+        boundTestCommand.Execute(null);
+        await WaitUntilAsync(() => vm.CanSaveAiConfig);
+
+        Assert.True(boundSaveCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Ai_configuration_must_pass_test_before_save_and_edits_invalidate_success()
     {
         var ai = new FakeAiClient(AiConnectionResult.Connected(27));

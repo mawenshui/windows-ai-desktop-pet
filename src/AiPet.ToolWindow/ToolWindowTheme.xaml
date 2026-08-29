@@ -18,6 +18,9 @@
     <SolidColorBrush x:Key="Error" Color="#FFAE4F4F" />
     <local:DisplayNameConverter x:Key="DisplayNameConverter" />
     <local:ShellIconConverter x:Key="ShellIconConverter" />
+    <DataTemplate x:Key="ComboBoxDisplayNameTemplate">
+        <TextBlock x:Name="SelectedValueText" Text="{Binding Converter={StaticResource DisplayNameConverter}}" />
+    </DataTemplate>
 
     <!-- The result and shortcut lists use a deliberately quiet scrollbar so
          the warm accent remains visible without competing with the content. -->
@@ -298,7 +301,8 @@
                             <ControlTemplate TargetType="ComboBoxItem">
                                 <Border x:Name="ItemChrome" Padding="{TemplateBinding Padding}"
                                         Background="{TemplateBinding Background}" CornerRadius="8">
-                                    <ContentPresenter ContentSource="Content"
+                                    <ContentPresenter Content="{TemplateBinding Content}"
+                                                      ContentTemplate="{StaticResource ComboBoxDisplayNameTemplate}"
                                                       TextElement.Foreground="{TemplateBinding Foreground}" />
                                 </Border>
                                 <ControlTemplate.Triggers>
@@ -330,8 +334,8 @@
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           Content="{TemplateBinding SelectionBoxItem}"
-                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                          ContentTemplate="{StaticResource ComboBoxDisplayNameTemplate}"
+                                          ContentStringFormat="{x:Null}"
                                           TextElement.Foreground="{TemplateBinding Foreground}"
                                           RecognizesAccessKey="True"
                                           SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />

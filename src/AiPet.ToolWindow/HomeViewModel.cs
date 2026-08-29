@@ -334,6 +334,21 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         OpenHelpCommand = new RelayCommand(_ => OpenHelp());
     }
 
+    private void RaiseCommandStates()
+    {
+        foreach (var command in new ICommand[]
+        {
+            SearchCommand, AddShortcutCommand, EditShortcutCommand,
+            RelocateShortcutCommand, MoveShortcutUpCommand, MoveShortcutDownCommand,
+            RemoveShortcutCommand, LaunchShortcutCommand, TestConnectionCommand,
+            SaveAiConfigCommand, ToggleAutostartCommand, AddRangeCommand,
+            RemoveRangeCommand, RefreshRangesCommand, OpenHelpCommand,
+        })
+        {
+            (command as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
     // ---------------- search ----------------
 
     private async void RestartSearch(bool immediate = false)
@@ -1016,16 +1031,6 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
         _selectedSearchScopeId = loaded.Search.LastScopeId;
-        InitializeCommands();
-        foreach (var commandName in new[]
-        {
-            nameof(SearchCommand), nameof(AddShortcutCommand), nameof(EditShortcutCommand),
-            nameof(RelocateShortcutCommand), nameof(MoveShortcutUpCommand),
-            nameof(MoveShortcutDownCommand), nameof(RemoveShortcutCommand),
-            nameof(LaunchShortcutCommand), nameof(TestConnectionCommand), nameof(SaveAiConfigCommand),
-            nameof(ToggleAutostartCommand), nameof(AddRangeCommand), nameof(RemoveRangeCommand),
-            nameof(RefreshRangesCommand), nameof(OpenHelpCommand),
-        }) OnPCFor(commandName);
         OnPCFor(nameof(SelectedCharacter));
         OnPCFor(nameof(EnableWildcardSearch));
         OnPCFor(nameof(EnableRegexSearch));
@@ -1033,6 +1038,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         ReloadRanges();
         ReloadAi();
         ReloadAutostart();
+        RaiseCommandStates();
         if (todoStore is not null && todoAiClient is not null)
             Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection);
     }

@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using AiPet.AI;
 using AiPet.ToolWindow;
 using AiPet.Shortcuts;
 using Xunit;
@@ -296,10 +297,25 @@ public sealed class PetToolWindowLifecycleTests
             Assert.NotNull(endpoint);
             Assert.NotNull(model);
 
-            provider.SelectedValue = "qwen";
+            provider.IsDropDownOpen = true;
             PumpDispatcher();
+            provider.UpdateLayout();
+            var qwen = Assert.Single(provider.Items.Cast<AiProviderDescriptor>(), option => option.Id == "qwen");
+            var qwenItem = provider.ItemContainerGenerator.ContainerFromItem(qwen) as ComboBoxItem;
+            Assert.NotNull(qwenItem);
+            RaiseMouseClick(qwenItem);
+            PumpDispatcher();
+            var vm = Assert.IsType<HomeViewModel>(window.DataContext);
+            Assert.Equal("qwen", vm.Provider);
+            Assert.Equal("qwen", provider.SelectedValue);
             Assert.Equal("https://dashscope.aliyuncs.com/compatible-mode/v1", endpoint.Text);
             Assert.Equal("qwen-plus", model.Text);
+            var providerPresenter = provider.Template?.FindName("ContentSite", provider) as ContentPresenter;
+            Assert.NotNull(providerPresenter);
+            Assert.IsType<AiProviderDescriptor>(providerPresenter.Content);
+            var providerText = FindElement<TextBlock>(providerPresenter, "SelectedValueText");
+            Assert.NotNull(providerText);
+            Assert.Equal("通义千问 Qwen", providerText.Text);
 
             tabs.SelectedIndex = 0;
             PumpDispatcher();
@@ -313,7 +329,6 @@ public sealed class PetToolWindowLifecycleTests
             Assert.NotNull(categoryItem);
             RaiseMouseClick(categoryItem);
             PumpDispatcher();
-            var vm = Assert.IsType<HomeViewModel>(window.DataContext);
             Assert.Equal("图片", category.SelectedItem);
             Assert.Equal("图片", vm.Category);
             var categoryPresenter = category.Template?.FindName("ContentSite", category) as ContentPresenter;
@@ -396,7 +411,9 @@ public sealed class PetToolWindowLifecycleTests
             var emptyState = FindElement<Border>(window, "ShortcutEmptyState");
             Assert.NotNull(scroller);
             Assert.NotNull(emptyState);
-            emptyState.Visibility = Visibility.Collapsed;
+            PumpDispatcher();
+            Assert.True(vm.HasShortcuts);
+            Assert.Equal(Visibility.Collapsed, emptyState.Visibility);
             scroller.Visibility = Visibility.Visible;
             window.UpdateLayout();
             PumpDispatcher();
