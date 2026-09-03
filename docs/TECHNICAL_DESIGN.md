@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.9.0 |
+| 文档版本 | 0.10.0 |
 | 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.3 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 软件基线 | `VERSION` 0.9.0 |
-| 状态 | WPF/.NET 8 技术栈、普通待办与独立提醒项设计已冻结；最终包安装/卸载烟雾已通过，系统级通知、漫游视觉和完整 E2E 仍待交互环境复核 |
+| 软件基线 | `VERSION` 0.10.0 |
+| 状态 | WPF/.NET 8 技术栈已冻结；0.10.0 已实现首次搜索授权、流式 staging 索引及范围删除清理、AI 配置删除与未保存保护、托盘状态/Explorer 恢复和有界安全退出，并发布 `v0.10.0`；156 项自动化、凭据往返、便携与隔离安装/卸载烟雾已通过；系统通知、Explorer 实际重启、多屏/缩放、独立系统 E2E 和代码签名仍待复核 |
 
 > 本文档定义“代码如何写”，与 PRD（定义产品行为）和 PROJECT_SPEC（定义工程规则）形成三层文档体系。技术栈一旦冻结，章节将标记为 **已冻结**；实现过程中如发生变更，必须先在本文更新并经评审。
 
@@ -304,6 +304,12 @@ Windows Shell 请求目标图标：目录使用文件夹图标，文件按扩展
 - 再次唤出时回到主页（满足 NAV-01）。
 - `--preview` 使用与正式窗口相同的视觉树，但在首次 `Show` 前切换为非分层宿主，供 Windows UI 自动化枚举；正式运行仍使用透明分层窗口。
 
+### 6.2.1 托盘与安全退出
+
+- `TrayIcon` 的上下文菜单在每次 `Opening` 时调用状态提供器，分别读取桌宠可见性、工具窗口可见性和当前账户 HKCU 自启状态；文案与勾选不依赖上一次点击的乐观状态。
+- 隐藏消息窗口监听 Windows 广播的 `TaskbarCreated`；Explorer 重建任务栏后重新切换 `NotifyIcon.Visible` 并刷新菜单状态。真实 Explorer 重启仍属于交互式兼容性矩阵。
+- 托盘“退出”先处理 AI 未保存修改，再统一取消搜索查询、范围索引、AI 连接测试、AI 待办解析、应用索引和单实例唤醒等待；最多等待 5 秒后允许窗口关闭并释放 SQLite、托盘和调度器。
+
 ### 6.3 本地搜索
 
 > 基于 2026-08-26 用户确认：
@@ -323,7 +329,9 @@ Windows Shell 请求目标图标：目录使用文件夹图标，文件按扩展
 - 主页范围选择器支持全部范围、仅应用及单个授权目录；SQLite 查询通过 `range_id` 过滤；
 - 节流：停止输入 300ms 后触发；`CancellationToken` 取消上一次；
 - `SearchService` 对单连接 SQLite 访问加互斥门，后台索引和 UI 查询不会并发使用同一连接；结果集合只在捕获的 UI 上下文更新；
-- 状态广播：`INotifySearchRangeStateChanged`，UI 决定是否展示“准备中”提示。
+- 范围扫描器逐项流式产出元数据并按批写入 `staged_items`；成功后在单一事务内替换当前范围的 `items`，取消、权限/IO 失败或路径失效只丢弃 staging，保留上一份可查询索引。
+- 范围状态固定为等待、准备中、可用、失败、已取消、路径失效；同时保存累计条目、稳定错误码和最后成功时间，UI 提供取消、重试、重新索引和移除。
+- 首次候选是否已处理写入 `SearchSettings.OnboardingCompleted`；已有范围的旧设置自动视为已完成引导，避免升级后重复弹卡。
 
 ### 6.4 快捷项
 
@@ -396,8 +404,12 @@ public sealed record AiConnectionResult(
 - **自定义模式**：选“自定义（OpenAI 兼容）”时，端点、模型、协议版本全部由用户填写，下方显示“本选项不绑定任何厂商，请确认服务地址与模型名称”。
 - **必填校验**：端点必须是 `http(s)://` 开头的绝对 URL；模型名非空；Key 长度 ≥ 8 且不含空白。
 - **验证快照**：ViewModel 在内存中记录本次通过测试的供应商、端点、模型和 Key 快照；不写日志，不在普通配置中保存 Key。
-- **保存动作**：只有当前输入与已通过快照完全一致且存在未保存修改时才启用；先写 Windows Credential Manager，再原子保存非敏感配置、`Connected` 状态和验证时间。保存成功后无待保存更改，按钮重新禁用。
-- **修改重置**：任一字段（供应商、端点、模型、Key）变化后立即丢弃验证快照、回到“待测试”并禁用保存；输入内容保持不变。
+- **已保存配置**：`AiSettings.Profiles` 保存多个带名称的非敏感配置，`ActiveProfileId` 指向当前使用项；旧版单配置在读取时迁移为稳定的 `legacy` 配置。选择配置会立即加载其字段、读取对应 CredMan 凭据并同步当前 AI 连接。
+- **保存动作**：只有当前输入与已通过快照完全一致、名称非空且存在未保存修改时才启用；先写 Windows Credential Manager，再原子保存非敏感配置、`Connected` 状态和验证时间。重新测试一个已保存配置同样会产生可保存的验证更新；保存成功后无待保存更改，按钮重新禁用。
+- **删除动作**：只对当前选中配置启用；用户在带配置名称的二次确认中选择删除后，先删除该 profile 的 CredMan target，再清除内存 Key、验证快照和非敏感 profile。失败路径仍立即清空内存 Key并返回标准化提示，不拼接底层异常。
+- **未保存保护**：配置切换、新建、切离设置页、`Esc`、显式关闭和应用退出共用“保存并继续 / 放弃修改 / 取消”决策；自动失焦收起保留内存编辑态，不弹窗也不丢输入。
+- **名称唯一性**：保存前对去除首尾空格后的名称做不区分大小写判重，冲突时不写凭据或设置。
+- **修改重置**：任一连接字段（供应商、端点、模型、Key）变化后立即丢弃验证快照、回到“待测试”并禁用保存；配置名称变化只标记待保存，不要求重复连接测试；输入内容保持不变。
 - **“测试连接”按钮**：字段完整且当前没有测试任务时启用；点击后禁用并显示“测试中…”，使用 20 秒外层超时。测试不消耗真实业务数据，不携带搜索词、路径、快捷项或待办信息；测试结果不直接持久化。
 - **失败回退**：连接失败、超时、未分类异常或测试期间配置被编辑时，不写设置/凭据，不清空表单，保存保持禁用。
 
@@ -443,14 +455,14 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 
 #### 6.5.8 安全约束
 
-- Key **仅**存入 CredMan（target 名 `WindowsAiDesktopPet:AI:<ProviderId>`，ProviderId 自定义时使用 `custom`）；
-- 普通配置 `settings.json` 只保存 `ProviderId / Endpoint / Model / Protocol / LastStatus / LastVerifiedAt`；
+- Key **仅**存入 CredMan（新配置 target 名 `WindowsAiDesktopPet:AI:profile:<ProfileId>`；迁移的旧配置保留原 target）；
+- 普通配置 `settings.json` 只保存当前镜像与 `Profiles / ActiveProfileId` 中的 `ProviderId / Endpoint / Model / LastStatus / LastVerifiedAt / SecretTargetName / DisplayName`，不保存 Key；
 - 测试请求不带业务数据；响应只读取 `StatusCode` 与最少必要头部；
 - 日志、崩溃、遥测在所有路径下经 `KeyMaskInspector` 自检（见 §8）。
 
 ### 6.6 待办、AI 草稿与提醒
 
-详细产品与状态决策见 `docs/TODO_REMINDER_DESIGN.md`。0.9.0 的实现由四个边界组成：
+详细产品与状态决策见 `docs/TODO_REMINDER_DESIGN.md`。0.10.0 的实现由四个边界组成：
 
 1. `AiPet.Todos` 提供 `TodoItem`、`TodoStore` 和 `ReminderScheduler`。`TodoStore` 使用 `RecoverableAtomicFile` 写入独立 `todos.json`，损坏文件只在本次会话回退为空列表，不覆盖原文件。
 2. `AiPet.AI` 新增独立 `ITodoAiClient`，不改变只负责连接测试的 `IAiClient`。`OpenAiCompatibleTodoClient` 调用 `/chat/completions`，严格提取 JSON，并把鉴权、权限、限流、地址/模型、网络、超时和格式失败映射为标准状态。
@@ -540,7 +552,7 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 ### 11.1 便携版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.9.0
+pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.10.0
 ```
 
 - 入口：`dotnet publish src/AiPet.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true`；
@@ -550,17 +562,19 @@ pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.9.0
 ### 11.2 安装版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.9.0
+pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.10.0
 ```
 
 - 工具：Inno Setup 6.x；
 - 行为：安装到 `%LOCALAPPDATA%\Programs\WindowsAiDesktopPet\`，提供开始菜单与桌面快捷方式（默认关闭），支持升级与卸载；卸载不删除用户配置（除非用户勾选）；
 - 产物：`dist/installer/windows-ai-desktop-pet-v<version>-setup.exe`。
 
+统一入口 `scripts/package.ps1` 为每次运行创建 `build/<version>/package-<UTC timestamp>-<pid>/`，便携与安装适配器分别写入不可复用的 payload 和 release 候选目录。只有两个当前版本候选均存在、非空且 SHA-256 已计算后，才以同卷覆盖移动发布到 `dist/portable`、`dist/installer` 和 `dist/checksums`；清单只列当前版本的 ZIP 与 setup.exe。旧 `build/` 或旧版本 `dist/` 内容不参与候选发现。
+
 ### 11.3 签名
 
-- MVP 阶段使用测试签名（自签）并在 README 标注“不保证 SmartScreen 信任”；
-- 公开发布前接入 EV 代码签名证书（计划项，不在 MVP 范围）。
+- `v0.10.0` 在私有 GitHub 仓库发布，应用与安装器未签名；README、用户手册和 Release notes 必须明确可能出现 SmartScreen 提示。
+- 面向公开渠道分发前接入可信代码签名证书；证书和时间戳凭据只存 CI secrets，不进入仓库、日志或构建产物目录。
 
 ### 11.4 升级与回滚
 

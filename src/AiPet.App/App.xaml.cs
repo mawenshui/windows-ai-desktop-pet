@@ -33,6 +33,9 @@ public partial class App : System.Windows.Application
     private AppToolWindow? _tool;
     private Thread? _wakeThread;
     private CancellationTokenSource? _wakeCts;
+    private CancellationTokenSource? _applicationIndexCts;
+    private Task? _applicationIndexTask;
+    private bool _shutdownRequested;
 
     private SearchService? _search;
     private ShortcutStore? _shortcuts;
@@ -142,7 +145,8 @@ public partial class App : System.Windows.Application
 
         // --- 2. Wire up all MVP subsystems ---
         _search = new SearchService(_settingsStore.IndexPath);
-        _ = IndexApplicationsSafelyAsync(_search);
+        _applicationIndexCts = new CancellationTokenSource();
+        _applicationIndexTask = IndexApplicationsSafelyAsync(_search, _applicationIndexCts.Token);
         _shortcuts = new ShortcutStore();
         _ai = new OpenAiCompatibleClient();
         _todoAi = new OpenAiCompatibleTodoClient();
@@ -224,7 +228,7 @@ public partial class App : System.Windows.Application
             _pet?.SetCompanionWindowVisible(_tool.IsVisible);
 
         // --- 4. Tray ---
-        _tray = new TrayIcon();
+        _tray = new TrayIcon(GetTrayState);
         _tray.BalloonClicked += (_, _) => ShowTodoPage();
         _tray.PetVisibilityClicked += (_, _) => TogglePetVisibility();
         _tray.ShowPetRequested += (_, _) => ShowPet();
@@ -237,11 +241,7 @@ public partial class App : System.Windows.Application
             if (result.Kind != HelpOpenKind.Ok)
                 _tray.ShowBalloon("帮助暂不可用", result.Message ?? "找不到离线用户手册。", ToolTipIcon.Warning);
         };
-        _tray.ExitClicked += (_, _) =>
-        {
-            _tool?.AllowClose();
-            Shutdown();
-        };
+        _tray.ExitClicked += async (_, _) => await RequestShutdownAsync();
         _reminderScheduler = new ReminderScheduler(_todoStore);
         _reminderScheduler.Delivered += notification => Dispatcher.Invoke(() =>
         {
@@ -423,6 +423,47 @@ public partial class App : System.Windows.Application
             _homeVm.ToggleAutostartCommand.Execute(null);
     }
 
+    private TrayState GetTrayState()
+    {
+        var autostartEnabled = _homeVm?.AutostartEnabled ?? false;
+        try { autostartEnabled = AutoStart.IsEnabled(out _); }
+        catch { }
+        return new TrayState(
+            _pet?.IsVisible == true,
+            _tool?.IsVisible == true,
+            autostartEnabled);
+    }
+
+    private async Task RequestShutdownAsync()
+    {
+        if (_shutdownRequested) return;
+        if (_tool is not null && !_tool.ConfirmApplicationClose()) return;
+
+        _shutdownRequested = true;
+        _homeVm?.CancelBackgroundWork();
+        _applicationIndexCts?.Cancel();
+        _wakeCts?.Cancel();
+        try { _reminderScheduler?.Dispose(); } catch { }
+
+        var pending = new List<Task>();
+        if (_homeVm is not null)
+            pending.Add(_homeVm.WaitForBackgroundWorkAsync(TimeSpan.FromSeconds(4)));
+        if (_applicationIndexTask is { IsCompleted: false } applicationIndexTask)
+            pending.Add(applicationIndexTask);
+        if (_wakeThread is { IsAlive: true } wakeThread)
+            pending.Add(Task.Run(() => wakeThread.Join(TimeSpan.FromSeconds(4))));
+
+        if (pending.Count > 0)
+        {
+            var allPending = Task.WhenAll(pending);
+            if (await Task.WhenAny(allPending, Task.Delay(TimeSpan.FromSeconds(5))) != allPending)
+                DebugLog("[App] shutdown wait timed out; continuing with bounded cleanup");
+        }
+
+        _tool?.AllowClose();
+        Shutdown();
+    }
+
     private void WakeLoop(EventWaitHandle wh, CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -440,20 +481,25 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private static async Task IndexApplicationsSafelyAsync(SearchService search)
+    private static async Task IndexApplicationsSafelyAsync(SearchService search, CancellationToken cancellationToken)
     {
-        try { await search.IndexApplicationsAsync(); }
+        try { await search.IndexApplicationsAsync(ct: cancellationToken); }
+        catch (OperationCanceledException) { }
         catch { /* Application discovery is best-effort; folder search remains available. */ }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         try { _tool?.AllowClose(); } catch { }
+        try { _homeVm?.CancelBackgroundWork(); } catch { }
+        try { _applicationIndexCts?.Cancel(); } catch { }
         try { _wakeCts?.Cancel(); } catch { }
         try { _reminderScheduler?.Dispose(); } catch { }
         try { _tray?.Dispose(); } catch { }
         try { _singleInstance?.Dispose(); } catch { }
         try { _search?.Dispose(); } catch { }
+        try { _applicationIndexCts?.Dispose(); } catch { }
+        try { _wakeCts?.Dispose(); } catch { }
         base.OnExit(e);
     }
 

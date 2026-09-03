@@ -4,9 +4,9 @@ A Windows desktop-pet project planned around local file/application search, quic
 
 ## Current status
 
-Version `0.9.0` is a runnable WPF/.NET 8 desktop-pet source build. The transparent, draggable RGS character remains the primary surface; its cream-paper companion popover includes local search, shortcuts, settings, ordinary todos, and independent one-time reminder items. A reminder item can enable pet roaming, a bubble attached to the pet, or both; the bubble moves with the pet, successful delivery automatically completes only the reminder item, and ordinary todo reminders keep their existing complete/snooze/detail flow. A saved OpenAI-compatible configuration can turn one sentence into a structured create/change draft; a create draft with a reminder time but no due time becomes a reminder item with the pet bubble enabled by default. This release also repairs every shared dropdown selection path, including search scope, result category, todo filter, AI target, and AI provider.
+Version `0.10.0` is a runnable WPF/.NET 8 desktop-pet source build. The transparent, draggable RGS character remains the primary surface; its cream-paper companion popover includes local search, shortcuts, settings, ordinary todos, and independent one-time reminder items. A reminder item can enable pet roaming, a bubble attached to the pet, or both; the bubble moves with the pet, successful delivery automatically completes only the reminder item, and ordinary todo reminders keep their existing complete/snooze/detail flow. A saved OpenAI-compatible configuration can turn one sentence into a structured create/change draft; a create draft with a reminder time but no due time becomes a reminder item with the pet bubble enabled by default. This release makes every shared dropdown use the actual selected object for both display and application, and adds named, persistent AI profiles that can be selected for use without re-entering fields.
 
-The previous 720×760 multi-tab manager is no longer a runtime surface. The 0.9.0 source has 146 passing automated interaction and logic tests. `scripts/package.ps1` regenerated the portable ZIP, genuine Inno Setup installer, and SHA-256 manifest; final-package portable and isolated install/start/Credential Manager/uninstall smoke checks passed. Real notification suppression, reminder roaming/bubble motion, sleep recovery, multi-display behavior, code signing, the Git tag, and GitHub Release remain separate gates, so this is a release candidate until those checks finish.
+The previous 720×760 multi-tab manager is no longer a runtime surface. Version 0.10.0 is the first formally tagged GitHub release of this implementation line and has 156 passing automated interaction and logic tests, including first-run search authorization, cancellable staging indexes, failure rollback, staged-data cleanup, and AI-profile deletion. The portable ZIP and genuine Inno Setup installer are built in a unique run workspace before atomically replacing the current-version assets and SHA-256 manifest. Portable smoke, Windows credential round-trip, isolated install, installed smoke, and uninstall pass locally. The release is unsigned; Explorer-restart behavior, real notification suppression, sleep recovery, and the multi-display/scaling matrix remain documented verification debt rather than claimed passes.
 
 ## Start here
 
@@ -16,6 +16,7 @@ The previous 720×760 multi-tab manager is no longer a runtime surface. The 0.9.
 - Technical design: read [`docs/TECHNICAL_DESIGN.md`](docs/TECHNICAL_DESIGN.md) (stack, modules, data, threads, secrets, packaging).
 - User manual: read [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md).
 - Test plan: read [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md) (P0 acceptance mapping, environment, coverage).
+- Future extension candidates: read [`docs/后续可扩展功能项清单.md`](docs/后续可扩展功能项清单.md).
 - Software version: read [`VERSION`](VERSION).
 
 ## Validation
@@ -24,7 +25,7 @@ The previous 720×760 multi-tab manager is no longer a runtime surface. The 0.9.
 pwsh -NoProfile -File scripts/test.ps1 -CI
 ```
 
-This validates structure, versioning, UTF-8 text, the current `src/AiPet.sln`, 146 interaction and logic tests, todo/reminder persistence and distinct state transitions, one-time delivery deduplication and recovery, pet reminder channel preferences, all shared dropdown selections, AI draft parsing and confirm-before-write behavior, homepage shortcut icons and recovery, scope-switch isolation, RGS interaction, recursive scoped filename search, settings persistence, popover lifecycle, stay-open/topmost behavior, Chinese-input rendering, post-test save availability, shortcut empty-state visibility, and the test-before-save AI configuration state machine.
+This validates structure, versioning, UTF-8 text, the current `src/AiPet.sln`, 156 interaction and logic tests, search authorization before enumeration, cancellable/rollback-safe indexes and staged-data cleanup, AI profile deletion and duplicate-name rejection, todo/reminder persistence and state transitions, shared dropdown selections, named AI profile switching, confirm-before-write AI drafts, shortcuts, RGS interaction, scoped filename search, settings persistence, popover lifecycle, and the test-before-save AI configuration state machine.
 
 To run a development build:
 
@@ -36,14 +37,15 @@ Single-click the pet to open the companion popover, double-click to play an acti
 
 ## Release artifacts
 
-The 0.9.0 release candidate produces:
+The 0.10.0 release provides:
 
 - `dist/portable/windows-ai-desktop-pet-v<version>-portable.zip`
 - `dist/installer/windows-ai-desktop-pet-v<version>-setup.exe`
 - `dist/checksums/SHA256SUMS.txt`
 
-The generated 0.9.0 assets and their SHA-256 values are recorded in `dist/checksums/SHA256SUMS.txt`.
+The generated 0.10.0 assets and SHA-256 values are recorded in `dist/checksums/SHA256SUMS.txt`.
+The formal release is available at [GitHub Releases](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.10.0).
 
 See [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) for the complete test, SemVer, packaging, GitHub, and Release workflow.
 
-Do not publish an installer-staging ZIP as an installer. The 0.9.0 candidate uses the genuine `setup.exe`; formal release still requires the remaining interactive and remote gates in `PROJECT_SPEC.md`.
+Do not publish an installer-staging ZIP as an installer. Version 0.10.0 uses the genuine `setup.exe`; unsigned binaries can still trigger Windows SmartScreen, and the remaining system-interaction matrix is tracked in the test plan and future-extension checklist.

@@ -16,12 +16,12 @@ public sealed class SearchService : IDisposable
 {
     private readonly SearchIndex _index;
     private readonly object _indexGate = new();
-    private readonly Func<SearchRange, IReadOnlyList<SearchItemRow>> _scan;
+    private readonly Func<SearchRange, IEnumerable<SearchItemRow>> _scan;
     private readonly Func<IReadOnlyList<ApplicationEntry>> _appEntries;
 
     public SearchService(
         string dbPath,
-        Func<SearchRange, IReadOnlyList<SearchItemRow>>? directoryScanner = null,
+        Func<SearchRange, IEnumerable<SearchItemRow>>? directoryScanner = null,
         Func<IReadOnlyList<ApplicationEntry>>? appProvider = null)
     {
         _index = new SearchIndex(dbPath);
@@ -67,45 +67,72 @@ public sealed class SearchService : IDisposable
         {
             SearchRange range;
             lock (_indexGate) range = _index.GetRange(rangeId) ?? throw new InvalidOperationException("range missing");
-            MarkState(rangeId, SearchRangeState.Preparing);
+            MarkState(rangeId, SearchRangeState.Preparing, error: null);
             try
             {
-                var rows = _scan(range);
+                if (!Directory.Exists(range.Path))
+                    throw new DirectoryNotFoundException();
+
                 var batch = new List<SearchItemRow>(batchSize);
-                lock (_indexGate) _index.ClearItemsForRange(rangeId);
-                foreach (var row in rows)
+                var indexed = 0;
+                lock (_indexGate) _index.PrepareStagedItems(rangeId);
+                foreach (var row in _scan(range))
                 {
                     ct.ThrowIfCancellationRequested();
                     batch.Add(row);
                     if (batch.Count >= batchSize)
                     {
-                        lock (_indexGate) _index.InsertItems(batch);
-                        progress?.Report(batch.Count);
+                        lock (_indexGate) _index.InsertStagedItems(batch);
+                        indexed += batch.Count;
+                        progress?.Report(indexed);
                         batch.Clear();
                     }
                 }
-                if (batch.Count > 0) lock (_indexGate) _index.InsertItems(batch);
+                ct.ThrowIfCancellationRequested();
+                if (batch.Count > 0)
+                {
+                    lock (_indexGate) _index.InsertStagedItems(batch);
+                    indexed += batch.Count;
+                    progress?.Report(indexed);
+                }
                 lock (_indexGate)
+                {
+                    _index.CommitStagedItems(rangeId);
                     _index.UpsertRange(range with
                     {
                         State = SearchRangeState.Ready,
                         LastIndexedAt = DateTimeOffset.UtcNow,
                         LastError = null,
                     });
+                }
             }
             catch (OperationCanceledException)
             {
                 lock (_indexGate)
-                    _index.UpsertRange(range with { State = SearchRangeState.NotConfigured, LastError = "cancelled" });
+                {
+                    _index.DiscardStagedItems(rangeId);
+                    if (_index.GetRange(rangeId) is not null)
+                        _index.UpsertRange(range with { State = SearchRangeState.Cancelled, LastError = "cancelled" });
+                }
                 throw;
             }
             catch (Exception ex)
             {
                 lock (_indexGate)
-                    _index.UpsertRange(range with { State = SearchRangeState.Failed, LastError = ex.Message });
+                {
+                    _index.DiscardStagedItems(rangeId);
+                    if (_index.GetRange(rangeId) is not null)
+                        _index.UpsertRange(range with
+                        {
+                            State = ex is DirectoryNotFoundException
+                                ? SearchRangeState.PathUnavailable
+                                : SearchRangeState.Failed,
+                            LastError = GetStableIndexError(ex),
+                        });
+                }
                 throw;
             }
-        }, ct);
+        });
 
     public Task IndexApplicationsAsync(IProgress<int>? progress = null, CancellationToken ct = default)
         => Task.Run(() =>
@@ -153,11 +180,10 @@ public sealed class SearchService : IDisposable
 
     // ---------------- default scan / app providers ----------------
 
-    private static IReadOnlyList<SearchItemRow> DefaultDirectoryScanner(SearchRange range)
+    private static IEnumerable<SearchItemRow> DefaultDirectoryScanner(SearchRange range)
     {
         var root = range.Path;
-        if (!Directory.Exists(root)) return Array.Empty<SearchItemRow>();
-        var list = new List<SearchItemRow>();
+        if (!Directory.Exists(root)) throw new DirectoryNotFoundException();
         var rootFull = Path.GetFullPath(root);
         var opts = new EnumerationOptions
         {
@@ -167,10 +193,11 @@ public sealed class SearchService : IDisposable
         };
         foreach (var dir in Directory.EnumerateDirectories(rootFull, "*", opts))
         {
+            SearchItemRow? row = null;
             try
             {
                 var info = new DirectoryInfo(dir);
-                list.Add(new SearchItemRow(
+                row = new SearchItemRow(
                     range.Id,
                     info.Name,
                     info.FullName,
@@ -178,16 +205,18 @@ public sealed class SearchService : IDisposable
                     string.Empty,
                     SearchItemKind.Folder,
                     0,
-                    info.LastWriteTimeUtc));
+                    info.LastWriteTimeUtc);
             }
             catch { /* skip unreadable */ }
+            if (row is not null) yield return row;
         }
         foreach (var file in Directory.EnumerateFiles(rootFull, "*", opts))
         {
+            SearchItemRow? row = null;
             try
             {
                 var info = new FileInfo(file);
-                list.Add(new SearchItemRow(
+                row = new SearchItemRow(
                     range.Id,
                     info.Name,
                     info.FullName,
@@ -195,12 +224,20 @@ public sealed class SearchService : IDisposable
                     info.Extension,
                     SearchItemKindClassifier.Classify(info.Extension, isDirectory: false),
                     info.Length,
-                    info.LastWriteTimeUtc));
+                    info.LastWriteTimeUtc);
             }
             catch { /* skip unreadable */ }
+            if (row is not null) yield return row;
         }
-        return list;
     }
+
+    private static string GetStableIndexError(Exception ex) => ex switch
+    {
+        DirectoryNotFoundException => "path_unavailable",
+        UnauthorizedAccessException => "access_denied",
+        IOException => "io_error",
+        _ => "index_failed",
+    };
 
     private static IReadOnlyList<ApplicationEntry> DefaultApplicationProvider()
     {

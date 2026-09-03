@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AiPet.Search;
 using Xunit;
@@ -93,6 +95,99 @@ public sealed class SearchServiceTests : IDisposable
         Assert.All(rows, row => Assert.Equal(first.Id, row.RangeId));
     }
 
+    [Fact]
+    public async Task Failed_reindex_keeps_previous_ready_items_and_uses_stable_error_code()
+    {
+        var dbPath = Path.Combine(_root, "failure-state", "index.db");
+        var fail = false;
+        IEnumerable<SearchItemRow> Scan(SearchRange range)
+        {
+            yield return Row(range.Id, fail ? "partial-new.txt" : "previous-ready.txt");
+            if (fail) throw new IOException("sensitive machine path must not escape");
+        }
+
+        using var search = new SearchService(dbPath, Scan, appProvider: () => []);
+        var path = MakeRange("failure-state");
+        search.AddRange(path);
+        var range = search.ListRanges().Single();
+        await search.IndexRangeAsync(range.Id, batchSize: 1);
+
+        fail = true;
+        await Assert.ThrowsAsync<IOException>(() => search.IndexRangeAsync(range.Id, batchSize: 1));
+
+        Assert.Single(search.Search("previous-ready", null));
+        Assert.Empty(search.Search("partial-new", null));
+        var failed = search.GetRange(range.Id)!;
+        Assert.Equal(SearchRangeState.Failed, failed.State);
+        Assert.Equal("io_error", failed.LastError);
+        Assert.DoesNotContain("sensitive", failed.LastError, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Cancelled_streaming_reindex_stops_enumeration_and_keeps_previous_items()
+    {
+        var dbPath = Path.Combine(_root, "cancel-state", "index.db");
+        var reindex = false;
+        var enumerated = 0;
+        IEnumerable<SearchItemRow> Scan(SearchRange range)
+        {
+            if (!reindex)
+            {
+                yield return Row(range.Id, "previous-ready.txt");
+                yield break;
+            }
+            for (var i = 0; i < 100; i++)
+            {
+                enumerated++;
+                yield return Row(range.Id, $"new-{i}.txt");
+            }
+        }
+
+        using var search = new SearchService(dbPath, Scan, appProvider: () => []);
+        var path = MakeRange("cancel-state");
+        search.AddRange(path);
+        var range = search.ListRanges().Single();
+        await search.IndexRangeAsync(range.Id, batchSize: 1);
+
+        reindex = true;
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress<int>(_ => cancellation.Cancel());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            search.IndexRangeAsync(range.Id, progress, batchSize: 1, cancellation.Token));
+
+        Assert.True(enumerated < 100);
+        Assert.Single(search.Search("previous-ready", null));
+        Assert.Empty(search.Search("new-", null));
+        Assert.Equal(SearchRangeState.Cancelled, search.GetRange(range.Id)!.State);
+    }
+
+    [Fact]
+    public void Deleting_range_also_removes_its_staged_items()
+    {
+        var dbPath = Path.Combine(_root, "delete-staged-state", "index.db");
+        using var index = new SearchIndex(dbPath);
+        var range = SearchRange.For(MakeRange("delete-staged-state"));
+        index.UpsertRange(range);
+        index.PrepareStagedItems(range.Id);
+        index.InsertStagedItems([Row(range.Id, "staged-only.txt")]);
+
+        index.DeleteRange(range.Id);
+        index.CommitStagedItems(range.Id);
+
+        Assert.Null(index.GetRange(range.Id));
+        Assert.Equal(0, index.CountItemsInRange(range.Id));
+    }
+
+    private static SearchItemRow Row(Guid rangeId, string name) => new(
+        rangeId,
+        name,
+        name,
+        name,
+        Path.GetExtension(name),
+        SearchItemKind.Document,
+        1,
+        DateTimeOffset.UtcNow);
+
     private string MakeRange(string name)
     {
         var path = Path.Combine(_root, "ranges", name);
@@ -107,4 +202,9 @@ public sealed class SearchServiceTests : IDisposable
         await _search.IndexRangeAsync(range.Id);
         return range;
     }
+}
+
+internal sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+{
+    public void Report(T value) => report(value);
 }

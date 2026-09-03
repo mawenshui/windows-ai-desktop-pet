@@ -21,11 +21,13 @@ public sealed class HomePageLayoutTests
         Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Padding=\"35,0,12,0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("VerticalContentAlignment=\"Center\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedValuePath=\"Id\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedValue=\"{Binding SelectedSearchScopeId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("SelectedItem=\"{Binding SelectedSearchScope", xaml, StringComparison.Ordinal);
-        Assert.Contains("<Grid Grid.Row=\"2\">", xaml, StringComparison.Ordinal);
-        Assert.Contains("<StackPanel Grid.Row=\"3\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{Binding SelectedSearchScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedValue=\"{Binding SelectedSearchScopeId", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"首次搜索范围授权\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"确认并建立索引\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"确认前只展示候选路径，不会枚举或读取其中的文件；搜索始终只匹配名称和路径元数据。\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Grid Grid.Row=\"3\">", xaml, StringComparison.Ordinal);
+        Assert.Contains("<StackPanel Grid.Row=\"4\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AllowDrop=\"True\"", xaml, StringComparison.Ordinal);
         Assert.Contains("DragOver=\"ShortcutBar_DragOver\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Drop=\"ShortcutBar_Drop\"", xaml, StringComparison.Ordinal);
@@ -62,7 +64,7 @@ public sealed class HomePageLayoutTests
         Assert.True(ellipsisEnd > ellipsis);
         Assert.Contains("OpenShortcutMenu_Click", xaml[ellipsis..ellipsisEnd], StringComparison.Ordinal);
 
-        // The selected-value presenter must inherit the foreground from the
+        // The selected item presenter must inherit the foreground from the
         // ComboBox so the scope text remains visible on the cream field.
         Assert.Contains("Foreground=\"{TemplateBinding Foreground}\"", theme, StringComparison.Ordinal);
         Assert.Contains("Content=\"{TemplateBinding SelectionBoxItem}\"", theme, StringComparison.Ordinal);

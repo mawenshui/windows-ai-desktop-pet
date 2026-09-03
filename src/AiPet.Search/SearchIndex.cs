@@ -52,8 +52,19 @@ public sealed class SearchIndex : IDisposable
                 size_bytes    INTEGER NOT NULL,
                 last_modified TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS staged_items (
+                range_id      TEXT NOT NULL,
+                name          TEXT NOT NULL,
+                full_path     TEXT NOT NULL,
+                relative_path TEXT NOT NULL,
+                extension     TEXT NOT NULL,
+                kind          INTEGER NOT NULL,
+                size_bytes    INTEGER NOT NULL,
+                last_modified TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_items_name ON items(name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_items_range ON items(range_id);
+            CREATE INDEX IF NOT EXISTS idx_staged_items_range ON staged_items(range_id);
             """;
         cmd.ExecuteNonQuery();
     }
@@ -119,7 +130,10 @@ public sealed class SearchIndex : IDisposable
         using (var delItems = _conn.CreateCommand())
         {
             delItems.Transaction = tx;
-            delItems.CommandText = "DELETE FROM items WHERE range_id = $id";
+            delItems.CommandText = """
+                DELETE FROM items WHERE range_id = $id;
+                DELETE FROM staged_items WHERE range_id = $id;
+                """;
             delItems.Parameters.AddWithValue("$id", id.ToString("D"));
             delItems.ExecuteNonQuery();
         }
@@ -144,13 +158,43 @@ public sealed class SearchIndex : IDisposable
     // ---------------- items ----------------
 
     public void InsertItems(IReadOnlyList<SearchItemRow> rows)
+        => InsertRows("items", rows);
+
+    public void PrepareStagedItems(Guid rangeId) => DeleteRows("staged_items", rangeId);
+
+    public void InsertStagedItems(IReadOnlyList<SearchItemRow> rows)
+        => InsertRows("staged_items", rows);
+
+    public void CommitStagedItems(Guid rangeId)
     {
-        if (rows.Count == 0) return;
         using var tx = _conn.BeginTransaction();
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = """
+            DELETE FROM items WHERE range_id = $id;
             INSERT INTO items (range_id, name, full_path, relative_path, extension, kind, size_bytes, last_modified)
+            SELECT range_id, name, full_path, relative_path, extension, kind, size_bytes, last_modified
+            FROM staged_items
+            WHERE range_id = $id;
+            DELETE FROM staged_items WHERE range_id = $id;
+            """;
+        cmd.Parameters.AddWithValue("$id", rangeId.ToString("D"));
+        cmd.ExecuteNonQuery();
+        tx.Commit();
+    }
+
+    public void DiscardStagedItems(Guid rangeId) => DeleteRows("staged_items", rangeId);
+
+    private void InsertRows(string tableName, IReadOnlyList<SearchItemRow> rows)
+    {
+        if (rows.Count == 0) return;
+        if (tableName is not ("items" or "staged_items"))
+            throw new ArgumentOutOfRangeException(nameof(tableName));
+        using var tx = _conn.BeginTransaction();
+        using var cmd = _conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $"""
+            INSERT INTO {tableName} (range_id, name, full_path, relative_path, extension, kind, size_bytes, last_modified)
             VALUES ($rid, $n, $fp, $rp, $ex, $k, $sz, $lm);
             """;
         var pRid = cmd.Parameters.Add("$rid", SqliteType.Text);
@@ -177,9 +221,14 @@ public sealed class SearchIndex : IDisposable
     }
 
     public void ClearItemsForRange(Guid rangeId)
+        => DeleteRows("items", rangeId);
+
+    private void DeleteRows(string tableName, Guid rangeId)
     {
+        if (tableName is not ("items" or "staged_items"))
+            throw new ArgumentOutOfRangeException(nameof(tableName));
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM items WHERE range_id = $id";
+        cmd.CommandText = $"DELETE FROM {tableName} WHERE range_id = $id";
         cmd.Parameters.AddWithValue("$id", rangeId.ToString("D"));
         cmd.ExecuteNonQuery();
     }

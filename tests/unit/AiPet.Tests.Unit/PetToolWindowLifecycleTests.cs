@@ -319,9 +319,8 @@ public sealed class PetToolWindowLifecycleTests
             var providerPresenter = provider.Template?.FindName("ContentSite", provider) as ContentPresenter;
             Assert.NotNull(providerPresenter);
             Assert.IsType<AiProviderDescriptor>(providerPresenter.Content);
-            var providerText = FindElement<TextBlock>(providerPresenter, "SelectedValueText");
-            Assert.NotNull(providerText);
-            Assert.Equal("通义千问 Qwen", providerText.Text);
+            Assert.Equal(qwen.DisplayName, ((AiProviderDescriptor)providerPresenter.Content).DisplayName);
+            Assert.Equal(qwen.DisplayName, FindTextBlock(providerPresenter)?.Text);
 
             tabs.SelectedIndex = 0;
             PumpDispatcher();
@@ -730,6 +729,18 @@ public sealed class PetToolWindowLifecycleTests
             var child = VisualTreeHelper.GetChild(parent, index);
             if (child is T element && element.Name == name) return element;
             var nested = FindElement<T>(child, name);
+            if (nested is not null) return nested;
+        }
+        return null;
+    }
+
+    private static TextBlock? FindTextBlock(DependencyObject parent)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is TextBlock textBlock && !string.IsNullOrWhiteSpace(textBlock.Text)) return textBlock;
+            var nested = FindTextBlock(child);
             if (nested is not null) return nested;
         }
         return null;

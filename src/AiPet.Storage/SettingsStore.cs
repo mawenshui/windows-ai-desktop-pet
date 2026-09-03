@@ -8,7 +8,7 @@ namespace AiPet.Storage;
 public sealed class AppSettings
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
 
     [JsonPropertyName("pet")]
     public PetSettings Pet { get; set; } = new();
@@ -54,6 +54,8 @@ public sealed class SearchSettings
 {
     [JsonPropertyName("ranges")]
     public List<string> Ranges { get; set; } = new();
+    [JsonPropertyName("onboardingCompleted")]
+    public bool OnboardingCompleted { get; set; }
     [JsonPropertyName("lastCategory")]
     public string LastCategory { get; set; } = "all";
     [JsonPropertyName("enableWildcardSearch")]
@@ -76,6 +78,39 @@ public sealed class AiSettings
     public string SecretTargetName { get; set; } = "WindowsAiDesktopPet:AI:deepseek";
     [JsonPropertyName("lastStatus")]
     public string LastStatus { get; set; } = "Untested";
+    [JsonPropertyName("lastVerifiedAt")]
+    public DateTimeOffset? LastVerifiedAt { get; set; }
+
+    [JsonPropertyName("activeProfileId")]
+    public string? ActiveProfileId { get; set; }
+
+    [JsonPropertyName("profiles")]
+    public List<AiConfigurationProfile> Profiles { get; set; } = new();
+}
+
+public sealed class AiConfigurationProfile
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = "AI 配置";
+
+    [JsonPropertyName("providerId")]
+    public string ProviderId { get; set; } = "deepseek";
+
+    [JsonPropertyName("endpoint")]
+    public string Endpoint { get; set; } = string.Empty;
+
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = string.Empty;
+
+    [JsonPropertyName("secretTargetName")]
+    public string SecretTargetName { get; set; } = string.Empty;
+
+    [JsonPropertyName("lastStatus")]
+    public string LastStatus { get; set; } = "Untested";
+
     [JsonPropertyName("lastVerifiedAt")]
     public DateTimeOffset? LastVerifiedAt { get; set; }
 }
@@ -124,7 +159,7 @@ public sealed class SettingsStore
             if (!File.Exists(SettingsPath)) return Defaults();
             var text = File.ReadAllText(SettingsPath);
             var s = JsonSerializer.Deserialize<AppSettings>(text, Options);
-            return s ?? Defaults();
+            return Normalize(s ?? Defaults());
         }
         catch
         {
@@ -137,7 +172,7 @@ public sealed class SettingsStore
 
     public void Save(AppSettings settings)
     {
-        var text = JsonSerializer.Serialize(settings, Options);
+        var text = JsonSerializer.Serialize(Normalize(settings), Options);
         RecoverableAtomicFile.WriteAllText(SettingsPath, text);
     }
 
@@ -161,7 +196,67 @@ public sealed class SettingsStore
         RecoverableAtomicFile.WriteAllText(LayoutPath, text);
     }
 
-    public static AppSettings Defaults() => new();
+    public static AppSettings Defaults() => Normalize(new AppSettings());
+
+    private static AppSettings Normalize(AppSettings settings)
+    {
+        settings.SchemaVersion = 2;
+        settings.Search ??= new SearchSettings();
+        settings.Search.Ranges ??= new List<string>();
+        if (settings.Search.Ranges.Count > 0)
+            settings.Search.OnboardingCompleted = true;
+        settings.Ai ??= new AiSettings();
+        settings.Ai.Profiles ??= new List<AiConfigurationProfile>();
+
+        // Schema v1 stored only one AI configuration. Expose it as a stable
+        // profile in memory so existing users can select and update it without
+        // re-entering any non-sensitive fields or moving the credential.
+        if (settings.Ai.Profiles.Count == 0
+            && (!string.IsNullOrWhiteSpace(settings.Ai.Endpoint)
+                || !string.IsNullOrWhiteSpace(settings.Ai.Model)
+                || !string.Equals(settings.Ai.LastStatus, "Untested", StringComparison.Ordinal)))
+        {
+            settings.Ai.Profiles.Add(new AiConfigurationProfile
+            {
+                Id = "legacy",
+                DisplayName = BuildLegacyProfileName(settings.Ai.ProviderId, settings.Ai.Model),
+                ProviderId = string.IsNullOrWhiteSpace(settings.Ai.ProviderId) ? "deepseek" : settings.Ai.ProviderId,
+                Endpoint = settings.Ai.Endpoint ?? string.Empty,
+                Model = settings.Ai.Model ?? string.Empty,
+                SecretTargetName = settings.Ai.SecretTargetName,
+                LastStatus = settings.Ai.LastStatus,
+                LastVerifiedAt = settings.Ai.LastVerifiedAt,
+            });
+        }
+
+        settings.Ai.Profiles.RemoveAll(profile => profile is null || string.IsNullOrWhiteSpace(profile.Id));
+        var duplicateIds = new HashSet<string>(StringComparer.Ordinal);
+        settings.Ai.Profiles.RemoveAll(profile => !duplicateIds.Add(profile.Id));
+
+        var active = settings.Ai.Profiles.FirstOrDefault(profile =>
+            string.Equals(profile.Id, settings.Ai.ActiveProfileId, StringComparison.Ordinal));
+        active ??= settings.Ai.Profiles.FirstOrDefault();
+        settings.Ai.ActiveProfileId = active?.Id;
+        if (active is not null) CopyProfileToActiveSettings(active, settings.Ai);
+
+        return settings;
+    }
+
+    private static void CopyProfileToActiveSettings(AiConfigurationProfile profile, AiSettings settings)
+    {
+        settings.ProviderId = profile.ProviderId;
+        settings.Endpoint = profile.Endpoint;
+        settings.Model = profile.Model;
+        settings.SecretTargetName = profile.SecretTargetName;
+        settings.LastStatus = profile.LastStatus;
+        settings.LastVerifiedAt = profile.LastVerifiedAt;
+    }
+
+    private static string BuildLegacyProfileName(string providerId, string? model)
+    {
+        var provider = string.IsNullOrWhiteSpace(providerId) ? "AI" : providerId;
+        return string.IsNullOrWhiteSpace(model) ? provider : $"{provider} · {model}";
+    }
 }
 
 public sealed class WindowLayout

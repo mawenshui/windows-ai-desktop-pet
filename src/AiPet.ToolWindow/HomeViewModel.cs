@@ -32,10 +32,18 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private IAiClient? _ai;
     private SettingsStore? _settings;
     private IAiSecretStore _secretStore = new WindowsAiSecretStore();
+    private CancellationTokenSource? _aiTestCts;
+    private Task? _aiTestTask;
 
     private CancellationTokenSource? _searchCts;
     private int _searchGeneration;
     private bool _isSearching;
+    private readonly object _rangeIndexGate = new();
+    private readonly Dictionary<Guid, CancellationTokenSource> _rangeIndexCancellations = new();
+    private readonly Dictionary<Guid, Task> _rangeIndexTasks = new();
+    private readonly Dictionary<Guid, int> _rangeIndexProgress = new();
+    private bool _searchOnboardingCompleted;
+    private IReadOnlyList<SearchRangeCandidateOption>? _searchOnboardingCandidateSource;
 
     public TodoViewModel Todo { get; } = new();
 
@@ -46,7 +54,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         SettingsStore settings,
         IAiSecretStore? secretStore = null,
         TodoStore? todoStore = null,
-        ITodoAiClient? todoAiClient = null)
+        ITodoAiClient? todoAiClient = null,
+        IReadOnlyList<SearchRangeCandidateOption>? searchOnboardingCandidates = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -58,8 +67,11 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
         _selectedSearchScopeId = loaded.Search.LastScopeId;
+        _searchOnboardingCompleted = loaded.Search.OnboardingCompleted;
+        _searchOnboardingCandidateSource = searchOnboardingCandidates;
 
         InitializeCommands();
+        InitializeSearchOnboardingCandidates();
 
         ReloadShortcuts();
         ReloadRanges();
@@ -71,7 +83,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
 
     public ObservableCollection<SearchItem> Results { get; } = new();
     public ObservableCollection<ShortcutItem> Shortcuts { get; } = new();
-    public ObservableCollection<SearchRangeSummary> Ranges { get; } = new();
+    public ObservableCollection<SearchRangeRowViewModel> Ranges { get; } = new();
+    public ObservableCollection<SearchRangeCandidateViewModel> SearchOnboardingCandidates { get; } = new();
     public ObservableCollection<SearchScopeOption> SearchScopes { get; } = new();
     public IReadOnlyList<string> Categories { get; } =
         new[] { "全部", "文件夹", "文档", "应用", "图片", "视频", "音频" };
@@ -85,6 +98,9 @@ public sealed class HomeViewModel : INotifyPropertyChanged
 
     public bool HasShortcuts => Shortcuts.Count > 0;
     public bool HasRanges => Ranges.Count > 0;
+    public bool ShowSearchOnboarding => !_searchOnboardingCompleted && !HasRanges;
+    public bool HasSelectedSearchOnboardingCandidates =>
+        SearchOnboardingCandidates.Any(candidate => candidate.IsSelected);
     public bool HasResults => Results.Count > 0;
     public bool IsSearching => _isSearching;
 
@@ -216,22 +232,74 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private bool _aiConfigurationDirty;
     private AiConfigurationSnapshot? _verifiedAiConfiguration;
     private DateTimeOffset? _verifiedAiAt;
+    private string? _selectedAiConfigurationId;
+    private string _aiConfigurationName = "新配置";
+
+    public ObservableCollection<AiConfigurationOption> SavedAiConfigurations { get; } = new();
+    public bool HasSavedAiConfigurations => SavedAiConfigurations.Count > 0;
+
+    public string? SelectedAiConfigurationId
+    {
+        get => _selectedAiConfigurationId;
+        set
+        {
+            if (string.Equals(_selectedAiConfigurationId, value, StringComparison.Ordinal)) return;
+            _selectedAiConfigurationId = value;
+            OnPC();
+            OnPCFor(nameof(SelectedAiConfiguration));
+            if (!_loadingAiConfiguration && !string.IsNullOrWhiteSpace(value))
+                SelectSavedAiConfiguration(value);
+        }
+    }
+
+    public AiConfigurationOption? SelectedAiConfiguration
+    {
+        get => SavedAiConfigurations.FirstOrDefault(profile =>
+            string.Equals(profile.Id, _selectedAiConfigurationId, StringComparison.Ordinal));
+        set
+        {
+            if (value is null && _loadingAiConfiguration && !string.IsNullOrWhiteSpace(_selectedAiConfigurationId))
+                return;
+            SelectedAiConfigurationId = value?.Id;
+        }
+    }
+
+    public string AiConfigurationName
+    {
+        get => _aiConfigurationName;
+        set
+        {
+            var normalized = value ?? string.Empty;
+            if (_aiConfigurationName == normalized) return;
+            _aiConfigurationName = normalized;
+            OnPC();
+            if (!_loadingAiConfiguration)
+            {
+                _aiConfigurationDirty = true;
+                RaiseAiStateChanged();
+            }
+        }
+    }
 
     public bool IsTestingAi => _isTestingAi;
+    public bool HasUnsavedAiChanges => _aiConfigurationDirty;
+    public bool HasSelectedAiConfiguration => !string.IsNullOrWhiteSpace(_selectedAiConfigurationId);
     public string TestButtonLabel => IsTestingAi ? "测试中…" : "测试连接";
     public bool CanSaveAiConfig =>
         !IsTestingAi
         && _settings is not null
         && _aiConfigurationDirty
+        && !string.IsNullOrWhiteSpace(AiConfigurationName)
         && _verifiedAiConfiguration == CurrentAiConfiguration();
     public string AiActionHint
     {
         get
         {
             if (IsTestingAi) return "正在验证当前配置，请稍候。";
+            if (string.IsNullOrWhiteSpace(AiConfigurationName)) return "请先填写配置名称，便于以后选择。";
             if (!HasCompleteAiConfiguration) return "请完整填写服务地址、模型和 API Key。";
             if (CanSaveAiConfig) return "测试已通过，现在可以安全保存这组配置。";
-            if (!_aiConfigurationDirty) return "当前加载的是已保存配置；修改后需重新测试。";
+            if (!_aiConfigurationDirty) return "当前加载的是已保存配置；可直接使用，也可重新测试后更新保存。";
             if (AiStatus == "连接异常") return "连接未通过，输入内容已保留；修正后请重新测试。";
             return "请先测试当前配置，测试通过后才能保存。";
         }
@@ -316,10 +384,15 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     public ICommand LaunchShortcutCommand { get; private set; } = null!;
     public ICommand TestConnectionCommand { get; private set; } = null!;
     public ICommand SaveAiConfigCommand { get; private set; } = null!;
+    public ICommand NewAiConfigCommand { get; private set; } = null!;
     public ICommand ToggleAutostartCommand { get; private set; } = null!;
     public ICommand AddRangeCommand { get; private set; } = null!;
     public ICommand RemoveRangeCommand { get; private set; } = null!;
+    public ICommand RetryRangeCommand { get; private set; } = null!;
+    public ICommand CancelRangeCommand { get; private set; } = null!;
     public ICommand RefreshRangesCommand { get; private set; } = null!;
+    public ICommand ConfirmSearchOnboardingCommand { get; private set; } = null!;
+    public ICommand DeferSearchOnboardingCommand { get; private set; } = null!;
     public ICommand OpenHelpCommand { get; private set; } = null!;
 
     private void InitializeCommands()
@@ -332,12 +405,25 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         MoveShortcutDownCommand = new RelayCommand(p => MoveShortcut((Guid)p!, 1), p => p is Guid id && CanMoveShortcutDown(id));
         RemoveShortcutCommand = new RelayCommand(p => RemoveShortcut((Guid)p!), p => p is Guid && _shortcuts is not null);
         LaunchShortcutCommand = new RelayCommand(p => LaunchShortcut((Guid)p!), p => p is Guid && _shortcuts is not null);
-        TestConnectionCommand = new RelayCommand(async _ => await TestConnectionAsync(), _ => CanTest);
+        TestConnectionCommand = new RelayCommand(async _ => await RunAiConnectionTestAsync(), _ => CanTest);
         SaveAiConfigCommand = new RelayCommand(_ => SaveAiConfig(), _ => CanSaveAiConfig);
+        NewAiConfigCommand = new RelayCommand(_ => StartNewAiConfiguration(), _ => _settings is not null && !IsTestingAi);
         ToggleAutostartCommand = new RelayCommand(async _ => await ToggleAutostartAsync(), _ => _settings is not null);
         AddRangeCommand = new RelayCommand(_ => AddRange(), _ => _search is not null && _settings is not null);
         RemoveRangeCommand = new RelayCommand(p => RemoveRange((Guid)p!), p => p is Guid && _search is not null);
+        RetryRangeCommand = new RelayCommand(
+            async p => await StartIndexRangeAsync((Guid)p!),
+            p => p is Guid id && CanRetryRange(id));
+        CancelRangeCommand = new RelayCommand(
+            p => CancelRange((Guid)p!),
+            p => p is Guid id && CanCancelRange(id));
         RefreshRangesCommand = new RelayCommand(_ => RefreshRanges(), _ => _search is not null);
+        ConfirmSearchOnboardingCommand = new RelayCommand(
+            async _ => await ConfirmSearchOnboardingAsync(),
+            _ => _settings is not null && _search is not null && HasSelectedSearchOnboardingCandidates);
+        DeferSearchOnboardingCommand = new RelayCommand(
+            _ => DeferSearchOnboarding(),
+            _ => _settings is not null && ShowSearchOnboarding);
         OpenHelpCommand = new RelayCommand(_ => OpenHelp());
     }
 
@@ -348,8 +434,9 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             SearchCommand, AddShortcutCommand, EditShortcutCommand,
             RelocateShortcutCommand, MoveShortcutUpCommand, MoveShortcutDownCommand,
             RemoveShortcutCommand, LaunchShortcutCommand, TestConnectionCommand,
-            SaveAiConfigCommand, ToggleAutostartCommand, AddRangeCommand,
-            RemoveRangeCommand, RefreshRangesCommand, OpenHelpCommand,
+            SaveAiConfigCommand, NewAiConfigCommand, ToggleAutostartCommand, AddRangeCommand,
+            RemoveRangeCommand, RetryRangeCommand, CancelRangeCommand, RefreshRangesCommand,
+            ConfirmSearchOnboardingCommand, DeferSearchOnboardingCommand, OpenHelpCommand,
         })
         {
             (command as RelayCommand)?.RaiseCanExecuteChanged();
@@ -688,13 +775,24 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _loadingAiConfiguration = true;
         try
         {
-            Provider = string.IsNullOrEmpty(s.Ai.ProviderId) ? "deepseek" : s.Ai.ProviderId;
-            Endpoint = s.Ai.Endpoint ?? string.Empty;
-            Model = s.Ai.Model ?? string.Empty;
+            RefreshSavedAiConfigurations(s.Ai);
+            var active = FindAiProfile(s.Ai, s.Ai.ActiveProfileId);
+            _selectedAiConfigurationId = active?.Id;
+            OnPCFor(nameof(SelectedAiConfigurationId));
+            OnPCFor(nameof(SelectedAiConfiguration));
+            AiConfigurationName = active?.DisplayName ?? "新配置";
+            Provider = string.IsNullOrEmpty(active?.ProviderId ?? s.Ai.ProviderId)
+                ? "deepseek"
+                : active?.ProviderId ?? s.Ai.ProviderId;
+            Endpoint = active?.Endpoint ?? s.Ai.Endpoint ?? string.Empty;
+            Model = active?.Model ?? s.Ai.Model ?? string.Empty;
             ApplyProviderDefaults(overwriteExisting: false);
             try
             {
-                ApiKey = _secretStore.Load(s.Ai.SecretTargetName) ?? string.Empty;
+                var secretTarget = active?.SecretTargetName ?? s.Ai.SecretTargetName;
+                ApiKey = string.IsNullOrWhiteSpace(secretTarget)
+                    ? string.Empty
+                    : _secretStore.Load(secretTarget) ?? string.Empty;
             }
             catch { ApiKey = string.Empty; }
         }
@@ -705,15 +803,101 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _aiConfigurationDirty = false;
         _verifiedAiConfiguration = null;
         _verifiedAiAt = null;
-        AiStatus = s.Ai.LastStatus switch
+        var selectedProfile = FindAiProfile(s.Ai, _selectedAiConfigurationId);
+        AiStatus = (selectedProfile?.LastStatus ?? s.Ai.LastStatus) switch
         {
             "Connected" => "连接正常",
             "Failed" => "连接异常",
             _ => "未验证",
         };
-        AiStatusDetail = s.Ai.LastVerifiedAt is { } t
+        AiStatusDetail = (selectedProfile?.LastVerifiedAt ?? s.Ai.LastVerifiedAt) is { } t
             ? $"上次验证: {t.ToLocalTime():yyyy-MM-dd HH:mm:ss}"
             : "尚未执行连接测试";
+        RaiseAiStateChanged();
+    }
+
+    private void RefreshSavedAiConfigurations(AiSettings settings)
+    {
+        SavedAiConfigurations.Clear();
+        foreach (var profile in settings.Profiles)
+            SavedAiConfigurations.Add(new AiConfigurationOption(profile.Id, profile.DisplayName));
+        OnPCFor(nameof(HasSavedAiConfigurations));
+        OnPCFor(nameof(SelectedAiConfiguration));
+    }
+
+    private void SelectSavedAiConfiguration(string profileId)
+    {
+        if (_settings is null) return;
+        try
+        {
+            var settings = _settings.Load();
+            var profile = FindAiProfile(settings.Ai, profileId);
+            if (profile is null)
+            {
+                ReloadAi();
+                return;
+            }
+
+            _loadingAiConfiguration = true;
+            try
+            {
+                AiConfigurationName = profile.DisplayName;
+                Provider = profile.ProviderId;
+                Endpoint = profile.Endpoint;
+                Model = profile.Model;
+                ApiKey = string.IsNullOrWhiteSpace(profile.SecretTargetName)
+                    ? string.Empty
+                    : _secretStore.Load(profile.SecretTargetName) ?? string.Empty;
+            }
+            finally
+            {
+                _loadingAiConfiguration = false;
+            }
+
+            settings.Ai.ActiveProfileId = profile.Id;
+            CopyProfileToActiveAiSettings(profile, settings.Ai);
+            _settings.Save(settings);
+            _aiConfigurationDirty = false;
+            _verifiedAiConfiguration = null;
+            _verifiedAiAt = null;
+            AiStatus = profile.LastStatus == "Connected" ? "连接正常" : "未验证";
+            AiStatusDetail = profile.LastVerifiedAt is { } verifiedAt
+                ? $"已切换到“{profile.DisplayName}”；上次验证: {verifiedAt.ToLocalTime():yyyy-MM-dd HH:mm:ss}"
+                : $"已切换到“{profile.DisplayName}”；尚未执行连接测试。";
+            Status = $"已启用 AI 配置：{profile.DisplayName}";
+        }
+        catch
+        {
+            AiStatus = "加载失败";
+            AiStatusDetail = "无法加载已保存配置，请检查当前账户的凭据状态后重试。";
+        }
+        RaiseAiStateChanged();
+    }
+
+    private void StartNewAiConfiguration()
+    {
+        _loadingAiConfiguration = true;
+        try
+        {
+            _selectedAiConfigurationId = null;
+            OnPCFor(nameof(SelectedAiConfigurationId));
+            OnPCFor(nameof(SelectedAiConfiguration));
+            AiConfigurationName = "新配置";
+            Provider = "deepseek";
+            Endpoint = string.Empty;
+            Model = string.Empty;
+            ApiKey = string.Empty;
+            ApplyProviderDefaults(overwriteExisting: true);
+        }
+        finally
+        {
+            _loadingAiConfiguration = false;
+        }
+        _aiConfigurationDirty = true;
+        _verifiedAiConfiguration = null;
+        _verifiedAiAt = null;
+        AiStatus = "待测试";
+        AiStatusDetail = "请填写新配置；测试通过后才会加入已保存配置。";
         RaiseAiStateChanged();
     }
 
@@ -728,33 +912,127 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private void SaveAiConfig()
     {
         if (!CanSaveAiConfig || _settings is null) return;
-        var targetName = $"WindowsAiDesktopPet:AI:{Provider}";
         try
         {
+            var s = _settings.Load();
+            var existing = FindAiProfile(s.Ai, _selectedAiConfigurationId);
+            var normalizedName = AiConfigurationName.Trim();
+            if (s.Ai.Profiles.Any(profile =>
+                    !string.Equals(profile.Id, existing?.Id, StringComparison.Ordinal)
+                    && string.Equals(profile.DisplayName.Trim(), normalizedName, StringComparison.OrdinalIgnoreCase)))
+            {
+                AiStatus = "无法保存";
+                AiStatusDetail = "已有同名配置，请换一个名称后再保存。";
+                Status = "AI 配置名称重复";
+                RaiseAiStateChanged();
+                return;
+            }
+            var profileId = existing?.Id ?? Guid.NewGuid().ToString("N");
+            var targetName = string.IsNullOrWhiteSpace(existing?.SecretTargetName)
+                ? $"WindowsAiDesktopPet:AI:profile:{profileId}"
+                : existing.SecretTargetName;
             if (string.IsNullOrEmpty(ApiKey)) _secretStore.Delete(targetName);
             else _secretStore.Save(targetName, ApiKey);
 
-            var s = _settings.Load();
-            s.Ai.ProviderId = Provider;
-            s.Ai.Endpoint = Endpoint;
-            s.Ai.Model = Model;
-            s.Ai.SecretTargetName = targetName;
-            s.Ai.LastStatus = "Connected";
-            s.Ai.LastVerifiedAt = _verifiedAiAt ?? DateTimeOffset.UtcNow;
+            var profile = existing ?? new AiConfigurationProfile { Id = profileId };
+            profile.DisplayName = normalizedName;
+            profile.ProviderId = Provider;
+            profile.Endpoint = Endpoint.Trim();
+            profile.Model = Model.Trim();
+            profile.SecretTargetName = targetName;
+            profile.LastStatus = "Connected";
+            profile.LastVerifiedAt = _verifiedAiAt ?? DateTimeOffset.UtcNow;
+            if (existing is null) s.Ai.Profiles.Add(profile);
+            s.Ai.ActiveProfileId = profile.Id;
+            CopyProfileToActiveAiSettings(profile, s.Ai);
             _settings.Save(s);
 
+            _loadingAiConfiguration = true;
+            _selectedAiConfigurationId = profile.Id;
+            OnPCFor(nameof(SelectedAiConfigurationId));
+            OnPCFor(nameof(SelectedAiConfiguration));
+            RefreshSavedAiConfigurations(s.Ai);
+            _loadingAiConfiguration = false;
             _aiConfigurationDirty = false;
             AiStatus = "已保存";
-            AiStatusDetail = "连接测试已通过，配置和凭据已安全保存。";
+            AiStatusDetail = $"“{profile.DisplayName}”已保存并设为当前使用配置；凭据仍存放在 Windows 安全存储中。";
             Status = "AI 配置已保存";
         }
-        catch (Exception ex)
+        catch
         {
             AiStatus = "保存失败";
-            AiStatusDetail = "配置保存失败，输入内容仍保留: " + ex.Message;
+            AiStatusDetail = "配置保存失败，输入内容仍保留；请检查账户权限后重试。";
             Status = "AI 配置保存失败，请重试";
         }
         RaiseAiStateChanged();
+    }
+
+    public void DiscardAiConfigurationChanges() => ReloadAi();
+
+    public bool DeleteSelectedAiConfiguration()
+    {
+        if (_settings is null) return false;
+        try
+        {
+            var settings = _settings.Load();
+            var profile = FindAiProfile(settings.Ai, _selectedAiConfigurationId);
+            if (profile is null)
+            {
+                StartNewAiConfiguration();
+                ApiKey = string.Empty;
+                _aiConfigurationDirty = false;
+                AiStatus = "未配置";
+                AiStatusDetail = "未保存的连接信息已清除。";
+                Status = "已清除未保存的 AI 配置";
+                RaiseAiStateChanged();
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(profile.SecretTargetName))
+                _secretStore.Delete(profile.SecretTargetName);
+            ApiKey = string.Empty;
+            settings.Ai.Profiles.RemoveAll(item =>
+                string.Equals(item.Id, profile.Id, StringComparison.Ordinal));
+
+            var next = settings.Ai.Profiles.FirstOrDefault();
+            settings.Ai.ActiveProfileId = next?.Id;
+            if (next is not null)
+            {
+                CopyProfileToActiveAiSettings(next, settings.Ai);
+            }
+            else
+            {
+                ResetActiveAiSettings(settings.Ai);
+            }
+            _settings.Save(settings);
+            ReloadAi();
+            Status = next is null
+                ? "AI 配置与凭据已清除"
+                : $"已删除“{profile.DisplayName}”，当前切换到“{next.DisplayName}”。";
+            return true;
+        }
+        catch
+        {
+            ApiKey = string.Empty;
+            _verifiedAiConfiguration = null;
+            _verifiedAiAt = null;
+            AiStatus = "清除失败";
+            AiStatusDetail = "内存中的 Key 已清除；凭据或配置清理未全部完成，请重试。";
+            Status = "AI 配置清除未完成";
+            RaiseAiStateChanged();
+            return false;
+        }
+    }
+
+    private async Task RunAiConnectionTestAsync()
+    {
+        var task = TestConnectionAsync();
+        _aiTestTask = task;
+        try { await task; }
+        finally
+        {
+            if (ReferenceEquals(_aiTestTask, task)) _aiTestTask = null;
+        }
     }
 
     private async Task TestConnectionAsync()
@@ -766,9 +1044,10 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         AiStatus = "测试中…";
         AiStatusDetail = "正在验证服务地址、模型和凭据。";
         RaiseAiStateChanged();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        _aiTestCts = timeout;
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             var r = await _ai.TestConnectionAsync(
                 testedConfiguration.Endpoint,
                 testedConfiguration.Model,
@@ -785,6 +1064,9 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             {
                 _verifiedAiConfiguration = testedConfiguration;
                 _verifiedAiAt = r.TestedAt;
+                // A fresh verification timestamp is persistable state even
+                // when the loaded profile fields were not edited.
+                _aiConfigurationDirty = true;
                 AiStatus = "连接正常";
                 AiStatusDetail = $"耗时 {r.LatencyMs} ms；可以保存配置。";
                 Status = $"AI 连接正常 ({r.LatencyMs} ms)";
@@ -802,14 +1084,15 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             AiStatusDetail = "连接测试超时，请检查网络与服务状态。";
             Status = "AI 连接测试超时";
         }
-        catch (Exception ex)
+        catch
         {
             AiStatus = "连接异常";
-            AiStatusDetail = "连接测试失败，输入内容已保留: " + ex.Message;
+            AiStatusDetail = "连接测试失败，输入内容已保留；请检查网络、服务地址和本机代理设置。";
             Status = "AI 连接测试失败";
         }
         finally
         {
+            if (ReferenceEquals(_aiTestCts, timeout)) _aiTestCts = null;
             _isTestingAi = false;
             RaiseAiStateChanged();
         }
@@ -834,10 +1117,40 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         OnPCFor(nameof(IsTestingAi));
         OnPCFor(nameof(CanTest));
         OnPCFor(nameof(CanSaveAiConfig));
+        OnPCFor(nameof(HasUnsavedAiChanges));
+        OnPCFor(nameof(HasSelectedAiConfiguration));
         OnPCFor(nameof(TestButtonLabel));
         OnPCFor(nameof(AiActionHint));
         (TestConnectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SaveAiConfigCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (NewAiConfigCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private static AiConfigurationProfile? FindAiProfile(AiSettings settings, string? profileId) =>
+        string.IsNullOrWhiteSpace(profileId)
+            ? null
+            : settings.Profiles.FirstOrDefault(profile =>
+                string.Equals(profile.Id, profileId, StringComparison.Ordinal));
+
+    private static void CopyProfileToActiveAiSettings(AiConfigurationProfile profile, AiSettings settings)
+    {
+        settings.ProviderId = profile.ProviderId;
+        settings.Endpoint = profile.Endpoint;
+        settings.Model = profile.Model;
+        settings.SecretTargetName = profile.SecretTargetName;
+        settings.LastStatus = profile.LastStatus;
+        settings.LastVerifiedAt = profile.LastVerifiedAt;
+    }
+
+    private static void ResetActiveAiSettings(AiSettings settings)
+    {
+        settings.ActiveProfileId = null;
+        settings.ProviderId = "deepseek";
+        settings.Endpoint = null;
+        settings.Model = null;
+        settings.SecretTargetName = string.Empty;
+        settings.LastStatus = "Untested";
+        settings.LastVerifiedAt = null;
     }
 
     // ---------------- autostart ----------------
@@ -874,15 +1187,21 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private void RefreshRanges()
     {
         var savedPaths = _settings!.Load().Search.Ranges.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Dictionary<Guid, int> progress;
+        lock (_rangeIndexGate) progress = new Dictionary<Guid, int>(_rangeIndexProgress);
         Ranges.Clear();
         var s = _search!.ListRanges();
         foreach (var r in s)
         {
             if (!savedPaths.Contains(r.Path)) continue;
-            Ranges.Add(SearchRangeSummary.From(r, _search!.CountItems(r.Id)));
+            Ranges.Add(new SearchRangeRowViewModel(
+                SearchRangeSummary.From(r, _search!.CountItems(r.Id)),
+                progress.GetValueOrDefault(r.Id)));
         }
         OnPCFor(nameof(HasRanges));
+        OnPCFor(nameof(ShowSearchOnboarding));
         RefreshSearchScopes();
+        RaiseRangeCommandStates();
     }
 
     private void RefreshSearchScopes()
@@ -931,17 +1250,26 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private void ReloadRanges()
     {
         var s = _settings!.Load();
-        if (s.Search.Ranges.Count == 0) { Status = "请在下方添加搜索范围(例如 桌面/文档/下载)"; }
+        _searchOnboardingCompleted = s.Search.OnboardingCompleted;
+        if (s.Search.Ranges.Count == 0)
+            Status = ShowSearchOnboarding
+                ? "请选择允许搜索的常用文件夹；确认前不会读取其中内容。"
+                : "尚未授权文件夹；仍可搜索已发现的应用。";
         var indexedRanges = _search!.ListRanges();
         var indexedPaths = indexedRanges.Select(range => range.Path)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var path in s.Search.Ranges.Where(System.IO.Directory.Exists))
+        foreach (var path in s.Search.Ranges)
         {
             if (!indexedPaths.Contains(path)) _search.AddRange(path);
             var added = _search.ListRanges().First(range =>
                 string.Equals(range.Path, path, StringComparison.OrdinalIgnoreCase));
-            if (added.State != SearchRangeState.Ready)
-                _ = _search.IndexRangeAsync(added.Id);
+            if (!System.IO.Directory.Exists(path))
+            {
+                _search.MarkState(added.Id, SearchRangeState.PathUnavailable, "path_unavailable");
+                continue;
+            }
+            if (added.State == SearchRangeState.NotConfigured)
+                _ = StartIndexRangeAsync(added.Id);
         }
         RefreshRanges();
     }
@@ -962,8 +1290,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             _search!.AddRange(path);
             // Find the just-added range id
             var added = _search!.ListRanges().FirstOrDefault(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase));
-            if (added is not null) _ = _search!.IndexRangeAsync(added.Id);
-            ReloadRanges();
+            if (added is not null) _ = StartIndexRangeAsync(added.Id);
+            RefreshRanges();
             Status = "搜索范围已添加，正在建立索引。";
         }
         catch (UnauthorizedAccessException) { Status = "无法添加该文件夹，请检查访问权限。"; }
@@ -973,14 +1301,229 @@ public sealed class HomeViewModel : INotifyPropertyChanged
 
     private void RemoveRange(Guid id)
     {
-        var s = _settings!.Load();
-        var r = _search!.GetRange(id);
-        if (r is null) return;
-        s.Search.Ranges.RemoveAll(p => string.Equals(p, r.Path, StringComparison.OrdinalIgnoreCase));
-        _settings!.Save(s);
-        _search!.RemoveRange(id);
-        ReloadRanges();
-        Status = "已删除范围";
+        try
+        {
+            CancelRange(id, announce: false);
+            var s = _settings!.Load();
+            var r = _search!.GetRange(id);
+            if (r is null) return;
+            s.Search.Ranges.RemoveAll(p => string.Equals(p, r.Path, StringComparison.OrdinalIgnoreCase));
+            _settings!.Save(s);
+            _search!.RemoveRange(id);
+            RefreshRanges();
+            Status = "已移除搜索范围及其索引。";
+        }
+        catch (UnauthorizedAccessException) { Status = "无法移除该范围，请检查当前账户权限。"; }
+        catch (System.IO.IOException) { Status = "范围移除失败，原有索引仍保留，请重试。"; }
+        catch { Status = "范围移除失败，请重试。"; }
+    }
+
+    public async Task ConfirmSearchOnboardingAsync()
+    {
+        if (_settings is null || _search is null) return;
+        var selectedPaths = SearchOnboardingCandidates
+            .Where(candidate => candidate.IsSelected)
+            .Select(candidate => candidate.Path)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (selectedPaths.Count == 0)
+        {
+            Status = "请至少选择一个文件夹，或选择“稍后设置”。";
+            return;
+        }
+
+        var availablePaths = selectedPaths.Where(System.IO.Directory.Exists).ToList();
+        var unavailableCount = selectedPaths.Count - availablePaths.Count;
+        if (availablePaths.Count == 0)
+        {
+            Status = "候选文件夹当前不可用；你可以稍后手动添加其他文件夹。";
+            return;
+        }
+
+        var settings = _settings.Load();
+        foreach (var path in availablePaths)
+        {
+            if (!settings.Search.Ranges.Contains(path, StringComparer.OrdinalIgnoreCase))
+                settings.Search.Ranges.Add(path);
+        }
+        settings.Search.OnboardingCompleted = true;
+        _settings.Save(settings);
+        _searchOnboardingCompleted = true;
+        OnPCFor(nameof(ShowSearchOnboarding));
+
+        var tasks = new List<Task>();
+        foreach (var path in availablePaths)
+        {
+            _search.AddRange(path);
+            var range = _search.ListRanges().First(item =>
+                string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase));
+            tasks.Add(StartIndexRangeAsync(range.Id));
+        }
+        RefreshRanges();
+        Status = unavailableCount == 0
+            ? "已授权所选文件夹，正在建立可取消的索引。"
+            : $"已授权 {availablePaths.Count} 个文件夹；{unavailableCount} 个候选当前不可用。";
+        await Task.WhenAll(tasks);
+    }
+
+    private void DeferSearchOnboarding()
+    {
+        if (_settings is null) return;
+        var settings = _settings.Load();
+        settings.Search.OnboardingCompleted = true;
+        _settings.Save(settings);
+        _searchOnboardingCompleted = true;
+        OnPCFor(nameof(ShowSearchOnboarding));
+        (DeferSearchOnboardingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        Status = "已稍后设置；当前只搜索应用，可随时在设置中添加文件夹。";
+    }
+
+    private async Task StartIndexRangeAsync(Guid id)
+    {
+        if (_search is null) return;
+        Task task;
+        lock (_rangeIndexGate)
+        {
+            if (_rangeIndexTasks.TryGetValue(id, out var running) && !running.IsCompleted)
+                return;
+            var cancellation = new CancellationTokenSource();
+            _rangeIndexCancellations[id] = cancellation;
+            _rangeIndexProgress[id] = 0;
+            task = IndexRangeCoreAsync(id, cancellation);
+            _rangeIndexTasks[id] = task;
+        }
+        RefreshRanges();
+        await task;
+    }
+
+    private async Task IndexRangeCoreAsync(Guid id, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            var progress = new Progress<int>(count =>
+            {
+                lock (_rangeIndexGate) _rangeIndexProgress[id] = count;
+                Ranges.FirstOrDefault(range => range.Id == id)?.UpdateProgress(count);
+            });
+            await _search!.IndexRangeAsync(id, progress, ct: cancellation.Token);
+            Status = "搜索范围已可用。";
+        }
+        catch (OperationCanceledException)
+        {
+            Status = "已取消建立索引；上一份可用结果仍保留。";
+        }
+        catch (System.IO.DirectoryNotFoundException)
+        {
+            Status = "文件夹路径已失效；请重新连接后重试或移除范围。";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Status = "当前账户无法读取该文件夹；请检查权限后重试。";
+        }
+        catch (System.IO.IOException)
+        {
+            Status = "索引暂时无法写入；上一份可用结果仍保留。";
+        }
+        catch
+        {
+            Status = "建立索引失败；上一份可用结果仍保留，请重试。";
+        }
+        finally
+        {
+            lock (_rangeIndexGate)
+            {
+                _rangeIndexCancellations.Remove(id);
+                _rangeIndexTasks.Remove(id);
+            }
+            cancellation.Dispose();
+            RefreshRanges();
+        }
+    }
+
+    private bool CanCancelRange(Guid id)
+    {
+        lock (_rangeIndexGate)
+            return _rangeIndexCancellations.TryGetValue(id, out var cancellation)
+                && !cancellation.IsCancellationRequested;
+    }
+
+    private bool CanRetryRange(Guid id)
+    {
+        if (_search?.GetRange(id) is not { } range) return false;
+        return range.State != SearchRangeState.Preparing && !CanCancelRange(id);
+    }
+
+    private void CancelRange(Guid id, bool announce = true)
+    {
+        lock (_rangeIndexGate)
+        {
+            if (_rangeIndexCancellations.TryGetValue(id, out var cancellation))
+                cancellation.Cancel();
+        }
+        if (announce) Status = "正在取消索引…";
+        RaiseRangeCommandStates();
+    }
+
+    private void RaiseRangeCommandStates()
+    {
+        (RetryRangeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CancelRangeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ConfirmSearchOnboardingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DeferSearchOnboardingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void InitializeSearchOnboardingCandidates()
+    {
+        foreach (var existing in SearchOnboardingCandidates)
+            existing.PropertyChanged -= OnSearchOnboardingCandidateChanged;
+        SearchOnboardingCandidates.Clear();
+
+        var candidates = _searchOnboardingCandidateSource ?? new[]
+        {
+            new SearchRangeCandidateOption("桌面", Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)),
+            new SearchRangeCandidateOption("文档", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)),
+            new SearchRangeCandidateOption("下载", System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads")),
+        };
+        foreach (var candidate in candidates
+                     .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Path))
+                     .DistinctBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase))
+        {
+            var row = new SearchRangeCandidateViewModel(candidate.DisplayName, candidate.Path, isSelected: true);
+            row.PropertyChanged += OnSearchOnboardingCandidateChanged;
+            SearchOnboardingCandidates.Add(row);
+        }
+        OnPCFor(nameof(HasSelectedSearchOnboardingCandidates));
+        OnPCFor(nameof(ShowSearchOnboarding));
+        RaiseRangeCommandStates();
+    }
+
+    private void OnSearchOnboardingCandidateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SearchRangeCandidateViewModel.IsSelected)) return;
+        OnPCFor(nameof(HasSelectedSearchOnboardingCandidates));
+        RaiseRangeCommandStates();
+    }
+
+    public void CancelBackgroundWork()
+    {
+        _searchCts?.Cancel();
+        _aiTestCts?.Cancel();
+        Todo.CancelBackgroundWork();
+        lock (_rangeIndexGate)
+            foreach (var cancellation in _rangeIndexCancellations.Values)
+                cancellation.Cancel();
+    }
+
+    public async Task WaitForBackgroundWorkAsync(TimeSpan timeout)
+    {
+        var tasks = new List<Task>();
+        lock (_rangeIndexGate) tasks.AddRange(_rangeIndexTasks.Values);
+        if (_aiTestTask is { IsCompleted: false } aiTestTask) tasks.Add(aiTestTask);
+        tasks.Add(Todo.WaitForBackgroundWorkAsync(timeout));
+        if (tasks.Count == 0) return;
+        await Task.WhenAny(Task.WhenAll(tasks), Task.Delay(timeout));
     }
 
     // ---------------- help ----------------
@@ -1013,6 +1556,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     public HomeViewModel()
     {
         InitializeCommands();
+        InitializeSearchOnboardingCandidates();
         RefreshSearchScopes();
     }
 
@@ -1038,9 +1582,11 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
         _selectedSearchScopeId = loaded.Search.LastScopeId;
+        _searchOnboardingCompleted = loaded.Search.OnboardingCompleted;
         OnPCFor(nameof(SelectedCharacter));
         OnPCFor(nameof(EnableWildcardSearch));
         OnPCFor(nameof(EnableRegexSearch));
+        InitializeSearchOnboardingCandidates();
         ReloadShortcuts();
         ReloadRanges();
         ReloadAi();
@@ -1079,12 +1625,91 @@ internal sealed record AiConfigurationSnapshot(
     string ApiKey);
 
 public sealed record PetCharacterOption(string Id, string DisplayName);
+public sealed record AiConfigurationOption(string Id, string DisplayName);
+public sealed record SearchRangeCandidateOption(string DisplayName, string Path);
 public sealed record SearchScopeOption(string Id, string DisplayName, Guid? RangeId)
 {
     // The compact ComboBox template presents SelectionBoxItem directly.  A
     // readable value keeps the selected scope visible even when WPF does not
     // materialize SelectionBoxItemTemplate for an object-bound selection.
     public override string ToString() => DisplayName;
+}
+
+public sealed class SearchRangeRowViewModel : INotifyPropertyChanged
+{
+    private int _progressItems;
+
+    public SearchRangeRowViewModel(SearchRangeSummary summary, int progressItems)
+    {
+        Id = summary.Id;
+        Path = summary.Path;
+        State = summary.State;
+        Items = summary.Items;
+        LastError = summary.LastError;
+        LastIndexedAt = summary.LastIndexedAt;
+        _progressItems = progressItems;
+    }
+
+    public Guid Id { get; }
+    public string Path { get; }
+    public SearchRangeState State { get; }
+    public int Items { get; }
+    public string? LastError { get; }
+    public DateTimeOffset? LastIndexedAt { get; }
+    public bool IsPreparing => State == SearchRangeState.Preparing;
+    public bool CanRetry => !IsPreparing;
+    public string PrimaryActionLabel => State == SearchRangeState.Ready ? "重新索引" : "重试";
+    public string StatusText => State switch
+    {
+        SearchRangeState.NotConfigured => "等待建立索引",
+        SearchRangeState.Preparing => $"准备中 · 已发现 {_progressItems:N0} 项",
+        SearchRangeState.Ready => $"可用 · {Items:N0} 项",
+        SearchRangeState.Cancelled => $"已取消 · 保留上次 {Items:N0} 项",
+        SearchRangeState.PathUnavailable => $"路径失效 · 保留上次 {Items:N0} 项",
+        SearchRangeState.Failed when LastError == "access_denied" => $"无读取权限 · 保留上次 {Items:N0} 项",
+        SearchRangeState.Failed when LastError == "io_error" => $"索引写入失败 · 保留上次 {Items:N0} 项",
+        SearchRangeState.Failed => $"建立索引失败 · 保留上次 {Items:N0} 项",
+        _ => "状态未知",
+    };
+    public string LastUpdatedText => LastIndexedAt is null
+        ? "尚无成功索引"
+        : $"上次成功：{LastIndexedAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}";
+
+    public void UpdateProgress(int count)
+    {
+        if (_progressItems == count) return;
+        _progressItems = count;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StatusText)));
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+public sealed class SearchRangeCandidateViewModel : INotifyPropertyChanged
+{
+    private bool _isSelected;
+
+    public SearchRangeCandidateViewModel(string displayName, string path, bool isSelected)
+    {
+        DisplayName = displayName;
+        Path = path;
+        _isSelected = isSelected;
+    }
+
+    public string DisplayName { get; }
+    public string Path { get; }
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 public sealed class RelayCommand : ICommand

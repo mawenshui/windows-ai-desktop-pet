@@ -9,6 +9,8 @@ public enum SearchRangeState
     Preparing     = 1,
     Ready         = 2,
     Failed        = 3,
+    Cancelled     = 4,
+    PathUnavailable = 5,
 }
 
 public sealed record SearchRange(
@@ -26,8 +28,10 @@ public sealed record SearchRangeSummary(
     Guid Id,
     string Path,
     SearchRangeState State,
-    int Items)
+    int Items,
+    string? LastError,
+    DateTimeOffset? LastIndexedAt)
 {
     public static SearchRangeSummary From(SearchRange r, int items) =>
-        new(r.Id, r.Path, r.State, items);
+        new(r.Id, r.Path, r.State, items, r.LastError, r.LastIndexedAt);
 }

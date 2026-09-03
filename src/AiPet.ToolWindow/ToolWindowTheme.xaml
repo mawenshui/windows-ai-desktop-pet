@@ -296,8 +296,8 @@
                     <Setter Property="Padding" Value="11,8" />
                     <Setter Property="Margin" Value="3,2" />
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Focusable" Value="True" />
-                    <Setter Property="IsTabStop" Value="True" />
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="IsTabStop" Value="False" />
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="Foreground" Value="{StaticResource Ink}" />
                     <Setter Property="Template">
@@ -306,7 +306,9 @@
                                 <Border x:Name="ItemChrome" Padding="{TemplateBinding Padding}"
                                         Background="{TemplateBinding Background}" CornerRadius="8">
                                     <ContentPresenter Content="{TemplateBinding Content}"
-                                                      ContentTemplate="{StaticResource ComboBoxDisplayNameTemplate}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      ContentTemplateSelector="{TemplateBinding ContentTemplateSelector}"
+                                                      ContentStringFormat="{TemplateBinding ContentStringFormat}"
                                                       TextElement.Foreground="{TemplateBinding Foreground}" />
                                 </Border>
                                 <ControlTemplate.Triggers>
@@ -336,10 +338,11 @@
                         <ContentPresenter x:Name="ContentSite" Grid.Column="0"
                                           Margin="{TemplateBinding Padding}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          Content="{TemplateBinding SelectionBoxItem}"
-                                          ContentTemplate="{StaticResource ComboBoxDisplayNameTemplate}"
-                                          ContentStringFormat="{x:Null}"
+                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                           Content="{TemplateBinding SelectionBoxItem}"
+                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
                                           TextElement.Foreground="{TemplateBinding Foreground}"
                                           RecognizesAccessKey="True"
                                           SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
@@ -356,7 +359,7 @@
                             </ToggleButton.Template>
                         </ToggleButton>
                         <Popup x:Name="PART_Popup" Grid.ColumnSpan="2" Placement="Bottom" AllowsTransparency="True"
-                               Focusable="False" StaysOpen="False" IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="None">
+                                Focusable="False" StaysOpen="True" IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="None">
                             <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="260" Margin="0,5,0,0" Padding="3"
                                     Background="{StaticResource Card}" BorderBrush="{StaticResource Line}"

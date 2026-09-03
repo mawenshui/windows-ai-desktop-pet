@@ -63,6 +63,8 @@ public sealed class TodoViewModel : INotifyPropertyChanged
     private TodoItem? _aiTarget;
     private UndoRecord? _undoRecord;
     private TodoItem? _reminderAlertItem;
+    private CancellationTokenSource? _aiParseCts;
+    private Task? _aiParseTask;
 
     public TodoViewModel()
     {
@@ -380,9 +382,9 @@ public sealed class TodoViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// ID-backed selection used by the shared ComboBox template. Binding the
-    /// stable scalar value keeps selection working even while target rows are
-    /// regenerated after an AI parse.
+    /// Stable ID projection retained for command and automation consumers;
+    /// the UI binds the selected row object so its visible text and behavior
+    /// stay in sync.
     /// </summary>
     public Guid? SelectedAiTargetId
     {
@@ -496,7 +498,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         CancelReminderCommand = new RelayCommand(parameter => CancelReminder(Find(parameter)), parameter =>
             Find(parameter) is { Status: TodoStatus.Pending, IsReminder: false, ReminderAt: not null });
         SnoozeTodoCommand = new RelayCommand(parameter => Snooze(Find(parameter)), parameter => Find(parameter)?.Status == TodoStatus.Pending);
-        ParseAiCommand = new RelayCommand(async _ => await ParseAiAsync(), _ => CanParseAi());
+        ParseAiCommand = new RelayCommand(async _ => await RunParseAiAsync(), _ => CanParseAi());
         ConfirmAiCommand = new RelayCommand(_ => ConfirmAi(), _ => CanConfirmAi());
         CancelAiCommand = new RelayCommand(_ => ClearAiResult(keepInput: true));
         UseManualCommand = new RelayCommand(_ => UseManualFallback(), _ => !string.IsNullOrWhiteSpace(AiInput));
@@ -655,6 +657,17 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task RunParseAiAsync()
+    {
+        var task = ParseAiAsync();
+        _aiParseTask = task;
+        try { await task; }
+        finally
+        {
+            if (ReferenceEquals(_aiParseTask, task)) _aiParseTask = null;
+        }
+    }
+
     public async Task ParseAiAsync()
     {
         if (!CanParseAi() || _todoAiClient is null || _connectionProvider is null) return;
@@ -675,9 +688,10 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         AiTargetChoices.Clear();
         AiMessage = "正在解析当前这句话，不会读取其他本地数据。";
         RaiseAiStateChanged();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        _aiParseCts = timeout;
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             var result = await _todoAiClient.ParseAsync(
                 connection.Endpoint,
                 connection.Model,
@@ -707,9 +721,18 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         }
         finally
         {
+            if (ReferenceEquals(_aiParseCts, timeout)) _aiParseCts = null;
             _isAiParsing = false;
             RaiseAiStateChanged();
         }
+    }
+
+    public void CancelBackgroundWork() => _aiParseCts?.Cancel();
+
+    public async Task WaitForBackgroundWorkAsync(TimeSpan timeout)
+    {
+        if (_aiParseTask is not { IsCompleted: false } task) return;
+        await Task.WhenAny(task, Task.Delay(timeout));
     }
 
     private void PrepareAiDraft(AiTodoDraft draft)

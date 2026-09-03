@@ -2,7 +2,8 @@
 param(
     [string]$Version,
     [string]$Configuration = 'Release',
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+    [string]$StagingDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,18 +26,24 @@ if (-not [System.IO.Directory]::Exists($OutputDirectory)) {
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 }
 
-$buildDir   = Join-Path $projectRoot 'build\.staging\portable\win-x64'
+$runId = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfff') + "-$PID"
+if ([string]::IsNullOrWhiteSpace($StagingDirectory)) {
+    $StagingDirectory = Join-Path $projectRoot "build\$Version\portable-$runId\win-x64"
+}
+$buildDir   = [System.IO.Path]::GetFullPath($StagingDirectory)
+$buildRoot  = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'build'))
+$relativeBuildDir = [System.IO.Path]::GetRelativePath($buildRoot, $buildDir)
+if ([System.IO.Path]::IsPathRooted($relativeBuildDir) -or $relativeBuildDir.StartsWith('..')) {
+    throw "Portable staging must stay under the repository build directory: $buildDir"
+}
 $assetRoot  = Join-Path $projectRoot 'assets\pets'
-$sln        = Join-Path $projectRoot 'src\AiPet.sln'
 $appCsproj  = Join-Path $projectRoot 'src\AiPet.App\AiPet.App.csproj'
 $appExe     = 'WindowsAiDesktopPet.exe'
 
-# Clean previous staging to avoid stale files
 if ([System.IO.Directory]::Exists($buildDir)) {
-    Write-Output "[INFO ] cleaning previous staging: $buildDir"
-    Remove-Item -LiteralPath $buildDir -Recurse -Force
+    throw "Refusing to reuse portable staging directory: $buildDir"
 }
-New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+New-Item -ItemType Directory -Path $buildDir | Out-Null
 
 # 1. Self-contained dotnet publish. The portable package must not require
 #    a separately installed .NET runtime on a supported x64 Windows host.
@@ -50,11 +57,9 @@ if ($publishExit -ne 0) { throw "dotnet publish failed with exit code $publishEx
 #    up at runtime (it walks up from AppContext.BaseDirectory).
 if (Test-Path -LiteralPath $assetRoot) {
     $assetDst = Join-Path $buildDir 'assets\pets'
-    if (Test-Path -LiteralPath $assetDst) {
-        Remove-Item -LiteralPath $assetDst -Recurse -Force
-    }
+    New-Item -ItemType Directory -Path $assetDst -Force | Out-Null
     Write-Output "[INFO ] copying assets/pets -> $assetDst"
-    Copy-Item -LiteralPath $assetRoot -Destination $assetDst -Recurse -Force
+    Copy-Item -Path (Join-Path $assetRoot '*') -Destination $assetDst -Recurse -Force
 } else {
     Write-Output "[WARN ] assets/pets not found at $assetRoot; runtime will show 'no assets' error."
 }

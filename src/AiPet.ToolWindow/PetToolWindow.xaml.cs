@@ -16,6 +16,13 @@ internal static class DoubleUtil
     public static bool AreClose(double left, double right) => Math.Abs(left - right) < 0.1;
 }
 
+internal enum UnsavedAiDecision
+{
+    Save,
+    Discard,
+    Cancel,
+}
+
 public partial class PetToolWindow : Window
 {
     private bool _suppressApiKeyEcho;
@@ -23,6 +30,7 @@ public partial class PetToolWindow : Window
     private bool _anchorInteractionActive;
     private bool _allowClose;
     private bool _applyingWindowPreferences;
+    private bool _suppressAiSelectionChange;
     private readonly DispatcherTimer _autoHideTimer;
 
     public bool AutoHideOnDeactivate { get; set; } = true;
@@ -109,7 +117,15 @@ public partial class PetToolWindow : Window
     {
         var placement = PetPopoverPositioner.Calculate(petBounds, workArea);
         ApplyPlacement(placement);
-        ShellTabs.SelectedIndex = showSettings ? 3 : 0;
+        var targetTab = showSettings ? 3 : 0;
+        if (targetTab != 3 && DataContext is HomeViewModel { HasUnsavedAiChanges: true })
+        {
+            // Auto-hide preserves the editor in memory. Reopening it should
+            // return to those edits instead of silently navigating away.
+            if (!IsVisible || !TryResolveUnsavedAiChanges("返回主页"))
+                targetTab = 3;
+        }
+        ShellTabs.SelectedIndex = targetTab;
 
         Show();
         Activate();
@@ -222,6 +238,13 @@ public partial class PetToolWindow : Window
     {
         if (e.ChangedButton == MouseButton.Left && sender is TabItem tab)
         {
+            if (ShellTabs.SelectedIndex == 3
+                && ShellTabs.Items.IndexOf(tab) != 3
+                && !TryResolveUnsavedAiChanges("切换页面"))
+            {
+                e.Handled = true;
+                return;
+            }
             ShellTabs.SelectedItem = tab;
             tab.Focus();
         }
@@ -249,7 +272,185 @@ public partial class PetToolWindow : Window
         if (answer == MessageBoxResult.Yes) vm.Todo.DeleteTodo(row.Id);
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => HideToTray();
+    private void Close_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryResolveUnsavedAiChanges("收起工具窗口")) return;
+        HideToTray();
+    }
+
+    private void SavedAiConfigurationSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressAiSelectionChange
+            || sender is not ComboBox { SelectedItem: AiConfigurationOption selected }
+            || DataContext is not HomeViewModel vm
+            || string.Equals(selected.Id, vm.SelectedAiConfigurationId, StringComparison.Ordinal))
+            return;
+
+        if (!TryResolveUnsavedAiChanges("切换 AI 配置"))
+        {
+            _suppressAiSelectionChange = true;
+            try { ((ComboBox)sender).SelectedItem = vm.SelectedAiConfiguration; }
+            finally { _suppressAiSelectionChange = false; }
+            return;
+        }
+        vm.SelectedAiConfigurationId = selected.Id;
+    }
+
+    private void NewAiConfig_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel vm
+            || !TryResolveUnsavedAiChanges("新建 AI 配置"))
+            return;
+        if (vm.NewAiConfigCommand.CanExecute(null)) vm.NewAiConfigCommand.Execute(null);
+    }
+
+    private void DeleteAiConfig_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel { SelectedAiConfiguration: { } selected } vm) return;
+        if (!ShowDeleteAiConfigurationDialog(selected.DisplayName)) return;
+        vm.DeleteSelectedAiConfiguration();
+    }
+
+    public bool ConfirmApplicationClose() => TryResolveUnsavedAiChanges("退出应用");
+
+    private bool TryResolveUnsavedAiChanges(string action)
+    {
+        if (DataContext is not HomeViewModel { HasUnsavedAiChanges: true } vm) return true;
+        var decision = ShowUnsavedAiChangesDialog(action, vm.CanSaveAiConfig);
+        switch (decision)
+        {
+            case UnsavedAiDecision.Save:
+                if (!vm.CanSaveAiConfig)
+                {
+                    MessageBox.Show(
+                        this,
+                        "当前修改尚未通过连接测试。请返回测试并保存，或选择放弃修改。",
+                        "暂时无法保存",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return false;
+                }
+                vm.SaveAiConfigCommand.Execute(null);
+                return !vm.HasUnsavedAiChanges;
+            case UnsavedAiDecision.Discard:
+                vm.DiscardAiConfigurationChanges();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private UnsavedAiDecision ShowUnsavedAiChangesDialog(string action, bool canSave)
+    {
+        var decision = UnsavedAiDecision.Cancel;
+        var dialog = CreateDecisionWindow("AI 配置尚未保存", width: 390);
+        var panel = (StackPanel)dialog.Content;
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"{action}前，要如何处理当前 AI 配置修改？",
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = canSave
+                ? "保存会写入非敏感配置，并把 Key 保留在 Windows 凭据管理器中。"
+                : "当前修改尚未通过连接测试；选择保存后会返回编辑器说明原因。",
+            Foreground = (Brush)FindResource("Muted"),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 6, 0, 0),
+        });
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 18, 0, 0),
+        };
+        var save = DecisionButton("保存并继续", "PrimaryButton", isDefault: true);
+        save.Click += (_, _) => { decision = UnsavedAiDecision.Save; dialog.DialogResult = true; };
+        var discard = DecisionButton("放弃修改", "SecondaryButton");
+        discard.Foreground = (Brush)FindResource("Error");
+        discard.Margin = new Thickness(8, 0, 0, 0);
+        discard.Click += (_, _) => { decision = UnsavedAiDecision.Discard; dialog.DialogResult = true; };
+        var cancel = DecisionButton("取消", "SecondaryButton", isCancel: true);
+        cancel.Margin = new Thickness(8, 0, 0, 0);
+        actions.Children.Add(save);
+        actions.Children.Add(discard);
+        actions.Children.Add(cancel);
+        panel.Children.Add(actions);
+        _suppressAutoHide = true;
+        try { dialog.ShowDialog(); }
+        finally { _suppressAutoHide = false; }
+        return decision;
+    }
+
+    private bool ShowDeleteAiConfigurationDialog(string displayName)
+    {
+        var confirmed = false;
+        var dialog = CreateDecisionWindow("删除 AI 配置", width: 390);
+        var panel = (StackPanel)dialog.Content;
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"删除“{displayName}”？",
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "这会同时清除该配置的连接信息和 Windows 安全存储中的 Key，且无法撤销。其他 AI 配置不受影响。",
+            Foreground = (Brush)FindResource("Muted"),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 6, 0, 0),
+        });
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 18, 0, 0),
+        };
+        var delete = DecisionButton("删除配置", "PrimaryButton");
+        delete.Foreground = System.Windows.Media.Brushes.White;
+        delete.Background = (Brush)FindResource("Error");
+        delete.Click += (_, _) => { confirmed = true; dialog.DialogResult = true; };
+        var cancel = DecisionButton("取消", "SecondaryButton", isCancel: true, isDefault: true);
+        cancel.Margin = new Thickness(8, 0, 0, 0);
+        actions.Children.Add(delete);
+        actions.Children.Add(cancel);
+        panel.Children.Add(actions);
+        _suppressAutoHide = true;
+        try { dialog.ShowDialog(); }
+        finally { _suppressAutoHide = false; }
+        return confirmed;
+    }
+
+    private Window CreateDecisionWindow(string title, double width) => new()
+    {
+        Title = title,
+        Owner = this,
+        Width = width,
+        SizeToContent = SizeToContent.Height,
+        MinHeight = 180,
+        WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        ResizeMode = ResizeMode.NoResize,
+        ShowInTaskbar = false,
+        Background = (Brush)FindResource("Paper"),
+        FontFamily = FontFamily,
+        FontSize = FontSize,
+        Content = new StackPanel { Margin = new Thickness(20) },
+    };
+
+    private Button DecisionButton(string label, string styleKey, bool isCancel = false, bool isDefault = false) => new()
+    {
+        Content = label,
+        Style = (Style)FindResource(styleKey),
+        Padding = new Thickness(14, 8, 14, 8),
+        IsCancel = isCancel,
+        IsDefault = isDefault,
+    };
 
     private void OnAddShortcutRequested(object? sender, EventArgs e)
     {
@@ -656,7 +857,7 @@ public partial class PetToolWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            Hide();
+            if (TryResolveUnsavedAiChanges("收起工具窗口")) HideToTray();
             e.Handled = true;
         }
         else if (e.Key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))

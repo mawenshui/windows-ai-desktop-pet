@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AiPet.AI;
@@ -181,6 +182,157 @@ public sealed class HomeViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Retesting_loaded_ai_profile_unlocks_save_and_keeps_profile_selectable()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "retest-saved-ai-settings"));
+        var secrets = new FakeAiSecretStore();
+        var first = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "retest-saved-ai-shortcuts-1")),
+            new FakeAiClient(AiConnectionResult.Connected(11)),
+            settings,
+            secrets);
+        first.AiConfigurationName = "工作 AI";
+        first.Provider = "custom";
+        first.Endpoint = "https://work.example.test/v1";
+        first.Model = "work-model";
+        first.ApiKey = "work-secret";
+        first.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => first.CanSaveAiConfig);
+        first.SaveAiConfigCommand.Execute(null);
+
+        var second = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "retest-saved-ai-shortcuts-2")),
+            new FakeAiClient(AiConnectionResult.Connected(13)),
+            settings,
+            secrets);
+
+        Assert.Single(second.SavedAiConfigurations);
+        Assert.Equal("工作 AI", second.SelectedAiConfiguration?.DisplayName);
+        Assert.False(second.CanSaveAiConfig);
+
+        second.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => second.CanSaveAiConfig);
+
+        Assert.True(second.SaveAiConfigCommand.CanExecute(null));
+        second.SaveAiConfigCommand.Execute(null);
+        Assert.Single(settings.Load().Ai.Profiles);
+        Assert.Equal("工作 AI", settings.Load().Ai.Profiles[0].DisplayName);
+    }
+
+    [Fact]
+    public async Task Multiple_ai_profiles_persist_and_switch_active_connection()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "multiple-ai-settings"));
+        var secrets = new FakeAiSecretStore();
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "multiple-ai-shortcuts")),
+            new FakeAiClient(AiConnectionResult.Connected(9)),
+            settings,
+            secrets);
+
+        vm.AiConfigurationName = "DeepSeek 工作";
+        vm.ApiKey = "deepseek-secret";
+        vm.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => vm.CanSaveAiConfig);
+        vm.SaveAiConfigCommand.Execute(null);
+
+        vm.NewAiConfigCommand.Execute(null);
+        vm.AiConfigurationName = "Qwen 个人";
+        vm.Provider = "qwen";
+        vm.ApiKey = "qwen-secret";
+        vm.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => vm.CanSaveAiConfig);
+        vm.SaveAiConfigCommand.Execute(null);
+
+        var saved = settings.Load();
+        Assert.Equal(2, saved.Ai.Profiles.Count);
+        Assert.Equal(saved.Ai.Profiles[1].Id, saved.Ai.ActiveProfileId);
+        Assert.Equal("qwen", saved.Ai.ProviderId);
+
+        vm.SelectedAiConfigurationId = saved.Ai.Profiles[0].Id;
+
+        Assert.Equal("deepseek", vm.Provider);
+        Assert.Equal("DeepSeek 工作", vm.AiConfigurationName);
+        Assert.Equal("deepseek-secret", vm.ApiKey);
+        Assert.Equal(saved.Ai.Profiles[0].Id, settings.Load().Ai.ActiveProfileId);
+    }
+
+    [Fact]
+    public async Task Deleting_ai_profile_removes_credential_non_sensitive_state_and_memory_key()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "delete-ai-settings"));
+        var secrets = new FakeAiSecretStore();
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "delete-ai-shortcuts")),
+            new FakeAiClient(AiConnectionResult.Connected(8)),
+            settings,
+            secrets);
+        vm.AiConfigurationName = "待删除配置";
+        vm.ApiKey = "delete-me-secret";
+        vm.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => vm.CanSaveAiConfig);
+        vm.SaveAiConfigCommand.Execute(null);
+        var targetName = Assert.Single(settings.Load().Ai.Profiles).SecretTargetName;
+
+        Assert.True(vm.DeleteSelectedAiConfiguration());
+
+        var cleared = settings.Load();
+        Assert.Empty(cleared.Ai.Profiles);
+        Assert.Null(cleared.Ai.ActiveProfileId);
+        Assert.Equal("Untested", cleared.Ai.LastStatus);
+        Assert.Null(cleared.Ai.Endpoint);
+        Assert.Null(secrets.Load(targetName));
+        Assert.Empty(vm.ApiKey);
+        Assert.False(vm.HasSelectedAiConfiguration);
+    }
+
+    [Fact]
+    public async Task Duplicate_ai_profile_name_is_rejected_without_overwriting_saved_profile()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "duplicate-ai-settings"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "duplicate-ai-shortcuts")),
+            new FakeAiClient(AiConnectionResult.Connected(8)),
+            settings,
+            new FakeAiSecretStore());
+        vm.AiConfigurationName = "工作配置";
+        vm.ApiKey = "first-secret";
+        vm.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => vm.CanSaveAiConfig);
+        vm.SaveAiConfigCommand.Execute(null);
+
+        vm.NewAiConfigCommand.Execute(null);
+        vm.AiConfigurationName = "  工作配置  ";
+        vm.ApiKey = "second-secret";
+        vm.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => vm.CanSaveAiConfig);
+        vm.SaveAiConfigCommand.Execute(null);
+
+        Assert.Single(settings.Load().Ai.Profiles);
+        Assert.Equal("无法保存", vm.AiStatus);
+        Assert.True(vm.HasUnsavedAiChanges);
+    }
+
+    [Fact]
+    public async Task Unexpected_ai_exception_is_standardized_without_exposing_raw_message()
+    {
+        var vm = CreateViewModel(new ThrowingAiClient(), new FakeAiSecretStore());
+        vm.ApiKey = "secret-not-logged";
+
+        vm.TestConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => !vm.IsTestingAi && vm.AiStatus == "连接异常");
+
+        Assert.DoesNotContain("sensitive-response-body", vm.AiStatusDetail, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret-not-logged", vm.AiStatusDetail, StringComparison.Ordinal);
+        Assert.Contains("输入内容已保留", vm.AiStatusDetail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Category_dropdown_immediately_requeries_with_kind_filter()
     {
         var folder = Path.Combine(_root, "search-items");
@@ -199,6 +351,59 @@ public sealed class HomeViewModelTests : IDisposable
         await WaitUntilAsync(() => vm.Results.Count == 1);
         Assert.All(vm.Results, row => Assert.Equal(SearchItemKind.Image, row.Kind));
         Assert.Equal("命中 1 条", vm.Status);
+    }
+
+    [Fact]
+    public async Task First_run_search_candidates_do_not_scan_until_user_confirms()
+    {
+        var candidateRoot = Path.Combine(_root, "onboarding-candidate");
+        Directory.CreateDirectory(candidateRoot);
+        File.WriteAllText(Path.Combine(candidateRoot, "confirmed-only.txt"), "fixture");
+        var scannerCalls = 0;
+        IEnumerable<SearchItemRow> Scan(SearchRange range)
+        {
+            Interlocked.Increment(ref scannerCalls);
+            foreach (var file in Directory.EnumerateFiles(range.Path))
+            {
+                var info = new FileInfo(file);
+                yield return new SearchItemRow(
+                    range.Id,
+                    info.Name,
+                    info.FullName,
+                    info.Name,
+                    info.Extension,
+                    SearchItemKind.Document,
+                    info.Length,
+                    info.LastWriteTimeUtc);
+            }
+        }
+
+        using var search = new SearchService(
+            Path.Combine(_root, "onboarding-index.db"),
+            Scan,
+            appProvider: () => []);
+        var settings = new SettingsStore(Path.Combine(_root, "onboarding-settings"));
+        var vm = new HomeViewModel(
+            search,
+            new ShortcutStore(Path.Combine(_root, "onboarding-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings,
+            searchOnboardingCandidates:
+            [
+                new SearchRangeCandidateOption("测试目录", candidateRoot),
+            ]);
+
+        Assert.True(vm.ShowSearchOnboarding);
+        Assert.Equal(0, Volatile.Read(ref scannerCalls));
+        Assert.Empty(settings.Load().Search.Ranges);
+
+        await vm.ConfirmSearchOnboardingAsync();
+
+        Assert.Equal(1, Volatile.Read(ref scannerCalls));
+        Assert.False(vm.ShowSearchOnboarding);
+        Assert.Equal(candidateRoot, Assert.Single(settings.Load().Search.Ranges));
+        Assert.Equal(SearchRangeState.Ready, Assert.Single(search.ListRanges()).State);
+        Assert.Equal("confirmed-only.txt", Assert.Single(search.Search("confirmed-only", null)).Name);
     }
 
     private HomeViewModel CreateViewModel(
@@ -224,6 +429,15 @@ public sealed class HomeViewModelTests : IDisposable
             string model,
             string apiKey,
             CancellationToken ct) => Task.FromResult(result);
+    }
+
+    private sealed class ThrowingAiClient : IAiClient
+    {
+        public Task<AiConnectionResult> TestConnectionAsync(
+            string endpoint,
+            string model,
+            string apiKey,
+            CancellationToken ct) => throw new IOException("sensitive-response-body");
     }
 
     private sealed class FakeAiSecretStore : IAiSecretStore

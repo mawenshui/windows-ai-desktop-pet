@@ -82,6 +82,35 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Legacy_single_ai_configuration_is_exposed_as_a_selectable_profile()
+    {
+        var store = new SettingsStore(_root);
+        Directory.CreateDirectory(store.AppDataDir);
+        File.WriteAllText(store.SettingsPath, """
+        {
+          "schemaVersion": 1,
+          "ai": {
+            "providerId": "qwen",
+            "endpoint": "https://dashscope.example.test/v1",
+            "model": "qwen-plus",
+            "secretTargetName": "WindowsAiDesktopPet:AI:qwen",
+            "lastStatus": "Connected",
+            "lastVerifiedAt": "2026-08-28T10:00:00+00:00"
+          }
+        }
+        """);
+
+        var loaded = store.Load();
+
+        var profile = Assert.Single(loaded.Ai.Profiles);
+        Assert.Equal("legacy", profile.Id);
+        Assert.Equal("qwen", profile.ProviderId);
+        Assert.Equal("qwen-plus", profile.Model);
+        Assert.Equal("legacy", loaded.Ai.ActiveProfileId);
+        Assert.Equal(2, loaded.SchemaVersion);
+    }
+
+    [Fact]
     public void Layout_round_trip()
     {
         var s = new SettingsStore(_root);
