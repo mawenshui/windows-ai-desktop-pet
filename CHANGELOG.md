@@ -4,9 +4,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [0.11.0] - 2026-09-03
 
+### Added
+
+- 新增设置 schema v3 迁移备份、按模块备份恢复、可重建数据清理和白名单诊断导出。
+- 新增授权目录增量监视、可解释相关性排序、分页加载与应用入口规范化去重。
+- 新增多次提醒、每日/每周/工作日/自定义星期重复规则、自适应调度和托盘提醒操作。
+- 新增系统/浅色/深色/高对比度主题、独立动态效果偏好，以及 Provider 能力/安全预设与 fake-server 兼容测试。
+- 新增 CC0“方块伙伴”正式图标，统一应用 EXE、托盘、快捷方式与安装器身份。
+- 新增系统 E2E runner、发布烟雾脚本、可选代码签名/验签和 Release provenance。
+
 ### Changed
 
-- Add roadmap reliability, search, reminders, data maintenance, accessibility themes, formal application identity, signing workflow, and system validation foundations.
+- 路线图逐项标记已实现、部分实现、环境待验证与 RFC 暂缓状态，避免把外部门禁项目误报为完成。
 
 ## [0.10.0] - 2026-09-03
 

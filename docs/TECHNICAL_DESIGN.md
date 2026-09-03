@@ -582,6 +582,7 @@ pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.11.0
 ### 11.3 签名
 
 - `v0.10.0` 在私有 GitHub 仓库发布，应用与安装器未签名；README、用户手册和 Release notes 必须明确可能出现 SmartScreen 提示。
+- `v0.11.0` 已具备受保护环境变量驱动的 EXE/安装器签名与立即验签流程；本次构建未提供证书，provenance 如实记录 `signed: false`。
 - 面向公开渠道分发前接入可信代码签名证书；证书和时间戳凭据只存 CI secrets，不进入仓库、日志或构建产物目录。
 
 ### 11.4 升级与回滚

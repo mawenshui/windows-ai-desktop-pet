@@ -16,3 +16,15 @@
 - 代码签名需要外部证书与 CI secret；没有配置证书时构建明确标记 unsigned，不声称已签名。
 - Explorer 实际重启、物理多屏/缩放和休眠属于真实 Windows 会话矩阵；runner 对缺少的环境输出 SKIP，不把它伪装为 PASS。
 - OCR、语义搜索、3D 角色和在线帮助依照 RFC 暂缓上线，原因及进入条件见 `docs/RFC_0.11_扩展方向评审.md`。
+
+## 发布验证
+
+- 源码提交：`60461cbd45e025f032acf0f4e59609e3d5fa4fa6`。
+- 便携运行、隔离安装、安装后启动和卸载烟雾测试：通过。
+- 系统 runner：边界契约 8/8 与应用 smoke 通过；Explorer 重启未获破坏性会话许可而 SKIP；当前主机仅一台物理显示器，因此物理多屏项 SKIP。
+- 本次产物未签名；Windows 可能显示 SmartScreen 提示。
+
+## 发布资产与 SHA-256
+
+- `windows-ai-desktop-pet-v0.11.0-portable.zip`：`6e3b8b8dc939c6429afc4f67c5d9bd075aaaa2306103ab0abe1170e0d9a6b715`
+- `windows-ai-desktop-pet-v0.11.0-setup.exe`：`a7521d26d4ccce6e64f6cf3bd6ea183f9ef1c925266cfd29b53a05f30ad659e3`

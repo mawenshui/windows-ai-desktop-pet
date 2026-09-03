@@ -6,7 +6,7 @@ A Windows desktop-pet project planned around local file/application search, quic
 
 Version `0.11.0` is a runnable WPF/.NET 8 desktop companion with a formal CC0 square-companion identity across the executable, tray, shortcuts, and installer. It adds schema-backed local backup/restore and diagnostics, incremental authorized-folder monitoring, explainable paged search, multi-time recurring reminders, actionable tray reminder controls, system-aware themes, independent motion preferences, safer custom AI provider presets, and reproducible signing/provenance workflows.
 
-The 0.11.0 candidate has 170 passing automated interaction and logic tests. Packaging still uses a unique build workspace and atomic publication. A certificate can be supplied through protected environment variables to sign and verify the EXE and installer; without it, artifacts are explicitly reported as unsigned. Physical multi-screen/scaling, Explorer restart, and sleep scenarios remain environment-dependent checks and are reported as PASS/FAIL/SKIP by the system runner rather than inferred.
+The 0.11.0 release has 170 passing automated interaction and logic tests. Packaging uses a unique build workspace and atomic publication. A certificate can be supplied through protected environment variables to sign and verify the EXE and installer; the current release is explicitly unsigned because no certificate was available. Physical multi-screen/scaling, Explorer restart, and sleep scenarios remain environment-dependent checks and are reported as PASS/FAIL/SKIP by the system runner rather than inferred.
 
 ## Start here
 
@@ -45,7 +45,7 @@ The 0.11.0 release provides:
 - `dist/checksums/RELEASE_PROVENANCE.json`
 
 The generated 0.11.0 assets and SHA-256 values are recorded in `dist/checksums/SHA256SUMS.txt`.
-Release URL after publication: [GitHub Releases](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.11.0).
+Release: [GitHub v0.11.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.11.0).
 
 See [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) for the complete test, SemVer, packaging, GitHub, and Release workflow.
 
