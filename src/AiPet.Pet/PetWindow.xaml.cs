@@ -21,6 +21,9 @@ public partial class PetWindow : Window
     private readonly PetFrameCache _frames;
     private readonly PetManifest _manifest;
     private readonly SettingsStore _settings;
+    private bool _enableRoaming = true;
+    private bool _enableBubbleAnimation = true;
+    private bool _enableFollowMotion = true;
 
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _directionTimer;
@@ -111,6 +114,7 @@ public partial class PetWindow : Window
         _frames = frames;
         _manifest = manifest;
         _settings = settings;
+        ApplyAppearancePreferences(settings.Load().Appearance);
 
         _fps = manifest.Render?.Fps is > 0 ? manifest.Render.Fps : 12;
         if (manifest.FrameInventory?.FramesPerAction is { } fpa
@@ -132,7 +136,7 @@ public partial class PetWindow : Window
         {
             Interval = TimeSpan.FromMilliseconds(HeadFollowIntervalMs)
         };
-        _directionTimer.Tick += (_, _) => UpdateHeadDirectionFromMouse();
+        _directionTimer.Tick += (_, _) => { if (_enableFollowMotion) UpdateHeadDirectionFromMouse(); };
         _directionTimer.Start();
 
         _bubbleTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -390,7 +394,7 @@ public partial class PetWindow : Window
         // Respect Windows' reduced-motion preference. The bubble remains a
         // useful reminder even when movement is disabled by accessibility
         // settings.
-        if (roam && SystemParameters.ClientAreaAnimation)
+        if (roam && _enableRoaming && SystemParameters.ClientAreaAnimation)
             StartRoam();
     }
 
@@ -405,7 +409,7 @@ public partial class PetWindow : Window
         _bubbleTimer.Stop();
         if (autoHide)
         {
-            _bubbleTimer.Interval = duration ?? TimeSpan.FromSeconds(1.8);
+            _bubbleTimer.Interval = _enableBubbleAnimation ? duration ?? TimeSpan.FromSeconds(1.8) : TimeSpan.FromSeconds(4);
             _bubbleTimer.Start();
         }
     }
@@ -545,7 +549,7 @@ public partial class PetWindow : Window
 
         _currentDirection = Direction8.Down;
         var behavior = PetIdleBehaviorPolicy.Choose(_random.Next());
-        if (behavior == PetIdleBehaviorKind.Roam && SystemParameters.ClientAreaAnimation)
+        if (behavior == PetIdleBehaviorKind.Roam && _enableRoaming && SystemParameters.ClientAreaAnimation)
         {
             StartRoam();
             return;
@@ -586,6 +590,15 @@ public partial class PetWindow : Window
         SetLoopingAction("jump");
         _roamStopwatch.Restart();
         _roamTimer.Start();
+    }
+
+    public void ApplyAppearancePreferences(AppearanceSettings settings)
+    {
+        _enableRoaming = settings.EnablePetRoaming;
+        _enableBubbleAnimation = settings.EnableBubbleAnimation;
+        _enableFollowMotion = settings.EnableFollowMotion;
+        if (!_enableRoaming) CancelRoam();
+        if (!_enableFollowMotion) { _currentDirection = Direction8.Down; RenderFrame(); }
     }
 
     private void AdvanceRoam()

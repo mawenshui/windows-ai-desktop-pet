@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using AiPet.AI;
 using AiPet.Common;
 using AiPet.Pet;
@@ -164,6 +165,7 @@ public partial class App : System.Windows.Application
             _tool.ApplyWindowPreferences(
                 settingsV.ToolWindow.StayOpen,
                 settingsV.ToolWindow.AlwaysOnTop);
+            _tool.ApplyTheme(settingsV.Appearance.Theme);
             _tool.WindowPreferencesChanged += (_, _) => SaveToolWindowPreferences();
             DebugLog("[App] tool window ctor done");
             _pet = new PetWindow(cache, manifest, preferred, _settingsStore);
@@ -210,6 +212,11 @@ public partial class App : System.Windows.Application
                 todoStore: _todoStore,
                 todoAiClient: _todoAi);
             fromXaml.CharacterChanged += character => _pet?.SetCharacter(character);
+            fromXaml.AppearanceChanged += appearance =>
+            {
+                _tool?.ApplyTheme(appearance.Theme);
+                _pet?.ApplyAppearancePreferences(appearance);
+            };
             _homeVm = fromXaml;
             DebugLog("[App] home vm attached from XAML resource");
         }
@@ -272,8 +279,18 @@ public partial class App : System.Windows.Application
                     : (notification.Item.IsReminder ? "提醒项" : "待办提醒"),
                 notification.Item.Title,
                 ToolTipIcon.Info);
+            if (!notification.Item.IsReminder)
+            {
+                var reminderId = notification.Item.Id;
+                _tray.ShowReminderActions(notification.Item.Title,
+                    () => { try { _todoStore?.Complete(reminderId); _homeVm?.Todo.RefreshItems(); } catch { } },
+                    () => { try { _todoStore?.Snooze(reminderId, DateTimeOffset.Now.AddMinutes(10)); _reminderScheduler?.Reschedule(); _homeVm?.Todo.RefreshItems(); } catch { } },
+                    () => { _tool?.SelectTodoTab(); ShowToolWindow(showSettings: false); });
+            }
             return true;
         }));
+        SystemEvents.TimeChanged += OnSystemTimeChanged;
+        SystemEvents.PowerModeChanged += OnPowerModeChanged;
         // Patch: the "设置" item is now wired to open the home page
         // (the integrated ToolWindow already shows settings as a tab).
         // The "开机自启" item toggles AutoStart. Both are best-effort;
@@ -490,6 +507,8 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        try { SystemEvents.TimeChanged -= OnSystemTimeChanged; } catch { }
+        try { SystemEvents.PowerModeChanged -= OnPowerModeChanged; } catch { }
         try { _tool?.AllowClose(); } catch { }
         try { _homeVm?.CancelBackgroundWork(); } catch { }
         try { _applicationIndexCts?.Cancel(); } catch { }
@@ -501,6 +520,13 @@ public partial class App : System.Windows.Application
         try { _applicationIndexCts?.Dispose(); } catch { }
         try { _wakeCts?.Dispose(); } catch { }
         base.OnExit(e);
+    }
+
+    private void OnSystemTimeChanged(object? sender, EventArgs e) => _reminderScheduler?.Reschedule();
+
+    private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume) _reminderScheduler?.Reschedule();
     }
 
     // ============== --smoke mode ==============

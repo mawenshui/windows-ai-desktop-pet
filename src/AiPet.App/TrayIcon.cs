@@ -22,6 +22,8 @@ public sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _petVisibilityItem;
     private readonly ToolStripMenuItem _toolWindowItem;
     private readonly ToolStripMenuItem _autostartItem;
+    private ToolStripMenuItem? _reminderActions;
+    private readonly Icon _applicationIcon;
     private readonly Func<TrayState>? _stateProvider;
     private readonly TaskbarCreatedMessageWindow _taskbarCreatedWindow;
     private TrayState _fallbackState = new(true, false, false);
@@ -42,36 +44,37 @@ public sealed class TrayIcon : IDisposable
         _menu = new ContextMenuStrip();
         _menu.Opening += (_, _) => RefreshState();
 
-        _petVisibilityItem = new ToolStripMenuItem("隐藏桌宠") { CheckOnClick = false };
+        _applicationIcon = LoadApplicationIcon();
+        _petVisibilityItem = new ToolStripMenuItem("隐藏桌宠") { CheckOnClick = false, Image = CreateMenuGlyph("pet") };
         _petVisibilityItem.Click += (_, _) => PetVisibilityClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(_petVisibilityItem);
 
-        _toolWindowItem = new ToolStripMenuItem("显示工具窗口") { CheckOnClick = false };
+        _toolWindowItem = new ToolStripMenuItem("显示工具窗口") { CheckOnClick = false, Image = CreateMenuGlyph("window") };
         _toolWindowItem.Click += (_, _) => ToolWindowClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(_toolWindowItem);
         _menu.Items.Add(new ToolStripSeparator());
 
-        var settings = new ToolStripMenuItem("设置");
+        var settings = new ToolStripMenuItem("设置") { Image = CreateMenuGlyph("settings") };
         settings.Click += (_, _) => SettingsClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(settings);
 
-        _autostartItem = new ToolStripMenuItem("开机自启") { CheckOnClick = false };
+        _autostartItem = new ToolStripMenuItem("开机自启") { CheckOnClick = false, Image = CreateMenuGlyph("startup") };
         _autostartItem.Click += (_, _) => AutostartClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(_autostartItem);
 
-        var help = new ToolStripMenuItem("帮助");
+        var help = new ToolStripMenuItem("帮助") { Image = CreateMenuGlyph("help") };
         help.Click += (_, _) => HelpClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(help);
         _menu.Items.Add(new ToolStripSeparator());
 
-        var exit = new ToolStripMenuItem("退出");
+        var exit = new ToolStripMenuItem("退出") { Image = CreateMenuGlyph("exit") };
         exit.Click += (_, _) => ExitClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(exit);
 
         _icon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
-            Text = "Windows AI Desktop Pet",
+            Icon = _applicationIcon,
+            Text = "Windows AI Desktop Pet · 方块伙伴",
             Visible = true,
             ContextMenuStrip = _menu,
         };
@@ -94,6 +97,25 @@ public sealed class TrayIcon : IDisposable
         _icon.BalloonTipText = text;
         _icon.BalloonTipIcon = icon;
         _icon.ShowBalloonTip(2500);
+    }
+
+    public void ShowReminderActions(string title, Action complete, Action snooze, Action open)
+    {
+        if (_disposed) return;
+        ClearReminderActions();
+        _reminderActions = new ToolStripMenuItem("待处理提醒") { Image = CreateMenuGlyph("help") };
+        _reminderActions.DropDownItems.Add(new ToolStripMenuItem($"打开：{title}", CreateMenuGlyph("window"), (_, _) => open()));
+        _reminderActions.DropDownItems.Add(new ToolStripMenuItem("标记完成", CreateMenuGlyph("pet"), (_, _) => { complete(); ClearReminderActions(); }));
+        _reminderActions.DropDownItems.Add(new ToolStripMenuItem("10 分钟后提醒", CreateMenuGlyph("startup"), (_, _) => { snooze(); ClearReminderActions(); }));
+        _menu.Items.Insert(0, _reminderActions);
+    }
+
+    private void ClearReminderActions()
+    {
+        if (_reminderActions is null) return;
+        _menu.Items.Remove(_reminderActions);
+        _reminderActions.Dispose();
+        _reminderActions = null;
     }
 
     private void RefreshState()
@@ -126,7 +148,49 @@ public sealed class TrayIcon : IDisposable
         _taskbarCreatedWindow.Dispose();
         _icon.Visible = false;
         _icon.Dispose();
+        _applicationIcon.Dispose();
         _menu.Dispose();
+    }
+
+    private static Icon LoadApplicationIcon()
+    {
+        try
+        {
+            var path = Environment.ProcessPath;
+            var extracted = string.IsNullOrWhiteSpace(path) ? null : Icon.ExtractAssociatedIcon(path);
+            return extracted is null ? (Icon)SystemIcons.Application.Clone() : (Icon)extracted.Clone();
+        }
+        catch
+        {
+            return (Icon)SystemIcons.Application.Clone();
+        }
+    }
+
+    private static Bitmap CreateMenuGlyph(string kind)
+    {
+        var bitmap = new Bitmap(16, 16);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var pen = new Pen(Color.FromArgb(74, 66, 61), 1.6f)
+        {
+            StartCap = System.Drawing.Drawing2D.LineCap.Round,
+            EndCap = System.Drawing.Drawing2D.LineCap.Round,
+        };
+        using var accent = new SolidBrush(Color.FromArgb(235, 123, 73));
+        switch (kind)
+        {
+            case "pet":
+                graphics.FillEllipse(accent, 2, 3, 12, 10);
+                graphics.FillEllipse(Brushes.White, 5, 7, 2, 2);
+                graphics.FillEllipse(Brushes.White, 9, 7, 2, 2);
+                break;
+            case "window": graphics.DrawRectangle(pen, 2, 3, 12, 10); graphics.DrawLine(pen, 2, 6, 14, 6); break;
+            case "settings": graphics.DrawEllipse(pen, 3, 3, 10, 10); graphics.FillEllipse(accent, 6, 6, 4, 4); break;
+            case "startup": graphics.DrawArc(pen, 2, 2, 12, 12, 35, 290); graphics.DrawLine(pen, 11, 2, 14, 3); break;
+            case "help": graphics.DrawEllipse(pen, 2, 2, 12, 12); graphics.DrawString("?", new Font("Segoe UI", 9, FontStyle.Bold), accent, 4, 0); break;
+            default: graphics.DrawLine(pen, 4, 4, 12, 12); graphics.DrawLine(pen, 12, 4, 4, 12); break;
+        }
+        return bitmap;
     }
 
     private sealed class TaskbarCreatedMessageWindow : NativeWindow, IDisposable

@@ -19,6 +19,8 @@ public sealed record SearchItem(
     Guid RangeId,
     bool IsValid)
 {
+    public int RelevanceScore { get; init; }
+    public string MatchReason { get; init; } = "按最近修改时间";
     /// <summary>
     /// True if the underlying file/directory is still present at <see cref="FullPath"/>.
     /// The index row may be stale (e.g. user moved the file); callers must

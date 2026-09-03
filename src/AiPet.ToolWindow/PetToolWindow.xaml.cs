@@ -89,6 +89,8 @@ public partial class PetToolWindow : Window
         Topmost = AlwaysOnTop;
     }
 
+    public void ApplyTheme(string preference) => ThemeManager.Apply(Resources, preference);
+
     public void ApplyWindowPreferences(bool stayOpen, bool alwaysOnTop)
     {
         _applyingWindowPreferences = true;
@@ -211,6 +213,8 @@ public partial class PetToolWindow : Window
     {
         if (e.PropertyName == nameof(HomeViewModel.ApiKey) && DataContext is HomeViewModel vm)
             SyncApiKeyFromVm(vm);
+        if (e.PropertyName == nameof(HomeViewModel.ThemePreference) && DataContext is HomeViewModel themeVm)
+            ApplyTheme(themeVm.ThemePreference);
     }
 
     private void SyncApiKeyFromVm(HomeViewModel vm)
@@ -226,6 +230,39 @@ public partial class PetToolWindow : Window
         if (_suppressApiKeyEcho) return;
         if (DataContext is HomeViewModel vm && sender is PasswordBox box)
             vm.ApiKey = box.Password;
+    }
+
+    private void BackupData_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog { Filter = "AI 桌宠备份 (*.zip)|*.zip", FileName = $"aipet-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip", AddExtension = true };
+        if (dialog.ShowDialog(this) != true || DataContext is not HomeViewModel vm) return;
+        try { vm.BackupLocalData(dialog.FileName); }
+        catch (Exception ex) { MessageBox.Show(this, "备份失败：" + ex.Message, "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private void RestoreData_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog { Filter = "AI 桌宠备份 (*.zip)|*.zip", Multiselect = false };
+        if (dialog.ShowDialog(this) != true || DataContext is not HomeViewModel vm) return;
+        if (MessageBox.Show(this, "将恢复备份中的设置、窗口位置、待办和快捷入口。当前同名数据会被替换，API Key 不受影响。继续吗？", "确认恢复本地数据", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+        try { vm.RestoreLocalData(dialog.FileName); }
+        catch (Exception ex) { MessageBox.Show(this, "恢复失败：" + ex.Message, "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog { Filter = "JSON 诊断 (*.json)|*.json", FileName = $"aipet-diagnostic-{DateTime.Now:yyyyMMdd-HHmm}.json", AddExtension = true };
+        if (dialog.ShowDialog(this) != true || DataContext is not HomeViewModel vm) return;
+        try { vm.ExportDiagnostics(dialog.FileName); }
+        catch (Exception ex) { MessageBox.Show(this, "导出失败：" + ex.Message, "诊断", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private void ResetCaches_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel vm) return;
+        if (MessageBox.Show(this, "只清理可重建的索引、图标缓存和日志。下次搜索可能需要重新建立索引。继续吗？", "确认清理缓存", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+        try { vm.ResetLocalCaches(); }
+        catch (Exception ex) { MessageBox.Show(this, "清理失败：" + ex.Message, "缓存清理", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private void Results_MouseDoubleClick(object sender, MouseButtonEventArgs e)

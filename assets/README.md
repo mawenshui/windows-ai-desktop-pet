@@ -22,6 +22,7 @@ assets/
 | 资源包 | 路径 | 协议 | 状态 |
 | :--- | :--- | :--- | :--- |
 | RGS 8-Direction Characters | `assets/pets/RGS_8Directional/` | **CC0 1.0 Universal** | 0.1.0 MVP 默认,已确认可商用、可修改、可再分发 |
+| 方块伙伴应用图标 | `assets/icons/` | **CC0 1.0 Universal（衍生）** | 0.11.0 EXE、托盘、快捷方式与安装器正式标识 |
 
 每个资源包子目录里必须有:
 

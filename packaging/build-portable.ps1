@@ -83,6 +83,11 @@ if ($exeSize -lt 1024) {
 }
 Write-Output "[INFO ] exe OK: $exePath ($exeSize bytes)"
 
+if (-not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)) {
+    & (Join-Path $projectRoot 'scripts\sign.ps1') -Path $exePath
+    if ($LASTEXITCODE -ne 0) { throw 'Portable executable signing failed.' }
+}
+
 # 4. Zip the portable directory
 $zipName = "windows-ai-desktop-pet-v$Version-portable.zip"
 $zipPath = Join-Path $OutputDirectory $zipName

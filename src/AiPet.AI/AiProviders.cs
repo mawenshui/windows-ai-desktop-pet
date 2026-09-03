@@ -13,7 +13,11 @@ public sealed record AiProviderDescriptor(
     string InfoUrl,
     string DefaultEndpoint,
     string DefaultModel,
-    string Notes);
+    string Notes,
+    IReadOnlyList<string>? SuggestedModels = null,
+    bool SupportsStructuredJson = true,
+    bool SupportsModelDiscovery = false,
+    string ValidationScope = "鉴权、端点可达性与最小结构化请求");
 
 public static class AiProviders
 {

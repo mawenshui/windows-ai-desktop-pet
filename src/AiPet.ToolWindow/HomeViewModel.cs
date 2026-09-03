@@ -102,6 +102,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     public bool HasSelectedSearchOnboardingCandidates =>
         SearchOnboardingCandidates.Any(candidate => candidate.IsSelected);
     public bool HasResults => Results.Count > 0;
+    private bool _hasMoreResults;
+    public bool HasMoreResults { get => _hasMoreResults; private set { if (_hasMoreResults == value) return; _hasMoreResults = value; OnPC(); } }
     public bool IsSearching => _isSearching;
 
     /// <summary>
@@ -209,6 +211,42 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             SaveSearchPreferences();
             RestartSearch();
         }
+    }
+
+    public IReadOnlyList<AppearanceOption> ThemeOptions { get; } = new[]
+    {
+        new AppearanceOption("system", "跟随系统"), new AppearanceOption("light", "浅色"),
+        new AppearanceOption("dark", "深色"), new AppearanceOption("high-contrast", "高对比度"),
+    };
+    private string _themePreference = "system";
+    public string ThemePreference
+    {
+        get => _themePreference;
+        set { if (_themePreference == value) return; _themePreference = value; OnPC(); SaveAppearancePreferences(); }
+    }
+    public AppearanceOption? SelectedTheme
+    {
+        get => ThemeOptions.FirstOrDefault(option => option.Id == ThemePreference);
+        set { if (value is not null) ThemePreference = value.Id; }
+    }
+    private bool _enablePetRoaming = true;
+    public bool EnablePetRoaming { get => _enablePetRoaming; set { if (_enablePetRoaming == value) return; _enablePetRoaming = value; OnPC(); SaveAppearancePreferences(); } }
+    private bool _enableBubbleAnimation = true;
+    public bool EnableBubbleAnimation { get => _enableBubbleAnimation; set { if (_enableBubbleAnimation == value) return; _enableBubbleAnimation = value; OnPC(); SaveAppearancePreferences(); } }
+    private bool _enableFollowMotion = true;
+    public bool EnableFollowMotion { get => _enableFollowMotion; set { if (_enableFollowMotion == value) return; _enableFollowMotion = value; OnPC(); SaveAppearancePreferences(); } }
+
+    private void SaveAppearancePreferences()
+    {
+        if (_settings is null) return;
+        var settings = _settings.Load();
+        settings.Appearance.Theme = ThemePreference;
+        settings.Appearance.EnablePetRoaming = EnablePetRoaming;
+        settings.Appearance.EnableBubbleAnimation = EnableBubbleAnimation;
+        settings.Appearance.EnableFollowMotion = EnableFollowMotion;
+        _settings.Save(settings);
+        AppearanceChanged?.Invoke(settings.Appearance);
+        OnPCFor(nameof(SelectedTheme));
     }
 
     private string _status = "请添加搜索范围或输入关键词。";
@@ -375,6 +413,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     }
 
     public ICommand SearchCommand { get; private set; } = null!;
+    public ICommand LoadMoreResultsCommand { get; private set; } = null!;
     public ICommand AddShortcutCommand { get; private set; } = null!;
     public ICommand EditShortcutCommand { get; private set; } = null!;
     public ICommand RelocateShortcutCommand { get; private set; } = null!;
@@ -398,6 +437,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private void InitializeCommands()
     {
         SearchCommand = new RelayCommand(_ => RestartSearch(immediate: true));
+        LoadMoreResultsCommand = new RelayCommand(async _ => await LoadMoreResultsAsync(), _ => HasMoreResults && !IsSearching);
         AddShortcutCommand = new RelayCommand(_ => AddShortcutRequested?.Invoke(this, EventArgs.Empty));
         EditShortcutCommand = new RelayCommand(p => EditShortcutRequested?.Invoke(ShortcutById(p)), p => p is Guid && _shortcuts is not null);
         RelocateShortcutCommand = new RelayCommand(p => RelocateShortcutRequested?.Invoke(ShortcutById(p)), p => p is Guid && _shortcuts is not null);
@@ -489,18 +529,20 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             var enableRegex = EnableRegexSearch;
             var kind = category == "全部" ? (SearchItemKind?)null : MapCategory(category);
             var scope = SearchScopes.FirstOrDefault(x => x.Id == selectedScope)?.RangeId;
+            const int pageSize = 50;
             var options = new SearchQueryOptions(
                 enableWildcard,
                 enableRegex,
                 scope,
-                Limit: 100);
+                Limit: pageSize + 1);
             var rows = await Task.Run(() => _search.Search(query, kind, options), ct);
             if (!IsCurrentSearch(generation, ct)) return;
             Results.Clear();
-            foreach (var r in rows) Results.Add(r);
+            foreach (var r in rows.Take(pageSize)) Results.Add(r);
+            HasMoreResults = rows.Count > pageSize;
             OnPCFor(nameof(HasResults));
             OnPCFor(nameof(ResultEmptyMessage));
-            Status = $"命中 {Results.Count} 条";
+            Status = HasMoreResults ? $"已显示 {Results.Count} 条，可继续加载" : $"命中 {Results.Count} 条";
         }
         catch (OperationCanceledException) { }
         catch (SearchQueryException ex)
@@ -523,6 +565,25 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task LoadMoreResultsAsync()
+    {
+        if (_search is null || !HasMoreResults) return;
+        SetSearching(true);
+        try
+        {
+            const int pageSize = 50;
+            var category = Category;
+            var scope = SearchScopes.FirstOrDefault(x => x.Id == SelectedSearchScopeId)?.RangeId;
+            var kind = category == "全部" ? (SearchItemKind?)null : MapCategory(category);
+            var options = new SearchQueryOptions(EnableWildcardSearch, EnableRegexSearch, scope, pageSize + 1, Results.Count);
+            var rows = await Task.Run(() => _search.Search(Query, kind, options));
+            foreach (var row in rows.Take(pageSize)) Results.Add(row);
+            HasMoreResults = rows.Count > pageSize;
+            Status = HasMoreResults ? $"已显示 {Results.Count} 条，可继续加载" : $"已显示全部 {Results.Count} 条";
+        }
+        finally { SetSearching(false); (LoadMoreResultsCommand as RelayCommand)?.RaiseCanExecuteChanged(); }
+    }
+
     private bool IsCurrentSearch(int generation, CancellationToken ct) =>
         !ct.IsCancellationRequested && generation == Volatile.Read(ref _searchGeneration);
 
@@ -532,6 +593,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _isSearching = value;
         OnPCFor(nameof(IsSearching));
         OnPCFor(nameof(ResultEmptyMessage));
+        (LoadMoreResultsCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private static SearchItemKind? MapCategory(string cat) => cat switch
@@ -1545,6 +1607,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     public event Action<ShortcutItem?>? EditShortcutRequested;
     public event Action<ShortcutItem?>? RelocateShortcutRequested;
     public event Action<string>? CharacterChanged;
+    public event Action<AppearanceSettings>? AppearanceChanged;
     private void OnPC([CallerMemberName] string? n = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
     private void OnPCFor(string n) => OnPC(n);
@@ -1558,6 +1621,50 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         InitializeCommands();
         InitializeSearchOnboardingCandidates();
         RefreshSearchScopes();
+    }
+
+    public string BackupLocalData(string destination)
+    {
+        if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
+        var path = new DataMaintenanceService(_settings.AppDataDir).Backup(destination);
+        Status = "本地数据备份完成（不含 API Key）。";
+        return path;
+    }
+
+    public DataMaintenanceResult RestoreLocalData(string source)
+    {
+        if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
+        var result = new DataMaintenanceService(_settings.AppDataDir).Restore(source,
+            DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts);
+        Status = result.Errors.Count == 0 ? "本地数据恢复完成，重启应用后全部生效。" : "部分数据恢复失败，请导出诊断查看错误代码。";
+        return result;
+    }
+
+    public DataMaintenanceResult ResetLocalCaches()
+    {
+        if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
+        var result = new DataMaintenanceService(_settings.AppDataDir).Reset(DataModule.SearchIndex | DataModule.IconCache | DataModule.Logs);
+        Status = result.Errors.Count == 0 ? "索引、图标缓存与日志已清理，用户数据保留。" : "部分缓存未能清理。";
+        return result;
+    }
+
+    public void ExportDiagnostics(string destination)
+    {
+        if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
+        var loaded = _settings.Load();
+        DiagnosticExporter.Export(destination, new DiagnosticSnapshot(
+            typeof(HomeViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown",
+            Environment.OSVersion.VersionString,
+            Environment.Version.ToString(),
+            System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
+            ThemeManager.Resolve(loaded.Appearance.Theme),
+            Ranges.Count,
+            Shortcuts.Count,
+            Todo.Items.Count(item => item.Item.Status == TodoStatus.Pending),
+            loaded.Ai.ProviderId,
+            loaded.Ai.LastStatus,
+            Ranges.Where(range => !string.IsNullOrWhiteSpace(range.LastError)).Select(range => range.LastError!).Distinct().ToArray()));
+        Status = "已导出白名单诊断；不含 Key、查询词、完整路径、待办内容或 AI 原文。";
     }
 
     /// <summary>
@@ -1581,11 +1688,20 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _selectedCharacter = loaded.Pet.PreferredCharacter;
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
+        _themePreference = loaded.Appearance.Theme;
+        _enablePetRoaming = loaded.Appearance.EnablePetRoaming;
+        _enableBubbleAnimation = loaded.Appearance.EnableBubbleAnimation;
+        _enableFollowMotion = loaded.Appearance.EnableFollowMotion;
         _selectedSearchScopeId = loaded.Search.LastScopeId;
         _searchOnboardingCompleted = loaded.Search.OnboardingCompleted;
         OnPCFor(nameof(SelectedCharacter));
         OnPCFor(nameof(EnableWildcardSearch));
         OnPCFor(nameof(EnableRegexSearch));
+        OnPCFor(nameof(ThemePreference));
+        OnPCFor(nameof(SelectedTheme));
+        OnPCFor(nameof(EnablePetRoaming));
+        OnPCFor(nameof(EnableBubbleAnimation));
+        OnPCFor(nameof(EnableFollowMotion));
         InitializeSearchOnboardingCandidates();
         ReloadShortcuts();
         ReloadRanges();
@@ -1627,6 +1743,7 @@ internal sealed record AiConfigurationSnapshot(
 public sealed record PetCharacterOption(string Id, string DisplayName);
 public sealed record AiConfigurationOption(string Id, string DisplayName);
 public sealed record SearchRangeCandidateOption(string DisplayName, string Path);
+public sealed record AppearanceOption(string Id, string DisplayName);
 public sealed record SearchScopeOption(string Id, string DisplayName, Guid? RangeId)
 {
     // The compact ComboBox template presents SelectionBoxItem directly.  A

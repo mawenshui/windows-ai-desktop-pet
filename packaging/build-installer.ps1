@@ -114,4 +114,8 @@ $setupPath = Join-Path $OutputDirectory "windows-ai-desktop-pet-v$Version-setup.
 if (-not (Test-Path -LiteralPath $setupPath -PathType Leaf)) {
     throw "Expected installer was not generated: $setupPath"
 }
+if (-not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)) {
+    & (Join-Path $projectRoot 'scripts\sign.ps1') -Path $setupPath
+    if ($LASTEXITCODE -ne 0) { throw 'Installer signing failed.' }
+}
 Write-Output "[OK   ] installer asset: $setupPath"

@@ -182,6 +182,82 @@ public sealed class TodoStore
             ReminderFailureCode = null,
         }, validateScheduledTime: false);
 
+    public TodoItem AdvanceReminder(Guid id, DateTimeOffset deliveredAt)
+    {
+        return Mutate(id, item =>
+        {
+            var current = GetNextReminder(item);
+            var additional = (item.AdditionalReminderTimes ?? Array.Empty<DateTimeOffset>())
+                .Where(value => current is null || value != current.Value)
+                .Where(value => value > deliveredAt)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToArray();
+            var next = additional.FirstOrDefault();
+            DateTimeOffset? nextAt = next == default ? NextRecurrence(item, current ?? deliveredAt) : next;
+            if (nextAt is null)
+            {
+                return item with
+                {
+                    ReminderAt = null,
+                    AdditionalReminderTimes = additional,
+                    ReminderState = ReminderState.Delivered,
+                    LastReminderAttemptAt = deliveredAt,
+                    ReminderFailureCode = null,
+                    Status = item.IsReminder ? TodoStatus.Completed : item.Status,
+                    CompletedAt = item.IsReminder ? deliveredAt : item.CompletedAt,
+                };
+            }
+            return item with
+            {
+                ReminderAt = nextAt,
+                AdditionalReminderTimes = additional.Where(value => value != nextAt.Value).ToArray(),
+                ReminderState = ReminderState.Scheduled,
+                LastReminderAttemptAt = deliveredAt,
+                ReminderFailureCode = null,
+            };
+        }, validateScheduledTime: false);
+    }
+
+    public DateTimeOffset? GetNextReminder() => Load()
+        .Where(item => item.Status == TodoStatus.Pending)
+        .Where(item => item.ReminderState is ReminderState.Scheduled or ReminderState.Snoozed)
+        .Select(GetNextReminder)
+        .Where(value => value is not null)
+        .Min();
+
+    private static DateTimeOffset? GetNextReminder(TodoItem item)
+    {
+        var values = (item.AdditionalReminderTimes ?? Array.Empty<DateTimeOffset>()).AsEnumerable();
+        if (item.ReminderAt is { } primary) values = values.Append(primary);
+        return values.OrderBy(value => value).Cast<DateTimeOffset?>().FirstOrDefault();
+    }
+
+    private static DateTimeOffset? NextRecurrence(TodoItem item, DateTimeOffset after)
+    {
+        var rule = item.Recurrence ?? new RecurrenceRule();
+        if (rule.Kind == RecurrenceKind.None) return null;
+        var interval = Math.Clamp(rule.Interval, 1, 365);
+        DateTimeOffset candidate = rule.Kind switch
+        {
+            RecurrenceKind.Daily => after.AddDays(interval),
+            RecurrenceKind.Weekly => after.AddDays(7 * interval),
+            RecurrenceKind.Weekdays => NextMatchingDay(after, new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday }),
+            RecurrenceKind.CustomDays => NextMatchingDay(after, rule.DaysOfWeek),
+            _ => after.AddDays(interval),
+        };
+        return rule.EndsAt is { } end && candidate > end ? null : candidate;
+    }
+
+    private static DateTimeOffset NextMatchingDay(DateTimeOffset after, IEnumerable<DayOfWeek> days)
+    {
+        var allowed = days.Distinct().ToHashSet();
+        if (allowed.Count == 0) allowed.Add(after.DayOfWeek);
+        var candidate = after;
+        do { candidate = candidate.AddDays(1); } while (!allowed.Contains(candidate.DayOfWeek));
+        return candidate;
+    }
+
     public TodoItem MarkReminderFailed(Guid id, DateTimeOffset attemptedAt, string failureCode) =>
         Mutate(id, item => item with
         {
@@ -220,16 +296,31 @@ public sealed class TodoStore
         if (title.Length > 200) throw new TodoValidationException("标题不能超过 200 个字符。");
         if (notes.Length > 4000) throw new TodoValidationException("备注不能超过 4000 个字符。");
         if (item.IsReminder && item.Status == TodoStatus.Pending && item.ReminderAt is null)
-            throw new TodoValidationException("提醒项必须设置提醒时间。");
+        {
+            if (item.AdditionalReminderTimes is null || item.AdditionalReminderTimes.Count == 0)
+                throw new TodoValidationException("提醒项必须设置提醒时间。");
+        }
+        var additional = (item.AdditionalReminderTimes ?? Array.Empty<DateTimeOffset>()).Distinct().OrderBy(value => value).ToArray();
+        var primaryReminder = item.ReminderAt;
+        if (primaryReminder is null && additional.Length > 0)
+        {
+            primaryReminder = additional[0];
+            additional = additional.Skip(1).ToArray();
+        }
+        if (validateScheduledTime && additional.Any(value => value <= _now()))
+            throw new TodoValidationException("所有提醒时间都必须晚于当前时间。");
+        var recurrence = item.Recurrence ?? new RecurrenceRule();
+        if (recurrence.Interval is < 1 or > 365)
+            throw new TodoValidationException("重复间隔必须在 1 到 365 之间。");
 
         var reminderState = item.ReminderState;
-        if (item.ReminderAt is null && reminderState is ReminderState.Scheduled or ReminderState.Snoozed)
+        if (primaryReminder is null && reminderState is ReminderState.Scheduled or ReminderState.Snoozed)
             reminderState = ReminderState.None;
-        if (item.ReminderAt is not null && reminderState == ReminderState.None)
+        if (primaryReminder is not null && reminderState == ReminderState.None)
             reminderState = ReminderState.Scheduled;
         if (validateScheduledTime
             && item.Status == TodoStatus.Pending
-            && item.ReminderAt is { } reminderAt
+            && primaryReminder is { } reminderAt
             && reminderState is ReminderState.Scheduled or ReminderState.Snoozed
             && reminderAt <= _now())
             throw new TodoValidationException("提醒时间必须晚于当前时间。");
@@ -238,7 +329,10 @@ public sealed class TodoStore
         {
             Title = title,
             Notes = notes,
+            ReminderAt = primaryReminder,
             ReminderState = reminderState,
+            AdditionalReminderTimes = additional,
+            Recurrence = recurrence,
         };
     }
 
@@ -248,7 +342,14 @@ public sealed class TodoStore
         {
             if (!File.Exists(TodoPath)) return new TodoDocument();
             var json = File.ReadAllText(TodoPath);
-            return JsonSerializer.Deserialize<TodoDocument>(json, Options) ?? new TodoDocument();
+            var document = JsonSerializer.Deserialize<TodoDocument>(json, Options) ?? new TodoDocument();
+            if (document.SchemaVersion < 2)
+            {
+                RecoverableAtomicFile.WriteAllText(TodoPath + ".pre-v2.bak", json);
+                document = document with { SchemaVersion = 2 };
+                WriteDocument(document);
+            }
+            return document;
         }
         catch
         {

@@ -7,13 +7,20 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>0.10.0</Version>
-    <AssemblyVersion>0.10.0.0</AssemblyVersion>
-    <FileVersion>0.10.0.0</FileVersion>
+    <Version>0.11.0</Version>
+    <AssemblyVersion>0.11.0.0</AssemblyVersion>
+    <FileVersion>0.11.0.0</FileVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>AiPet.App</RootNamespace>
     <AssemblyName>WindowsAiDesktopPet</AssemblyName>
+    <AssemblyTitle>Windows AI Desktop Pet</AssemblyTitle>
+    <Product>Windows AI Desktop Pet</Product>
+    <Company>Windows AI Desktop Pet Contributors</Company>
+    <Authors>Windows AI Desktop Pet Contributors</Authors>
+    <Description>一款兼顾陪伴、搜索、快捷启动、待办与提醒的 Windows 桌面助手。</Description>
+    <Copyright>Copyright © 2026 Windows AI Desktop Pet Contributors</Copyright>
+    <ApplicationIcon>..\..\assets\icons\windows-ai-desktop-pet.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>AiPet.App.Program</StartupObject>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
@@ -30,6 +37,12 @@
     <ProjectReference Include="..\AiPet.Secrets\AiPet.Secrets.csproj" />
     <ProjectReference Include="..\AiPet.SystemIntegration\AiPet.SystemIntegration.csproj" />
     <ProjectReference Include="..\AiPet.Todos\AiPet.Todos.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\assets\icons\windows-ai-desktop-pet.ico" Link="assets\icons\windows-ai-desktop-pet.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

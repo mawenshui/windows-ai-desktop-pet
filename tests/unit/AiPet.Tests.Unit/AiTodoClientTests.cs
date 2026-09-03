@@ -69,6 +69,27 @@ public sealed class AiTodoClientTests
         Assert.DoesNotContain("secret upstream", result.ErrorMessage ?? string.Empty, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Invalid_fake_server_json_is_reported_without_overwriting_user_data()
+    {
+        var handler = new StubHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{not-json", Encoding.UTF8, "application/json"),
+        });
+        var client = new OpenAiCompatibleTodoClient(new HttpClient(handler));
+
+        var result = await client.ParseAsync(
+            "https://example.test",
+            "model",
+            "test-api-key",
+            new AiTodoParseRequest("明天提醒我提交周报", Now, "China Standard Time"),
+            CancellationToken.None);
+
+        Assert.Equal(AiTodoParseStatus.Failed, result.Status);
+        Assert.Equal(AiErrorCategory.Unknown, result.ErrorCategory);
+        Assert.Null(result.Draft);
+    }
+
     private sealed class StubHandler(HttpResponseMessage response) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(

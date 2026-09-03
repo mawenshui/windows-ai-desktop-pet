@@ -97,7 +97,23 @@ Publish-FileAtomically -Source $candidatePortableAsset -Destination $portableAss
 Publish-FileAtomically -Source $candidateInstallerAsset -Destination $installerAsset
 Publish-FileAtomically -Source $candidateChecksum -Destination $checksumPath
 
+$provenancePath = Join-Path $projectRoot 'dist\checksums\RELEASE_PROVENANCE.json'
+$commit = (& git -C $projectRoot rev-parse HEAD 2>$null)
+$signed = -not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)
+$provenance = [ordered]@{
+    schemaVersion = 1
+    product = 'Windows AI Desktop Pet'
+    version = $Version
+    sourceCommit = $commit
+    builtAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+    runtime = 'win-x64 self-contained'
+    signed = $signed
+    sha256Manifest = 'SHA256SUMS.txt'
+}
+[System.IO.File]::WriteAllText($provenancePath, ($provenance | ConvertTo-Json), $utf8NoBom)
+
 Write-Output "Packaging workspace:          $stagingRoot"
 Write-Output "Generated portable asset:     $portableAsset"
 Write-Output "Generated installer asset:    $installerAsset"
 Write-Output "Generated checksum manifest:  $checksumPath"
+Write-Output "Generated release provenance: $provenancePath"

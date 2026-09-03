@@ -223,6 +223,35 @@ public sealed class SearchIndex : IDisposable
     public void ClearItemsForRange(Guid rangeId)
         => DeleteRows("items", rangeId);
 
+    public void ReplacePath(Guid rangeId, string fullPath, SearchItemRow? replacement)
+    {
+        using var tx = _conn.BeginTransaction();
+        using (var delete = _conn.CreateCommand())
+        {
+            delete.Transaction = tx;
+            delete.CommandText = "DELETE FROM items WHERE range_id = $id AND full_path = $path";
+            delete.Parameters.AddWithValue("$id", rangeId.ToString("D"));
+            delete.Parameters.AddWithValue("$path", fullPath);
+            delete.ExecuteNonQuery();
+        }
+        if (replacement is not null)
+        {
+            using var insert = _conn.CreateCommand();
+            insert.Transaction = tx;
+            insert.CommandText = "INSERT INTO items (range_id,name,full_path,relative_path,extension,kind,size_bytes,last_modified) VALUES ($id,$name,$path,$relative,$extension,$kind,$size,$modified)";
+            insert.Parameters.AddWithValue("$id", rangeId.ToString("D"));
+            insert.Parameters.AddWithValue("$name", replacement.Name);
+            insert.Parameters.AddWithValue("$path", replacement.FullPath);
+            insert.Parameters.AddWithValue("$relative", replacement.RelativePath);
+            insert.Parameters.AddWithValue("$extension", replacement.Extension);
+            insert.Parameters.AddWithValue("$kind", (int)replacement.Kind);
+            insert.Parameters.AddWithValue("$size", replacement.SizeBytes);
+            insert.Parameters.AddWithValue("$modified", replacement.LastModifiedUtc.ToString("O"));
+            insert.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
     private void DeleteRows(string tableName, Guid rangeId)
     {
         if (tableName is not ("items" or "staged_items"))
@@ -243,6 +272,8 @@ public sealed class SearchIndex : IDisposable
         SearchItemKind? kindFilter,
         SearchQueryOptions options)
     {
+        if (options.Limit is < 1 or > 1000) throw new ArgumentOutOfRangeException(nameof(options), "Limit 必须在 1 到 1000 之间。");
+        if (options.Offset < 0) throw new ArgumentOutOfRangeException(nameof(options), "Offset 不能为负数。");
         var normalized = query?.Trim() ?? string.Empty;
         var mode = GetMatchMode(normalized, options);
         Regex? regex = null;
@@ -287,16 +318,25 @@ public sealed class SearchIndex : IDisposable
             sql += " AND range_id = $rid";
             cmd.Parameters.AddWithValue("$rid", rangeId.ToString("D"));
         }
-        sql += " ORDER BY last_modified DESC";
+        if (mode == SearchMatchMode.Literal && normalized.Length > 0)
+        {
+            sql += " ORDER BY CASE WHEN name = $exact COLLATE NOCASE THEN 400 WHEN name LIKE $prefix ESCAPE '\\' THEN 300 WHEN name LIKE $contains ESCAPE '\\' THEN 200 ELSE 100 END DESC, last_modified DESC, name COLLATE NOCASE";
+            cmd.Parameters.AddWithValue("$exact", normalized);
+            cmd.Parameters.AddWithValue("$prefix", EscapeLike(normalized) + "%");
+            cmd.Parameters.AddWithValue("$contains", "%" + EscapeLike(normalized) + "%");
+        }
+        else sql += " ORDER BY last_modified DESC, name COLLATE NOCASE";
         if (mode != SearchMatchMode.Regex)
         {
-            sql += " LIMIT $lim";
+            sql += " LIMIT $lim OFFSET $off";
             cmd.Parameters.AddWithValue("$lim", options.Limit);
+            cmd.Parameters.AddWithValue("$off", options.Offset);
         }
         cmd.CommandText = sql;
 
         using var r = cmd.ExecuteReader();
         var list = new List<SearchItem>();
+        var regexMatchesToSkip = mode == SearchMatchMode.Regex ? options.Offset : 0;
         while (r.Read())
         {
             if (regex is not null)
@@ -308,11 +348,14 @@ public sealed class SearchIndex : IDisposable
                     throw new SearchQueryException("正则表达式执行超时，请缩小表达式范围。", ex);
                 }
                 if (!matches) continue;
+                if (regexMatchesToSkip > 0) { regexMatchesToSkip--; continue; }
             }
             var rid = Guid.Parse(r.GetString(1));
+            var name = r.GetString(2);
+            var score = GetRelevanceScore(name, normalized, mode);
             list.Add(new SearchItem(
                 r.GetInt64(0),
-                r.GetString(2),
+                name,
                 r.GetString(3),
                 r.GetString(4),
                 r.GetString(5),
@@ -320,11 +363,30 @@ public sealed class SearchIndex : IDisposable
                 r.GetInt64(7),
                 DateTimeOffset.Parse(r.GetString(8), CultureInfo.InvariantCulture),
                 rid,
-                IsValid: true));
+                IsValid: true)
+            {
+                RelevanceScore = score,
+                MatchReason = GetMatchReason(score),
+            });
             if (list.Count >= options.Limit) break;
         }
         return list;
     }
+
+    private static int GetRelevanceScore(string name, string query, SearchMatchMode mode)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return 0;
+        if (mode != SearchMatchMode.Literal) return 100;
+        if (string.Equals(name, query, StringComparison.OrdinalIgnoreCase)) return 400;
+        if (name.StartsWith(query, StringComparison.OrdinalIgnoreCase)) return 300;
+        if (name.Contains(query, StringComparison.OrdinalIgnoreCase)) return 200;
+        return 100;
+    }
+
+    private static string GetMatchReason(int score) => score switch
+    {
+        >= 400 => "名称完全匹配", >= 300 => "名称前缀匹配", >= 200 => "名称连续包含", >= 100 => "名称模式匹配", _ => "按最近修改时间",
+    };
 
     public IReadOnlyList<SearchItem> Search(string? query, SearchItemKind? kindFilter, int limit = 100) =>
         Search(query, kindFilter, new SearchQueryOptions(Limit: limit));

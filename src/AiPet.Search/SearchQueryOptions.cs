@@ -14,7 +14,8 @@ public sealed record SearchQueryOptions(
     bool EnableWildcardSearch = false,
     bool EnableRegexSearch = false,
     Guid? RangeId = null,
-    int Limit = 100);
+    int Limit = 100,
+    int Offset = 0);
 
 public sealed class SearchQueryException : Exception
 {

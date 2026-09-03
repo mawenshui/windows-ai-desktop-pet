@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.11.0] - 2026-09-03
+
+### Changed
+
+- Add roadmap reliability, search, reminders, data maintenance, accessibility themes, formal application identity, signing workflow, and system validation foundations.
+
 ## [0.10.0] - 2026-09-03
 
 ### Added

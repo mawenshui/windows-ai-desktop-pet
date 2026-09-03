@@ -76,6 +76,22 @@ public sealed class ShortcutStore
         return item;
     }
 
+    public ShortcutBatchReport AddMany(IEnumerable<ShortcutItem> candidates)
+    {
+        var added = 0;
+        var duplicates = 0;
+        var invalid = 0;
+        var failures = 0;
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate.TargetPath) || !candidate.ExistsNow) { invalid++; continue; }
+            try { Add(candidate); added++; }
+            catch (InvalidOperationException) { duplicates++; }
+            catch { failures++; }
+        }
+        return new ShortcutBatchReport(added, duplicates, invalid, failures);
+    }
+
     private static bool TargetsMatch(string left, string right)
     {
         static string Normalize(string path)
@@ -108,6 +124,7 @@ public sealed class ShortcutStore
     {
         var all = Load().ToDictionary(i => i.Id);
         var list = new List<ShortcutItem>();
+        var placed = new HashSet<Guid>();
         var order = 0;
         foreach (var id in orderedIds)
         {
@@ -115,9 +132,29 @@ public sealed class ShortcutStore
             {
                 it.Order = order++;
                 list.Add(it);
+                placed.Add(id);
             }
         }
+        foreach (var item in all.Values.Where(item => !placed.Contains(item.Id)).OrderBy(item => item.Order).ThenBy(item => item.CreatedAt))
+        {
+            item.Order = order++;
+            list.Add(item);
+        }
         Save(list);
+    }
+
+    public int CleanupUnreferencedIcons()
+    {
+        if (!Directory.Exists(IconsDir)) return 0;
+        var referenced = Load().Select(item => item.IconPath).Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => Path.GetFullPath(path!)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var deleted = 0;
+        foreach (var file in Directory.EnumerateFiles(IconsDir))
+        {
+            if (referenced.Contains(Path.GetFullPath(file))) continue;
+            try { File.Delete(file); deleted++; } catch { }
+        }
+        return deleted;
     }
 
     public ShortcutLaunchOutcome Launch(ShortcutItem item)
@@ -161,3 +198,5 @@ public sealed class ShortcutStore
         return dest;
     }
 }
+
+public sealed record ShortcutBatchReport(int Added, int Duplicates, int Invalid, int Failed);

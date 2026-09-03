@@ -54,6 +54,13 @@ public interface IAiClient
 
 public sealed class OpenAiCompatibleClient : IAiClient
 {
+    private readonly HttpClient _httpClient;
+
+    public OpenAiCompatibleClient(HttpClient? httpClient = null)
+    {
+        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+    }
+
     public async Task<AiConnectionResult> TestConnectionAsync(
         string endpoint, string model, string apiKey, CancellationToken ct)
     {
@@ -70,10 +77,9 @@ public sealed class OpenAiCompatibleClient : IAiClient
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-            using var resp = await http.SendAsync(req, ct).ConfigureAwait(false);
+            using var resp = await _httpClient.SendAsync(req, ct).ConfigureAwait(false);
             sw.Stop();
             if ((int)resp.StatusCode == 200) return AiConnectionResult.Connected((int)sw.ElapsedMilliseconds);
             if ((int)resp.StatusCode == 401) return AiConnectionResult.Failed(AiErrorCategory.AuthFailed, "API Key 无效或已过期", "请核对后重试");

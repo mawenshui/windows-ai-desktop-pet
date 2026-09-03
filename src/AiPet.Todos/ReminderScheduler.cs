@@ -28,14 +28,30 @@ public sealed class ReminderScheduler : IDisposable
         TimeSpan? interval = null)
     {
         _deliver = deliver ?? throw new ArgumentNullException(nameof(deliver));
-        var period = interval ?? TimeSpan.FromSeconds(15);
+        var period = interval ?? TimeSpan.FromDays(24);
         if (period <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(interval));
         _timer?.Dispose();
         _timer = new Timer(
-            async _ => await CheckNowAsync(_deliver).ConfigureAwait(false),
+            async _ =>
+            {
+                await CheckNowAsync(_deliver).ConfigureAwait(false);
+                ScheduleNext(period);
+            },
             null,
             TimeSpan.Zero,
-            period);
+            Timeout.InfiniteTimeSpan);
+    }
+
+    public void Reschedule() => ScheduleNext(TimeSpan.FromDays(24));
+
+    private void ScheduleNext(TimeSpan maximumDelay)
+    {
+        if (_timer is null) return;
+        var next = _store.GetNextReminder();
+        var delay = next is null ? Timeout.InfiniteTimeSpan : next.Value - _now();
+        if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+        if (delay != Timeout.InfiniteTimeSpan && delay > maximumDelay) delay = maximumDelay;
+        try { _timer.Change(delay, Timeout.InfiniteTimeSpan); } catch (ObjectDisposedException) { }
     }
 
     public async Task<int> CheckNowAsync(
@@ -66,10 +82,7 @@ public sealed class ReminderScheduler : IDisposable
                     if (deliver(notification))
                     {
                         TodoItem deliveredItem;
-                        if (item.IsReminder)
-                            deliveredItem = _store.CompleteReminder(item.Id, now);
-                        else
-                            deliveredItem = _store.MarkReminderDelivered(item.Id, now);
+                        deliveredItem = _store.AdvanceReminder(item.Id, now);
                         try
                         {
                             Delivered?.Invoke(notification with { Item = deliveredItem });

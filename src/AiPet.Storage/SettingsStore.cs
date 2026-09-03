@@ -8,7 +8,7 @@ namespace AiPet.Storage;
 public sealed class AppSettings
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 2;
+    public int SchemaVersion { get; set; } = 3;
 
     [JsonPropertyName("pet")]
     public PetSettings Pet { get; set; } = new();
@@ -24,6 +24,34 @@ public sealed class AppSettings
 
     [JsonPropertyName("autostart")]
     public AutostartSettings Autostart { get; set; } = new();
+
+    [JsonPropertyName("appearance")]
+    public AppearanceSettings Appearance { get; set; } = new();
+
+    [JsonPropertyName("features")]
+    public FeatureSettings Features { get; set; } = new();
+}
+
+public sealed class AppearanceSettings
+{
+    [JsonPropertyName("theme")]
+    public string Theme { get; set; } = "system";
+    [JsonPropertyName("enablePetRoaming")]
+    public bool EnablePetRoaming { get; set; } = true;
+    [JsonPropertyName("enableBubbleAnimation")]
+    public bool EnableBubbleAnimation { get; set; } = true;
+    [JsonPropertyName("enableFollowMotion")]
+    public bool EnableFollowMotion { get; set; } = true;
+}
+
+public sealed class FeatureSettings
+{
+    [JsonPropertyName("enableContentSearch")]
+    public bool EnableContentSearch { get; set; }
+    [JsonPropertyName("enableCustomProviderPresets")]
+    public bool EnableCustomProviderPresets { get; set; }
+    [JsonPropertyName("enableOnlineHelpFallback")]
+    public bool EnableOnlineHelpFallback { get; set; }
 }
 
 public sealed class PetSettings
@@ -159,7 +187,14 @@ public sealed class SettingsStore
             if (!File.Exists(SettingsPath)) return Defaults();
             var text = File.ReadAllText(SettingsPath);
             var s = JsonSerializer.Deserialize<AppSettings>(text, Options);
-            return Normalize(s ?? Defaults());
+            if (s is null) return Defaults();
+            if (s.SchemaVersion < 3)
+            {
+                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v3.bak", text);
+                s = Normalize(s);
+                Save(s);
+            }
+            return Normalize(s);
         }
         catch
         {
@@ -200,7 +235,14 @@ public sealed class SettingsStore
 
     private static AppSettings Normalize(AppSettings settings)
     {
-        settings.SchemaVersion = 2;
+        settings.SchemaVersion = 3;
+        settings.Pet ??= new PetSettings();
+        settings.ToolWindow ??= new ToolWindowSettings();
+        settings.Autostart ??= new AutostartSettings();
+        settings.Appearance ??= new AppearanceSettings();
+        settings.Features ??= new FeatureSettings();
+        if (settings.Appearance.Theme is not ("system" or "light" or "dark" or "high-contrast"))
+            settings.Appearance.Theme = "system";
         settings.Search ??= new SearchSettings();
         settings.Search.Ranges ??= new List<string>();
         if (settings.Search.Ranges.Count > 0)

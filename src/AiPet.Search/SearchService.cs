@@ -18,6 +18,7 @@ public sealed class SearchService : IDisposable
     private readonly object _indexGate = new();
     private readonly Func<SearchRange, IEnumerable<SearchItemRow>> _scan;
     private readonly Func<IReadOnlyList<ApplicationEntry>> _appEntries;
+    private readonly Dictionary<Guid, SearchIndexWatcher> _watchers = new();
 
     public SearchService(
         string dbPath,
@@ -42,7 +43,14 @@ public sealed class SearchService : IDisposable
             _index.UpsertRange(SearchRange.For(path));
         }
     }
-    public void RemoveRange(Guid id) { lock (_indexGate) _index.DeleteRange(id); }
+    public void RemoveRange(Guid id)
+    {
+        lock (_indexGate)
+        {
+            if (_watchers.Remove(id, out var watcher)) watcher.Dispose();
+            _index.DeleteRange(id);
+        }
+    }
 
     public void MarkState(Guid id, SearchRangeState state, string? error = null, DateTimeOffset? when = null)
     {
@@ -105,6 +113,7 @@ public sealed class SearchService : IDisposable
                         LastError = null,
                     });
                 }
+                EnsureWatcher(range);
             }
             catch (OperationCanceledException)
             {
@@ -142,7 +151,10 @@ public sealed class SearchService : IDisposable
             // We insert app rows under a dedicated range to keep the
             // schema homogeneous; mark it with a sentinel GUID stored in
             // the path field's first char (e.g. "<app>").
-            foreach (var entry in _appEntries())
+            foreach (var entry in _appEntries()
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Target))
+                .GroupBy(entry => NormalizeTarget(entry.Target), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderBy(entry => entry.DisplayName.Length).First()))
             {
                 ct.ThrowIfCancellationRequested();
                 // AppEntry is a stand-alone object; convert to SearchItemRow
@@ -176,6 +188,50 @@ public sealed class SearchService : IDisposable
         SearchQueryOptions options)
     {
         lock (_indexGate) return _index.Search(query, kindFilter, options);
+    }
+
+    private void EnsureWatcher(SearchRange range)
+    {
+        lock (_indexGate)
+        {
+            if (_watchers.ContainsKey(range.Id) || !Directory.Exists(range.Path)) return;
+            _watchers[range.Id] = new SearchIndexWatcher(range.Path, (paths, overflowed) =>
+            {
+                if (overflowed)
+                {
+                    _ = IndexRangeAsync(range.Id);
+                    return;
+                }
+                lock (_indexGate)
+                    foreach (var path in paths) _index.ReplacePath(range.Id, path, TryBuildRow(range, path));
+            });
+        }
+    }
+
+    private static SearchItemRow? TryBuildRow(SearchRange range, string path)
+    {
+        try
+        {
+            var root = Path.GetFullPath(range.Path);
+            if (Directory.Exists(path))
+            {
+                var info = new DirectoryInfo(path);
+                return new SearchItemRow(range.Id, info.Name, info.FullName, Path.GetRelativePath(root, info.FullName), string.Empty, SearchItemKind.Folder, 0, info.LastWriteTimeUtc);
+            }
+            if (File.Exists(path))
+            {
+                var info = new FileInfo(path);
+                return new SearchItemRow(range.Id, info.Name, info.FullName, Path.GetRelativePath(root, info.FullName), info.Extension, SearchItemKindClassifier.Classify(info.Extension, false), info.Length, info.LastWriteTimeUtc);
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static string NormalizeTarget(string target)
+    {
+        try { return Path.TrimEndingDirectorySeparator(Path.GetFullPath(target)); }
+        catch { return target.Trim().Trim('"'); }
     }
 
     // ---------------- default scan / app providers ----------------
@@ -293,7 +349,12 @@ public sealed class SearchService : IDisposable
 
     public void Dispose()
     {
-        lock (_indexGate) _index.Dispose();
+        lock (_indexGate)
+        {
+            foreach (var watcher in _watchers.Values) watcher.Dispose();
+            _watchers.Clear();
+            _index.Dispose();
+        }
     }
 }
 

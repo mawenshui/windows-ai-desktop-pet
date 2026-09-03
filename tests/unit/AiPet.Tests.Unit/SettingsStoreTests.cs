@@ -107,7 +107,7 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("qwen", profile.ProviderId);
         Assert.Equal("qwen-plus", profile.Model);
         Assert.Equal("legacy", loaded.Ai.ActiveProfileId);
-        Assert.Equal(2, loaded.SchemaVersion);
+        Assert.Equal(3, loaded.SchemaVersion);
     }
 
     [Fact]

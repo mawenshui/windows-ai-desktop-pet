@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.10.0 |
+| 文档版本 | 0.11.0 |
 | 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.3 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 软件基线 | `VERSION` 0.10.0 |
-| 状态 | WPF/.NET 8 技术栈已冻结；0.10.0 已实现首次搜索授权、流式 staging 索引及范围删除清理、AI 配置删除与未保存保护、托盘状态/Explorer 恢复和有界安全退出，并发布 `v0.10.0`；156 项自动化、凭据往返、便携与隔离安装/卸载烟雾已通过；系统通知、Explorer 实际重启、多屏/缩放、独立系统 E2E 和代码签名仍待复核 |
+| 软件基线 | `VERSION` 0.11.0 |
+| 状态 | WPF/.NET 8 技术栈已冻结；0.11.0 增加存储迁移/维护、增量监视与分页排序、多提醒重复规则、自适应调度、主题与正式应用身份、AI fake-server、系统 E2E/签名/来源证明流程；170 项自动化通过，真实系统矩阵与证书状态由发布报告如实记录 |
 
 > 本文档定义“代码如何写”，与 PRD（定义产品行为）和 PROJECT_SPEC（定义工程规则）形成三层文档体系。技术栈一旦冻结，章节将标记为 **已冻结**；实现过程中如发生变更，必须先在本文更新并经评审。
 
@@ -19,6 +19,14 @@
 5. 给出单元/集成/E2E 测试框架选型。
 
 冻结条件：CI 通过、PRD 中 P0 验收所依赖的技术路径全部明确、安全/隐私评审完成。冻结后，模块边界与第三方依赖只允许通过 RFC 流程修改。
+
+### 0.11.0 扩展实现摘要
+
+- `SettingsStore`/`TodoStore` 在 schema 迁移前写入恢复副本；`DataMaintenanceService` 以模块白名单进行 ZIP 备份、恢复和重置，凭据不在路径表内。
+- `SearchIndexWatcher` 合并授权目录事件，普通变化按路径替换索引，缓冲区溢出触发 staging 全量重建；`SearchIndex` 用稳定相关性等级与 offset/limit 分页。
+- `ReminderScheduler` 使用单次 timer 按下一到期时间重排，并响应时间变化与恢复事件；`TodoItem` schema v2 支持多提醒和重复规则。
+- `ThemeManager` 解析系统/浅色/深色/高对比度主题，桌宠三个动态偏好独立生效；原扩展页定义为本地维护中心。
+- 发布管线可在提供证书时使用 SHA-256 + RFC3161 时间戳签名并立即验签，同时生成来源 commit、构建时间、运行时和签名状态证明。
 
 ## 1. 技术栈选型
 
@@ -552,7 +560,7 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 ### 11.1 便携版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.10.0
+pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.11.0
 ```
 
 - 入口：`dotnet publish src/AiPet.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true`；
@@ -562,7 +570,7 @@ pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.10.0
 ### 11.2 安装版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.10.0
+pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.11.0
 ```
 
 - 工具：Inno Setup 6.x；

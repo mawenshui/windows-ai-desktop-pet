@@ -233,7 +233,7 @@
                                 </Border>
                             </Grid>
 
-                            <DockPanel Grid.Row="5" Margin="2,7,0,0"><Ellipse Width="6" Height="6" Margin="0,0,7,0" Fill="{StaticResource Accent}" VerticalAlignment="Center" /><TextBlock Text="{Binding Status}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" /></DockPanel>
+                            <DockPanel Grid.Row="5" Margin="2,7,0,0"><Button DockPanel.Dock="Right" Content="继续加载" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Command="{Binding LoadMoreResultsCommand}" Visibility="{Binding HasMoreResults, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="加载更多搜索结果" /><Ellipse Width="6" Height="6" Margin="0,0,7,0" Fill="{StaticResource Accent}" VerticalAlignment="Center" /><TextBlock Text="{Binding Status}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" /></DockPanel>
                         </Grid>
                     </TabItem>
 
@@ -440,8 +440,16 @@
                         </ScrollViewer>
                     </TabItem>
 
-                    <TabItem Style="{StaticResource ShellTab}" Header="扩展" PreviewMouseDown="ShellTab_PreviewMouseDown">
-                        <Grid><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="260"><Path Width="44" Height="44" Data="M10,2 V8 M10,12 V18 M2,10 H8 M12,10 H18 M5,5 L8,8 M12,12 L15,15 M15,5 L12,8 M8,12 L5,15" Stroke="{StaticResource Accent}" StrokeThickness="1.6" StrokeStartLineCap="Round" Stretch="Uniform" /><TextBlock Text="留一点空间给以后" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" Margin="0,16,0,7" /><TextBlock Text="扩展入口暂不定义用途，避免桌宠再次变成功能清单。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" /></StackPanel></Grid>
+                    <TabItem Style="{StaticResource ShellTab}" Header="维护" PreviewMouseDown="ShellTab_PreviewMouseDown">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="0,8,9,4">
+                                <TextBlock Text="本地数据与诊断" FontSize="20" FontWeight="SemiBold" />
+                                <TextBlock Text="所有操作均在本机完成；备份与诊断不会导出 API Key。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,14" />
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="备份与恢复" Style="{StaticResource SectionLabel}" /><TextBlock Text="备份设置、窗口位置、待办、快捷入口、索引与缓存。恢复前会明确确认，不会操作快捷项指向的原文件。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><WrapPanel><Button Content="导出备份" Style="{StaticResource PrimaryButton}" Click="BackupData_Click" Margin="0,0,8,8" /><Button Content="选择备份恢复" Style="{StaticResource SecondaryButton}" Click="RestoreData_Click" Margin="0,0,0,8" /></WrapPanel></StackPanel></Border>
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="隐私安全诊断" Style="{StaticResource SectionLabel}" /><TextBlock Text="只包含版本、系统、主题、模块数量、Provider 标识、连接状态和稳定错误代码。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><Button Content="导出诊断 JSON" Style="{StaticResource SecondaryButton}" Click="ExportDiagnostics_Click" HorizontalAlignment="Left" /></StackPanel></Border>
+                                <Border Style="{StaticResource SectionCard}"><StackPanel><TextBlock Text="缓存清理" Style="{StaticResource SectionLabel}" /><TextBlock Text="清理可重建的搜索索引、无引用图标缓存与诊断日志；设置、待办、快捷入口和凭据不受影响。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><Button Content="清理可重建数据" Style="{StaticResource SecondaryButton}" Foreground="{StaticResource Error}" Click="ResetCaches_Click" HorizontalAlignment="Left" /></StackPanel></Border>
+                            </StackPanel>
+                        </ScrollViewer>
                     </TabItem>
 
                     <TabItem Style="{StaticResource ShellTab}" Header="设置" PreviewMouseDown="ShellTab_PreviewMouseDown">
@@ -456,6 +464,12 @@
                                             <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="13,8" /><Setter Property="Margin" Value="0,0,8,8" /><Setter Property="Background" Value="{StaticResource Canvas}" /><Setter Property="Foreground" Value="{StaticResource Ink}" /><Setter Property="Cursor" Value="Hand" /><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Chip" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" BorderBrush="#66E6DBCF" BorderThickness="1" CornerRadius="10"><ContentPresenter /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentTint}" /></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentTint}" /><Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource Accent}" /><Setter Property="Foreground" Value="{StaticResource AccentPressed}" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chip" Property="BorderThickness" Value="2" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
                                         </ListBox>
                                         <CheckBox Content="登录 Windows 后自动启动" IsChecked="{Binding AutostartEnabled, Mode=TwoWay}" Command="{Binding ToggleAutostartCommand}" Margin="0,3,0,0" />
+                                        <TextBlock Text="外观与动态效果" Style="{StaticResource SectionLabel}" Margin="0,14,0,7" />
+                                        <Border Style="{StaticResource FieldChrome}"><ComboBox Style="{StaticResource BareComboBox}" ItemsSource="{Binding ThemeOptions}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" AutomationProperties.Name="应用主题" /></Border>
+                                        <CheckBox Content="允许桌宠漫游" IsChecked="{Binding EnablePetRoaming, Mode=TwoWay}" MinHeight="36" />
+                                        <CheckBox Content="允许提醒气泡动画" IsChecked="{Binding EnableBubbleAnimation, Mode=TwoWay}" MinHeight="36" />
+                                        <CheckBox Content="允许朝向跟随鼠标" IsChecked="{Binding EnableFollowMotion, Mode=TwoWay}" MinHeight="36" />
+                                        <TextBlock Text="系统关闭动画或启用高对比度时，应用会自动采用更克制的反馈。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Border>
 
@@ -534,7 +548,7 @@
                                     </Expander>
                                 </Border>
                                 <Button Content="打开用户手册" Style="{StaticResource SecondaryButton}" Command="{Binding OpenHelpCommand}" HorizontalAlignment="Left" />
-                                            <TextBlock Text="Windows AI Desktop Pet 0.10.0 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
+                                            <TextBlock Text="Windows AI Desktop Pet 0.11.0 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

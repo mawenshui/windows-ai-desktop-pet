@@ -18,6 +18,27 @@ public enum ReminderState
     Failed = 5,
 }
 
+public enum RecurrenceKind
+{
+    None = 0,
+    Daily = 1,
+    Weekly = 2,
+    Weekdays = 3,
+    CustomDays = 4,
+}
+
+public sealed record RecurrenceRule
+{
+    [JsonPropertyName("kind")]
+    public RecurrenceKind Kind { get; init; }
+    [JsonPropertyName("interval")]
+    public int Interval { get; init; } = 1;
+    [JsonPropertyName("daysOfWeek")]
+    public IReadOnlyList<DayOfWeek> DaysOfWeek { get; init; } = Array.Empty<DayOfWeek>();
+    [JsonPropertyName("endsAt")]
+    public DateTimeOffset? EndsAt { get; init; }
+}
+
 public sealed record TodoItem
 {
     [JsonPropertyName("id")]
@@ -34,6 +55,12 @@ public sealed record TodoItem
 
     [JsonPropertyName("reminderAt")]
     public DateTimeOffset? ReminderAt { get; init; }
+
+    [JsonPropertyName("additionalReminderTimes")]
+    public IReadOnlyList<DateTimeOffset> AdditionalReminderTimes { get; init; } = Array.Empty<DateTimeOffset>();
+
+    [JsonPropertyName("recurrence")]
+    public RecurrenceRule Recurrence { get; init; } = new();
 
     [JsonPropertyName("status")]
     public TodoStatus Status { get; init; }
@@ -76,7 +103,7 @@ public sealed record TodoItem
 public sealed record TodoDocument
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; init; } = 1;
+    public int SchemaVersion { get; init; } = 2;
 
     [JsonPropertyName("items")]
     public List<TodoItem> Items { get; init; } = new();
