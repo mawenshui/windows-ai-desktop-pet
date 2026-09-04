@@ -14,10 +14,13 @@
 - 独立桌面 UI runner 需要可见、稳定的交互式 Windows 桌面；当前会话跨桌面输入不可用时按实际结果报告，不将程序化选择冒充真实输入通过。
 - 物理多屏、不同缩放、Explorer 重启、显示器热插拔、休眠和可信代码签名继续按实际环境报告 PASS/FAIL/SKIP。
 
-## 发布资产
+## 候选发布资产
 
 - `windows-ai-desktop-pet-v0.12.1-portable.zip`
 - `windows-ai-desktop-pet-v0.12.1-setup.exe`
 - `SHA256SUMS.txt`
 
-资产哈希以正式打包后生成的 `dist/checksums/SHA256SUMS.txt` 为准。
+- 便携版 SHA-256：`def66c643b9b86d82e07993e1970e1062e4a29c8bd46a6198367a4e52cd3bc51`
+- 安装器 SHA-256：`ddb3245216c2643235bbe0c87fdda02175016b08260f6928e0e5400669604cc9`
+
+以上资产基于源提交 `df86e4841e8c698e32ae8b5a01f9214082edd52f` 构建。便携运行、隔离安装、安装后启动和卸载均已通过；产物未签名。当前交互式桌面无法向测试窗口发送真实键盘输入，因此独立 UI E2E 门禁尚未关闭，本说明不将候选误称为已完成正式 GitHub Release。

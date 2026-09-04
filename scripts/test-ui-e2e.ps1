@@ -18,11 +18,24 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 public static class AiPetMouseInput {
+    public delegate bool EnumWindowsProc(IntPtr handle, IntPtr parameter);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+    public static IntPtr[] GetTopLevelWindows(uint targetProcessId) {
+        var handles = new List<IntPtr>();
+        EnumWindows((handle, parameter) => {
+            GetWindowThreadProcessId(handle, out var processId);
+            if (processId == targetProcessId) handles.Add(handle);
+            return true;
+        }, IntPtr.Zero);
+        return handles.ToArray();
+    }
     public const uint RightDown = 0x0008;
     public const uint RightUp = 0x0010;
     public const uint LeftDown = 0x0002;
@@ -49,9 +62,12 @@ function Find-Element([string]$Name, [int]$TimeoutSeconds = 10) {
                 [System.Windows.Automation.TreeScope]::Descendants, $identityCondition)
             if ($null -ne $found) { return $found }
         } else {
-            $processWindows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-                [System.Windows.Automation.TreeScope]::Children, $processCondition)
-            foreach ($processWindow in $processWindows) {
+            foreach ($handle in [AiPetMouseInput]::GetTopLevelWindows([uint32]$script:process.Id)) {
+                $processWindow = $null
+                try {
+                    $processWindow = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+                } catch { }
+                if ($null -eq $processWindow) { continue }
                 if ($processWindow.Current.Name -eq $Name -or $processWindow.Current.AutomationId -eq $Name) {
                     return $processWindow
                 }
@@ -135,12 +151,17 @@ function Get-Value([string]$Name) {
 function Save-Screenshot([string]$Path) {
     $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
     $bitmap = [System.Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+    $temporaryPath = "$Path.$PID.tmp.png"
     try {
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         try { $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bounds.Size) }
         finally { $graphics.Dispose() }
-        $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
-    } finally { $bitmap.Dispose() }
+        $bitmap.Save($temporaryPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        [System.IO.File]::Move($temporaryPath, $Path, $true)
+    } finally {
+        $bitmap.Dispose()
+        if (Test-Path -LiteralPath $temporaryPath) { [System.IO.File]::Delete($temporaryPath) }
+    }
 }
 
 try {
@@ -219,8 +240,13 @@ try {
 }
 catch {
     Write-Output ("[UI] failure: {0}" -f $_.Exception.Message)
-    try { Save-Screenshot $screenshotPath } catch { }
-    $report = [ordered]@{ schemaVersion = 1; status = 'FAIL'; failedStage = $stage; stableError = 'UI_E2E_FAILED'; startedAtUtc = $startedAt; completedAtUtc = [DateTimeOffset]::UtcNow; screenshot = 'ui-e2e-failure.png' }
+    $capturedScreenshot = $null
+    try {
+        if (Test-Path -LiteralPath $screenshotPath) { [System.IO.File]::Delete($screenshotPath) }
+        Save-Screenshot $screenshotPath
+        if (Test-Path -LiteralPath $screenshotPath) { $capturedScreenshot = 'ui-e2e-failure.png' }
+    } catch { }
+    $report = [ordered]@{ schemaVersion = 1; status = 'FAIL'; failedStage = $stage; stableError = 'UI_E2E_FAILED'; startedAtUtc = $startedAt; completedAtUtc = [DateTimeOffset]::UtcNow; screenshot = $capturedScreenshot }
     [System.IO.File]::WriteAllText($reportPath, ($report | ConvertTo-Json -Depth 4), [System.Text.UTF8Encoding]::new($false))
     Write-Error "UI E2E failed at stage '$stage'. See the redacted report and screenshot under build/reports/ui-e2e."
 }

@@ -23,24 +23,70 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 public static class AiPetPerformanceMouse {
+    public delegate bool EnumWindowsProc(IntPtr handle, IntPtr parameter);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+    public static IntPtr[] GetTopLevelWindows(uint targetProcessId) {
+        var handles = new List<IntPtr>();
+        EnumWindows((handle, parameter) => {
+            GetWindowThreadProcessId(handle, out var processId);
+            if (processId == targetProcessId) handles.Add(handle);
+            return true;
+        }, IntPtr.Zero);
+        return handles.ToArray();
+    }
     public const uint LeftDown = 0x0002;
     public const uint LeftUp = 0x0004;
 }
 '@
 
 function Find-Element([string]$Name, [int]$TimeoutMilliseconds = 10000, [switch]$Visible) {
-    $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty,
+        $Name)
+    $processCondition = if ($null -ne $script:process) {
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ProcessIdProperty,
+            $script:process.Id)
+    } else { $null }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     do {
-        $item = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        if ($null -ne $item -and (-not $Visible -or -not $item.Current.IsOffscreen)) { return $item }
+        if ($null -eq $processCondition) {
+            $item = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
+                [System.Windows.Automation.TreeScope]::Descendants,
+                $condition)
+            if ($null -ne $item -and (-not $Visible -or -not $item.Current.IsOffscreen)) { return $item }
+        } else {
+            foreach ($handle in [AiPetPerformanceMouse]::GetTopLevelWindows([uint32]$script:process.Id)) {
+                $processWindow = $null
+                try {
+                    $processWindow = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+                } catch { }
+                if ($null -eq $processWindow) { continue }
+                if ($processWindow.Current.Name -eq $Name -and
+                    (-not $Visible -or -not $processWindow.Current.IsOffscreen)) {
+                    return $processWindow
+                }
+                $item = $processWindow.FindFirst(
+                    [System.Windows.Automation.TreeScope]::Descendants,
+                    $condition)
+                if ($null -ne $item -and (-not $Visible -or -not $item.Current.IsOffscreen)) { return $item }
+            }
+        }
         Start-Sleep -Milliseconds 5
     } while ($watch.ElapsedMilliseconds -lt $TimeoutMilliseconds)
-    throw "Performance UI element was not found: $Name"
+    $diagnostic = if ($null -ne $script:process) {
+        $windowNames = @([AiPetPerformanceMouse]::GetTopLevelWindows([uint32]$script:process.Id) | ForEach-Object {
+            try { [System.Windows.Automation.AutomationElement]::FromHandle($_).Current.Name } catch { '<uia-unavailable>' }
+        })
+        "process=$($script:process.Id), exited=$($script:process.HasExited), windows=[$($windowNames -join ', ')]"
+    } else { 'process unavailable' }
+    throw "Performance UI element was not found: $Name ($diagnostic)"
 }
 
 function Click-At([double]$X, [double]$Y) {

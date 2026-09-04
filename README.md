@@ -6,7 +6,7 @@ A Windows desktop-pet project planned around local file/application search, quic
 
 Version `0.12.1` is a runnable WPF/.NET 8 desktop companion. It keeps native WPF selection semantics for every dropdown and prevents popup interaction from being mistaken for tool-window deactivation, so selected values remain visible and effective across the home, todo, and settings pages.
 
-The 0.12.1 release has 173 passing automated interaction and logic tests. Packaging uses a unique build workspace and atomic publication. A certificate supplied through protected release secrets signs and verifies the application, installer, and generated uninstaller; builds without a certificate remain explicitly unsigned. Physical multi-screen/scaling, Explorer restart, and sleep scenarios remain environment-dependent checks and are reported as PASS/FAIL/SKIP rather than inferred.
+The 0.12.1 candidate has 173 passing automated interaction and logic tests. Packaging uses a unique build workspace and atomic publication. A certificate supplied through protected release secrets signs and verifies the application, installer, and generated uninstaller; builds without a certificate remain explicitly unsigned. Physical multi-screen/scaling, Explorer restart, and sleep scenarios remain environment-dependent checks and are reported as PASS/FAIL/SKIP rather than inferred.
 
 ## Start here
 
@@ -37,15 +37,14 @@ Single-click the pet to open the companion popover, double-click to play an acti
 
 ## Release artifacts
 
-The 0.12.1 release provides:
+The local 0.12.1 candidate provides:
 
 - `dist/portable/windows-ai-desktop-pet-v<version>-portable.zip`
 - `dist/installer/windows-ai-desktop-pet-v<version>-setup.exe`
 - `dist/checksums/SHA256SUMS.txt`
 - `dist/checksums/RELEASE_PROVENANCE.json`
 
-The generated 0.12.1 assets and SHA-256 values are recorded in `dist/checksums/SHA256SUMS.txt`.
-Release: [GitHub v0.12.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.1).
+The generated 0.12.1 assets and SHA-256 values are recorded in `dist/checksums/SHA256SUMS.txt`. A GitHub Release is intentionally not claimed until the independent interactive-desktop UI gate and remaining external release gates are closed.
 
 See [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) for the complete test, SemVer, packaging, GitHub, and Release workflow.
 
