@@ -17,6 +17,20 @@ $installed = Join-Path $root 'installed'
 
 Expand-Archive -LiteralPath $zip -DestinationPath $portable
 $portableExe = Join-Path $portable 'WindowsAiDesktopPet.exe'
+function Assert-AuthenticodeSignature([string]$Path, [string]$Label) {
+    $signature = Get-AuthenticodeSignature -LiteralPath $Path
+    if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
+        throw "$Label Authenticode validation failed with status $($signature.Status)."
+    }
+    Write-Output "[PASS] $Label Authenticode signature is valid."
+}
+$expectSignatures = $env:AIPET_REQUIRE_SIGNING -eq '1' -or -not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)
+if ($expectSignatures) {
+    Assert-AuthenticodeSignature $portableExe 'portable executable'
+    Assert-AuthenticodeSignature $setup 'installer'
+} else {
+    Write-Output '[SKIP] Authenticode verification: no protected signing certificate is configured.'
+}
 $portableSmoke = Start-Process -FilePath $portableExe -ArgumentList @('--smoke') -Wait -PassThru -WindowStyle Hidden
 if ($portableSmoke.ExitCode -ne 0) { throw "Portable smoke failed with exit code $($portableSmoke.ExitCode)." }
 
@@ -32,6 +46,10 @@ $installedSmoke = Start-Process -FilePath $installedExe -ArgumentList @('--smoke
 if ($installedSmoke.ExitCode -ne 0) { throw "Installed smoke failed with exit code $($installedSmoke.ExitCode)." }
 
 $uninstaller = Join-Path $installed 'unins000.exe'
+if ($expectSignatures) {
+    Assert-AuthenticodeSignature $installedExe 'installed executable'
+    Assert-AuthenticodeSignature $uninstaller 'uninstaller'
+}
 $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -WindowStyle Hidden
 if ($uninstall.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($uninstall.ExitCode)." }
 Write-Output "[PASS] portable, install, installed smoke and uninstall: $root"

@@ -300,7 +300,7 @@
                                                 <StackPanel Margin="0,9,0,0" Visibility="{Binding NeedsAiTarget, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="选择唯一待办" Style="{StaticResource SectionLabel}" />
                                                     <Border Style="{StaticResource FieldChrome}">
-                                                        <ComboBox Style="{StaticResource BareComboBox}" ItemsSource="{Binding AiTargetChoices}" DisplayMemberPath="TargetChoiceText" SelectedItem="{Binding SelectedAiTarget, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="选择 AI 操作目标" />
+                                                        <ComboBox x:Name="AiTargetSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding AiTargetChoices}" DisplayMemberPath="TargetChoiceText" SelectedItem="{Binding SelectedAiTarget, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="选择 AI 操作目标" />
                                                     </Border>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding AiChangeSummary}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,0" />
@@ -453,7 +453,7 @@
                     </TabItem>
 
                     <TabItem Style="{StaticResource ShellTab}" Header="设置" PreviewMouseDown="ShellTab_PreviewMouseDown">
-                        <ScrollViewer x:Name="SettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <ScrollViewer x:Name="SettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" AutomationProperties.Name="设置内容">
                             <StackPanel Margin="0,0,9,4">
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
                                     <StackPanel>
@@ -465,7 +465,7 @@
                                         </ListBox>
                                         <CheckBox Content="登录 Windows 后自动启动" IsChecked="{Binding AutostartEnabled, Mode=TwoWay}" Command="{Binding ToggleAutostartCommand}" Margin="0,3,0,0" />
                                         <TextBlock Text="外观与动态效果" Style="{StaticResource SectionLabel}" Margin="0,14,0,7" />
-                                        <Border Style="{StaticResource FieldChrome}"><ComboBox Style="{StaticResource BareComboBox}" ItemsSource="{Binding ThemeOptions}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" AutomationProperties.Name="应用主题" /></Border>
+                                        <Border Style="{StaticResource FieldChrome}"><ComboBox x:Name="ThemeSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding ThemeOptions}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedTheme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="应用主题" /></Border>
                                         <CheckBox Content="允许桌宠漫游" IsChecked="{Binding EnablePetRoaming, Mode=TwoWay}" MinHeight="36" />
                                         <CheckBox Content="允许提醒气泡动画" IsChecked="{Binding EnableBubbleAnimation, Mode=TwoWay}" MinHeight="36" />
                                         <CheckBox Content="允许朝向跟随鼠标" IsChecked="{Binding EnableFollowMotion, Mode=TwoWay}" MinHeight="36" />
@@ -519,17 +519,22 @@
                                 </Border>
 
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
-                                    <Expander x:Name="AiSettingsExpander">
+                                    <Expander x:Name="AiSettingsExpander" AutomationProperties.Name="AI 接入设置">
                                         <Expander.Header><TextBlock Text="AI 接入（可选）" FontWeight="SemiBold" /></Expander.Header>
                                         <StackPanel Margin="0,12,0,0">
-                                             <TextBlock Text="已保存配置" Style="{StaticResource SectionLabel}" />
+                                             <TextBlock Text="新建配置模板" Style="{StaticResource SectionLabel}" />
                                              <Grid>
                                                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                                  <Border Style="{StaticResource FieldChrome}">
-                                                     <ComboBox x:Name="SavedAiConfigurationSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding SavedAiConfigurations}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedAiConfiguration, Mode=OneWay}" SelectionChanged="SavedAiConfigurationSelector_SelectionChanged" IsEnabled="{Binding HasSavedAiConfigurations}" AutomationProperties.Name="已保存 AI 配置" />
+                                                     <ComboBox x:Name="AiTemplateSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding AiConfigurationTemplates}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedAiTemplate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="新建 AI 配置模板" />
                                                  </Border>
-                                                 <Button Grid.Column="1" Content="新建" Style="{StaticResource SecondaryButton}" Click="NewAiConfig_Click" Margin="8,0,0,0" AutomationProperties.Name="新建 AI 配置" />
+                                                 <Button Grid.Column="1" Content="从模板新建" Style="{StaticResource SecondaryButton}" Click="NewAiConfig_Click" Margin="8,0,0,0" AutomationProperties.Name="从模板新建 AI 配置" />
                                              </Grid>
+                                             <TextBlock Text="{Binding SelectedAiTemplate.Notes}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                             <TextBlock Text="已保存配置" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" />
+                                             <Border Style="{StaticResource FieldChrome}">
+                                                 <ComboBox x:Name="SavedAiConfigurationSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding SavedAiConfigurations}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedAiConfiguration, Mode=OneWay}" SelectionChanged="SavedAiConfigurationSelector_SelectionChanged" IsEnabled="{Binding HasSavedAiConfigurations}" AutomationProperties.Name="已保存 AI 配置" />
+                                             </Border>
                                              <TextBlock Text="选择已保存配置后会立即作为待办 AI 的当前配置。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
                                              <TextBlock Text="配置名称" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" />
                                              <TextBox x:Name="AiConfigurationNameBox" Style="{StaticResource Field}" Text="{Binding AiConfigurationName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="AI 配置名称" />
@@ -548,7 +553,7 @@
                                     </Expander>
                                 </Border>
                                 <Button Content="打开用户手册" Style="{StaticResource SecondaryButton}" Command="{Binding OpenHelpCommand}" HorizontalAlignment="Left" />
-                                            <TextBlock Text="Windows AI Desktop Pet 0.11.0 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
+                                            <TextBlock Text="Windows AI Desktop Pet 0.12.1 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

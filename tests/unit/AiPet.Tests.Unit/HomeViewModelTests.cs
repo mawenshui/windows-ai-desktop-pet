@@ -62,6 +62,47 @@ public sealed class HomeViewModelTests : IDisposable
     }
 
     [Fact]
+    public void New_ai_configuration_copies_selected_template_and_keeps_fields_editable()
+    {
+        var vm = CreateViewModel();
+        var qwen = Assert.Single(vm.AiConfigurationTemplates, template => template.Id == "qwen");
+
+        vm.SelectedAiTemplate = qwen;
+        vm.NewAiConfigCommand.Execute(null);
+
+        Assert.Equal("qwen", vm.Provider);
+        Assert.Equal(qwen.DefaultEndpoint, vm.Endpoint);
+        Assert.Equal(qwen.DefaultModel, vm.Model);
+        Assert.Equal("通义千问 Qwen 配置", vm.AiConfigurationName);
+        Assert.Empty(vm.ApiKey);
+        Assert.True(vm.HasUnsavedAiChanges);
+        Assert.Contains(qwen.DisplayName, vm.AiStatusDetail, StringComparison.Ordinal);
+
+        vm.Endpoint = "https://example.invalid/v1";
+        vm.Model = "custom-qwen-model";
+
+        Assert.Equal("https://example.invalid/v1", vm.Endpoint);
+        Assert.Equal("custom-qwen-model", vm.Model);
+    }
+
+    [Fact]
+    public void Custom_ai_template_starts_with_blank_endpoint_and_model()
+    {
+        var vm = CreateViewModel();
+        vm.SelectedAiTemplate = Assert.Single(
+            vm.AiConfigurationTemplates,
+            template => template.Id == AiProviders.CustomId);
+
+        vm.NewAiConfigCommand.Execute(null);
+
+        Assert.Equal(AiProviders.CustomId, vm.Provider);
+        Assert.Empty(vm.Endpoint);
+        Assert.Empty(vm.Model);
+        Assert.Empty(vm.ApiKey);
+        Assert.Equal("自定义 (OpenAI 兼容) 配置", vm.AiConfigurationName);
+    }
+
+    [Fact]
     public void Default_provider_populates_empty_configuration_on_first_load()
     {
         var vm = CreateViewModel();

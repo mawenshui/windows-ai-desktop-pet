@@ -172,6 +172,7 @@ public sealed class SettingsStore
     public SettingsStore(string? overrideRoot = null)
     {
         AppDataDir = overrideRoot
+            ?? Environment.GetEnvironmentVariable("AIPET_APP_DATA_ROOT")
             ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "WindowsAiDesktopPet");

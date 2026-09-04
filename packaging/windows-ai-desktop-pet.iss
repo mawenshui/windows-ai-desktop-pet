@@ -36,6 +36,13 @@ WizardStyle=modern
 UninstallDisplayIcon={app}\WindowsAiDesktopPet.exe
 CloseApplications=yes
 RestartApplications=no
+#ifdef SignBuild
+SignTool=aipet
+SignedUninstaller=yes
+SignedUninstallerDir={#SourceDir}\signed-uninstaller
+#else
+SignedUninstaller=no
+#endif
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

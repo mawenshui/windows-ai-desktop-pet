@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "datasetItems": 20000,
+  "searchIterations": 200,
+  "toolWindowRevealIterations": 200,
+  "budgets": {
+    "coldStartupMs": 3000,
+    "toolWindowRevealP95Ms": 300,
+    "searchFirstPageP95Ms": 1000,
+    "idleCpuPercent": 2.0,
+    "idleWorkingSetMb": 300,
+    "dragObservedFps": 30,
+    "handleCount": 1200
+  }
+}

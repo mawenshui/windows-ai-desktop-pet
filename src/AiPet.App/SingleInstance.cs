@@ -18,14 +18,16 @@ public sealed class SingleInstance : IDisposable
     public bool IsFirstInstance { get; }
     public EventWaitHandle? WakeEvent { get; }
 
-    public SingleInstance()
+    public SingleInstance(string? isolatedScope = null)
     {
-        _mutex = new Mutex(initiallyOwned: true, name: MutexName, out var createdNew);
+        var mutexName = isolatedScope is null ? MutexName : $@"Local\WindowsAiDesktopPet_{isolatedScope}_v1";
+        var wakeEventName = isolatedScope is null ? WakeEventName : $@"Local\WindowsAiDesktopPet_Wake_{isolatedScope}_v1";
+        _mutex = new Mutex(initiallyOwned: true, name: mutexName, out var createdNew);
         IsFirstInstance = createdNew;
         if (IsFirstInstance)
         {
             // Make sure the wake event exists for the first instance to listen on.
-            WakeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, WakeEventName, out _);
+            WakeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, wakeEventName, out _);
         }
     }
 

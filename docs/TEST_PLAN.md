@@ -2,12 +2,12 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.11.0（实现阶段维护） |
-| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.3 |
+| 文档版本 | 0.12.1（实现阶段维护） |
+| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.7 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 技术基线 | `docs/TECHNICAL_DESIGN.md` 0.11.0 |
-| 软件基线 | `VERSION` 0.11.0 |
-| 状态 | 170 项自动化回归通过；新增 `scripts/test-system-e2e.ps1` 输出 PASS/FAIL/SKIP 报告，覆盖系统边界与应用 smoke；物理多屏、Explorer 重启、休眠和证书签名仅在具备对应环境时计为通过 |
+| 技术基线 | `docs/TECHNICAL_DESIGN.md` 0.12.1 |
+| 软件基线 | `VERSION` 0.12.1 |
+| 状态 | 173 项自动化回归通过；八个下拉框和自动隐藏协调已有 WPF 回归；物理多屏、Explorer 重启、休眠和证书签名仅在具备对应环境时计为通过 |
 
 ## 0. 目的
 
@@ -18,7 +18,11 @@
 
 ## 1. 测试层级
 
-0.11.0 系统 runner：
+0.12.1 验证 runners：
+
+- `scripts/test-ui-e2e.ps1`：隔离应用数据，验证启动、导航、下拉选择、未保存对话框与桌宠退出；失败保存截图和脱敏阶段码。
+- `scripts/test-performance.ps1`：固定 20,000 条匿名元数据和 200 次查询/唤出采样，输出冻结预算对照。
+- `scripts/test-system-e2e.ps1`：
 
 ```powershell
 pwsh -NoProfile -File scripts/test-system-e2e.ps1 -CI
@@ -136,6 +140,7 @@ runner 固定输出 `build/reports/system-e2e-report.json`，每项状态只能�
 | FIX-081-QCK-EmptyState | WPF UI | 主页快捷入口为空/已有至少一项 | 依次添加一个快捷入口并观察快捷栏 | 空列表显示添加引导；存在快捷项时空状态背景及“文件夹＋”装饰图标均隐藏，快捷项不会被遮挡 |
 | FIX-082-TODO-InputRendering | WPF UI | 打开待办页，输入框可编辑 | 输入中文一句话安排并取消选择 | 文本仍保留在输入框和 ViewModel 中，内容宿主有可见高度且文字与背景满足可读对比度；不会出现“可复制但不可见” |
 | FIX-090-ComboBox-All | WPF UI | 主页、待办和设置页均可用 | 依次选择搜索范围、结果类别、待办状态、AI 目标和非默认供应商 | 每个控件的 `SelectedValue/SelectedItem`、ViewModel 标量值和可见文字一致，关联搜索/过滤/供应商默认值立即更新 |
+| FIX-121-ComboBox-AutoHide | WPF UI | 工具窗口开启失焦自动收起 | 依次展开八个下拉框，选择非默认项；展开时模拟工具窗失焦；按两次 Esc | 弹层展开期间工具窗不收起；选择后可见项与业务值保持；第一次 Esc 只关闭下拉，第二次才收起工具窗 |
 | FIX-100-AI-Profile-Retest | WPF UI + Unit | 已保存一组 AI 配置 | 选择已保存配置并再次测试连接 | 测试成功后“保存配置”立即可用；保存只更新当前配置的验证状态，不要求重新录入 Key |
 | FIX-100-AI-Profile-Switch | WPF UI + Unit | 已保存两组不同供应商配置 | 在“已保存配置”下拉中切换 | 供应商、地址、模型和 Key 引用同步切换；当前配置写入 `ActiveProfileId`，待办 AI 使用新配置 |
 | OPT-SRCH-001-Onboarding | Unit + WPF UI | 空设置，注入隔离候选目录 | 构造主页、确认所选候选或稍后设置 | 确认前扫描器调用为 0；确认后只索引所选目录；授权卡含隐私说明与明确按钮 |

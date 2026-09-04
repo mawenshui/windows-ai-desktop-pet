@@ -64,11 +64,14 @@ public sealed class HomePageLayoutTests
         Assert.True(ellipsisEnd > ellipsis);
         Assert.Contains("OpenShortcutMenu_Click", xaml[ellipsis..ellipsisEnd], StringComparison.Ordinal);
 
-        // The selected item presenter must inherit the foreground from the
-        // ComboBox so the scope text remains visible on the cream field.
-        Assert.Contains("Foreground=\"{TemplateBinding Foreground}\"", theme, StringComparison.Ordinal);
-        Assert.Contains("Content=\"{TemplateBinding SelectionBoxItem}\"", theme, StringComparison.Ordinal);
-        Assert.Contains("VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"", theme, StringComparison.Ordinal);
+        // Keep the platform ComboBox template so mouse, keyboard, screen-reader,
+        // and selected-value behavior remain owned by WPF rather than a custom overlay.
+        Assert.Contains("x:Key=\"BareComboBox\"", theme, StringComparison.Ordinal);
+        Assert.Contains("IsTextSearchEnabled", theme, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"DropDownToggle\"", theme, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"PART_Popup\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AiTemplateSelector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"从模板新建\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"PART_ContentHost\"", theme, StringComparison.Ordinal);
         Assert.Contains("BasedOn=\"{StaticResource CreamScrollBar}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"CreamScrollBarThumb\"", theme, StringComparison.Ordinal);

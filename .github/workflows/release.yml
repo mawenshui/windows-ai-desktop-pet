@@ -11,6 +11,7 @@ permissions:
 jobs:
   package-and-release:
     runs-on: windows-latest
+    environment: release
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -27,9 +28,26 @@ jobs:
         shell: pwsh
         run: ./scripts/test.ps1 -CI
 
+      - name: Prepare protected signing certificate
+        if: ${{ secrets.AIPET_SIGN_CERT_BASE64 != '' }}
+        shell: pwsh
+        env:
+          AIPET_SIGN_CERT_BASE64: ${{ secrets.AIPET_SIGN_CERT_BASE64 }}
+        run: |
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'aipet-release-signing.pfx'
+          [System.IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:AIPET_SIGN_CERT_BASE64))
+          "AIPET_SIGN_CERT_PATH=$certificatePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "AIPET_REQUIRE_SIGNING=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Build portable and installer assets
         shell: pwsh
+        env:
+          AIPET_SIGN_CERT_PASSWORD: ${{ secrets.AIPET_SIGN_CERT_PASSWORD }}
         run: ./scripts/package.ps1
+
+      - name: Smoke-test packaged assets and signatures
+        shell: pwsh
+        run: ./scripts/smoke-release.ps1
 
       - name: Verify release notes
         shell: pwsh

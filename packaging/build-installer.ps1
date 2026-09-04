@@ -107,15 +107,25 @@ if (-not (Test-Path -LiteralPath $issPath -PathType Leaf)) {
     throw "Inno Setup definition is missing: $issPath"
 }
 
-& $isccPath "/DMyAppVersion=$Version" "/DSourceDir=$buildDir" "/DOutputDir=$OutputDirectory" $issPath
+$compilerArguments = @(
+    "/DMyAppVersion=$Version",
+    "/DSourceDir=$buildDir",
+    "/DOutputDir=$OutputDirectory"
+)
+if (-not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)) {
+    # Inno invokes the same repository signer for both Setup and its generated
+    # uninstaller. $q and $f are Inno placeholders and must remain literal.
+    $signScript = Join-Path $projectRoot 'scripts\sign.ps1'
+    $signCommand = 'pwsh.exe -NoProfile -File $q' + $signScript + '$q -Path $f'
+    $compilerArguments += "--signtool=aipet=$signCommand"
+    $compilerArguments += '/DSignBuild=1'
+}
+$compilerArguments += $issPath
+& $isccPath @compilerArguments
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
 $setupPath = Join-Path $OutputDirectory "windows-ai-desktop-pet-v$Version-setup.exe"
 if (-not (Test-Path -LiteralPath $setupPath -PathType Leaf)) {
     throw "Expected installer was not generated: $setupPath"
-}
-if (-not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)) {
-    & (Join-Path $projectRoot 'scripts\sign.ps1') -Path $setupPath
-    if ($LASTEXITCODE -ne 0) { throw 'Installer signing failed.' }
 }
 Write-Output "[OK   ] installer asset: $setupPath"

@@ -1,0 +1,29 @@
+name: Performance Baseline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 19 * * 5'
+
+permissions:
+  contents: read
+
+jobs:
+  performance:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore dependencies
+        shell: pwsh
+        run: dotnet restore ./src/AiPet.sln
+      - name: Enforce frozen performance budgets
+        shell: pwsh
+        run: ./scripts/test-performance.ps1 -Enforce
+      - name: Upload performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-evidence
+          path: build/reports/performance
+          if-no-files-found: error

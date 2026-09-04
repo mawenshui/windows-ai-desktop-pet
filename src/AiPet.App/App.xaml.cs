@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using System.Text.Json;
 using Microsoft.Win32;
 using AiPet.AI;
 using AiPet.Common;
@@ -61,6 +62,7 @@ public partial class App : System.Windows.Application
         };
         base.OnStartup(e);
         LaunchArgs = e.Args;
+        var isUiE2e = e.Args.Contains("--ui-e2e", StringComparer.OrdinalIgnoreCase);
         var isPreview = e.Args.Contains("--preview", StringComparer.OrdinalIgnoreCase)
             || string.Equals(
                 Environment.GetEnvironmentVariable("AIPET_UI_TEST"),
@@ -297,7 +299,7 @@ public partial class App : System.Windows.Application
         // if they fail we swallow so the user can still exit.
 
         // --- 5. Listen for second-instance wake events ---
-        _singleInstance = new SingleInstance();
+        _singleInstance = new SingleInstance(isPreview ? $"UITest_{Environment.ProcessId}" : null);
         if (!_singleInstance.IsFirstInstance)
         {
             SingleInstance.SignalFirstInstance();
@@ -323,7 +325,7 @@ public partial class App : System.Windows.Application
             // bindings, commands and relative placement remain production code.
             _pet.ShowInTaskbar = true;
             _tool.ShowInTaskbar = true;
-            _tool.AutoHideOnDeactivate = false;
+            _tool.AutoHideOnDeactivate = isUiE2e;
         }
 
         _pet.Show();
@@ -333,11 +335,48 @@ public partial class App : System.Windows.Application
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ShowToolWindow(showSettings: false);
+                if (isUiE2e && _homeVm is not null)
+                {
+                    _homeVm.SelectedAiTemplate = AiProviders.FindById("qwen");
+                    _homeVm.NewAiConfigCommand.Execute(null);
+                    AttachUiE2eProbe(_homeVm);
+                }
                 DebugLog($"[App] preview shown; visible={_tool?.IsVisible} active={_tool?.IsActive}");
             }), DispatcherPriority.ApplicationIdle);
         }
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+    }
+
+    private static void AttachUiE2eProbe(HomeViewModel viewModel)
+    {
+        var reportPath = Environment.GetEnvironmentVariable("AIPET_UI_E2E_PROBE");
+        if (string.IsNullOrWhiteSpace(reportPath)) return;
+        void WriteProbe()
+        {
+            try
+            {
+                var payload = new
+                {
+                    schemaVersion = 1,
+                    viewModel.SelectedSearchScopeId,
+                    viewModel.Category,
+                    todoFilterId = viewModel.Todo.SelectedFilterId,
+                    viewModel.ThemePreference,
+                    aiTemplateId = viewModel.SelectedAiTemplate?.Id,
+                    viewModel.Provider,
+                    viewModel.Endpoint,
+                    viewModel.Model,
+                    viewModel.HasUnsavedAiChanges,
+                };
+                Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+                File.WriteAllText(reportPath, JsonSerializer.Serialize(payload));
+            }
+            catch { }
+        }
+        viewModel.PropertyChanged += (_, _) => WriteProbe();
+        viewModel.Todo.PropertyChanged += (_, _) => WriteProbe();
+        WriteProbe();
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

@@ -1,0 +1,33 @@
+name: Desktop UI E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 18 * * 1-5'
+
+permissions:
+  contents: read
+
+jobs:
+  desktop-ui:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Restore dependencies
+        shell: pwsh
+        run: dotnet restore ./src/AiPet.sln
+
+      - name: Run independent desktop UI automation
+        shell: pwsh
+        run: ./scripts/test-ui-e2e.ps1 -CI
+
+      - name: Upload UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-e2e-evidence
+          path: build/reports/ui-e2e
+          if-no-files-found: error

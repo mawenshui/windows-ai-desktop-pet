@@ -359,6 +359,18 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         }
     }
     public IReadOnlyList<AiProviderDescriptor> Providers => AiProviders.Builtin;
+    public IReadOnlyList<AiProviderDescriptor> AiConfigurationTemplates => AiProviders.Builtin;
+    private AiProviderDescriptor? _selectedAiTemplate = AiProviders.FindById("deepseek");
+    public AiProviderDescriptor? SelectedAiTemplate
+    {
+        get => _selectedAiTemplate;
+        set
+        {
+            if (value is null || string.Equals(_selectedAiTemplate?.Id, value.Id, StringComparison.Ordinal)) return;
+            _selectedAiTemplate = value;
+            OnPC();
+        }
+    }
     public AiProviderDescriptor? SelectedProvider
     {
         get => AiProviders.FindById(_provider);
@@ -938,18 +950,22 @@ public sealed class HomeViewModel : INotifyPropertyChanged
 
     private void StartNewAiConfiguration()
     {
+        var template = SelectedAiTemplate ?? AiProviders.FindById("deepseek")!;
         _loadingAiConfiguration = true;
         try
         {
             _selectedAiConfigurationId = null;
             OnPCFor(nameof(SelectedAiConfigurationId));
             OnPCFor(nameof(SelectedAiConfiguration));
-            AiConfigurationName = "新配置";
-            Provider = "deepseek";
-            Endpoint = string.Empty;
-            Model = string.Empty;
+            var templateName = template.DisplayName
+                .Replace("（默认）", string.Empty, StringComparison.Ordinal)
+                .Replace("(默认)", string.Empty, StringComparison.Ordinal)
+                .Trim();
+            AiConfigurationName = $"{templateName} 配置";
+            Provider = template.Id;
+            Endpoint = template.DefaultEndpoint;
+            Model = template.DefaultModel;
             ApiKey = string.Empty;
-            ApplyProviderDefaults(overwriteExisting: true);
         }
         finally
         {
@@ -959,7 +975,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _verifiedAiConfiguration = null;
         _verifiedAiAt = null;
         AiStatus = "待测试";
-        AiStatusDetail = "请填写新配置；测试通过后才会加入已保存配置。";
+        AiStatusDetail = $"已从“{template.DisplayName}”模板创建；可修改任意字段，测试通过后才能保存。";
         RaiseAiStateChanged();
     }
 

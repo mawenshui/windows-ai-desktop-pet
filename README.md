@@ -4,9 +4,9 @@ A Windows desktop-pet project planned around local file/application search, quic
 
 ## Current status
 
-Version `0.11.0` is a runnable WPF/.NET 8 desktop companion with a formal CC0 square-companion identity across the executable, tray, shortcuts, and installer. It adds schema-backed local backup/restore and diagnostics, incremental authorized-folder monitoring, explainable paged search, multi-time recurring reminders, actionable tray reminder controls, system-aware themes, independent motion preferences, safer custom AI provider presets, and reproducible signing/provenance workflows.
+Version `0.12.1` is a runnable WPF/.NET 8 desktop companion. It keeps native WPF selection semantics for every dropdown and prevents popup interaction from being mistaken for tool-window deactivation, so selected values remain visible and effective across the home, todo, and settings pages.
 
-The 0.11.0 release has 170 passing automated interaction and logic tests. Packaging uses a unique build workspace and atomic publication. A certificate can be supplied through protected environment variables to sign and verify the EXE and installer; the current release is explicitly unsigned because no certificate was available. Physical multi-screen/scaling, Explorer restart, and sleep scenarios remain environment-dependent checks and are reported as PASS/FAIL/SKIP by the system runner rather than inferred.
+The 0.12.1 release has 173 passing automated interaction and logic tests. Packaging uses a unique build workspace and atomic publication. A certificate supplied through protected release secrets signs and verifies the application, installer, and generated uninstaller; builds without a certificate remain explicitly unsigned. Physical multi-screen/scaling, Explorer restart, and sleep scenarios remain environment-dependent checks and are reported as PASS/FAIL/SKIP rather than inferred.
 
 ## Start here
 
@@ -25,7 +25,7 @@ The 0.11.0 release has 170 passing automated interaction and logic tests. Packag
 pwsh -NoProfile -File scripts/test.ps1 -CI
 ```
 
-This validates structure, versioning, UTF-8 text, the current `src/AiPet.sln`, 170 interaction and logic tests, schema migration and selective backup, diagnostic privacy, search authorization/ranking/pagination, reminder recurrence, AI fake-server/profile safety, shortcuts, RGS interaction, settings persistence, popover lifecycle, and the test-before-save AI configuration state machine.
+This validates structure, versioning, UTF-8 text, the current `src/AiPet.sln`, 173 interaction and logic tests, all eight dropdown selections, dropdown/auto-hide coordination, AI templates, schema migration, diagnostic privacy, search, reminders, shortcuts, settings persistence, and popover lifecycle. Dedicated runners are `scripts/test-ui-e2e.ps1`, `scripts/test-system-e2e.ps1`, and `scripts/test-performance.ps1`.
 
 To run a development build:
 
@@ -37,16 +37,16 @@ Single-click the pet to open the companion popover, double-click to play an acti
 
 ## Release artifacts
 
-The 0.11.0 release provides:
+The 0.12.1 release provides:
 
 - `dist/portable/windows-ai-desktop-pet-v<version>-portable.zip`
 - `dist/installer/windows-ai-desktop-pet-v<version>-setup.exe`
 - `dist/checksums/SHA256SUMS.txt`
 - `dist/checksums/RELEASE_PROVENANCE.json`
 
-The generated 0.11.0 assets and SHA-256 values are recorded in `dist/checksums/SHA256SUMS.txt`.
-Release: [GitHub v0.11.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.11.0).
+The generated 0.12.1 assets and SHA-256 values are recorded in `dist/checksums/SHA256SUMS.txt`.
+Release: [GitHub v0.12.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.1).
 
 See [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) for the complete test, SemVer, packaging, GitHub, and Release workflow.
 
-Do not publish an installer-staging ZIP as an installer. Version 0.11.0 uses a genuine `setup.exe`; unsigned binaries can still trigger Windows SmartScreen. Configure `AIPET_SIGN_CERT_PATH` and optionally `AIPET_SIGN_CERT_PASSWORD`/`AIPET_SIGN_TIMESTAMP_URL` to enable signing and verification.
+Do not publish an installer-staging ZIP as an installer. Version 0.12.1 uses a genuine `setup.exe`; unsigned binaries can still trigger Windows SmartScreen. Configure protected signing secrets to enable application, installer, and uninstaller Authenticode verification.

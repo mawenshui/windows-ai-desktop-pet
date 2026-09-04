@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "requiredDimensions": {
+    "windows": ["10-1809", "10-22H2", "11-21H2", "11-23H2-or-newer"],
+    "scalingPercent": [100, 125, 150, 175, 200],
+    "monitorCount": [1, 2, 3],
+    "taskbarEdge": ["bottom", "top", "left", "right"],
+    "desktopLayout": ["positive-coordinates", "negative-coordinates"],
+    "sessionTransitions": ["display-hotplug", "explorer-restart", "sleep-resume", "timezone-change", "clock-change"]
+  },
+  "allowedStatuses": ["PASS", "FAIL", "SKIP"],
+  "evidencePolicy": "Only observed hardware and session transitions may be marked PASS; unavailable cells remain SKIP."
+}

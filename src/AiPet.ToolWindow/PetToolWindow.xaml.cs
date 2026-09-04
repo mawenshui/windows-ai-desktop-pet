@@ -31,6 +31,7 @@ public partial class PetToolWindow : Window
     private bool _allowClose;
     private bool _applyingWindowPreferences;
     private bool _suppressAiSelectionChange;
+    private readonly HashSet<ComboBox> _openComboBoxes = new();
     private readonly DispatcherTimer _autoHideTimer;
 
     public bool AutoHideOnDeactivate { get; set; } = true;
@@ -76,6 +77,21 @@ public partial class PetToolWindow : Window
             _autoHideTimer.Stop();
             if (AutoHideOnDeactivate && !IsActive && !IsAutoHideSuppressed) HideToTray();
         };
+        foreach (var comboBox in new[]
+        {
+            SearchScopeSelector,
+            CategoryFilterSelector,
+            AiTargetSelector,
+            TodoFilterSelector,
+            ThemeSelector,
+            AiTemplateSelector,
+            SavedAiConfigurationSelector,
+            ProviderSelector,
+        })
+        {
+            comboBox.DropDownOpened += OnComboBoxDropDownOpened;
+            comboBox.DropDownClosed += OnComboBoxDropDownClosed;
+        }
 
         if (DataContext is HomeViewModel vm)
         {
@@ -90,6 +106,19 @@ public partial class PetToolWindow : Window
     }
 
     public void ApplyTheme(string preference) => ThemeManager.Apply(Resources, preference);
+
+    public void PrepareUiAutomationView()
+    {
+        ShellTabs.SelectedIndex = 3;
+        AiSettingsExpander.IsExpanded = true;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            UpdateLayout();
+            SettingsScroll.ScrollToEnd();
+            AiSettingsExpander.BringIntoView();
+            UpdateLayout();
+        }), DispatcherPriority.ContextIdle);
+    }
 
     public void ApplyWindowPreferences(bool stayOpen, bool alwaysOnTop)
     {
@@ -175,6 +204,8 @@ public partial class PetToolWindow : Window
     public void HideToTray()
     {
         _autoHideTimer.Stop();
+        foreach (var comboBox in _openComboBoxes.ToArray()) comboBox.IsDropDownOpen = false;
+        _openComboBoxes.Clear();
         Hide();
     }
 
@@ -186,7 +217,26 @@ public partial class PetToolWindow : Window
 
     public void EndAnchorInteraction() => _anchorInteractionActive = false;
 
-    private bool IsAutoHideSuppressed => StayOpen || _suppressAutoHide || _anchorInteractionActive;
+    private bool IsAutoHideSuppressed =>
+        StayOpen || _suppressAutoHide || _anchorInteractionActive || _openComboBoxes.Count > 0;
+
+    private void OnComboBoxDropDownOpened(object? sender, EventArgs e)
+    {
+        if (sender is ComboBox comboBox) _openComboBoxes.Add(comboBox);
+        _autoHideTimer.Stop();
+    }
+
+    private void OnComboBoxDropDownClosed(object? sender, EventArgs e)
+    {
+        if (sender is ComboBox comboBox) _openComboBoxes.Remove(comboBox);
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (!IsVisible || !AutoHideOnDeactivate || IsActive || IsAutoHideSuppressed) return;
+            _autoHideTimer.Stop();
+            _autoHideTimer.Start();
+        }), DispatcherPriority.Input);
+    }
 
     public void AllowClose() => _allowClose = true;
 
@@ -894,6 +944,12 @@ public partial class PetToolWindow : Window
     {
         if (e.Key == Key.Escape)
         {
+            if (_openComboBoxes.Count > 0)
+            {
+                foreach (var comboBox in _openComboBoxes.ToArray()) comboBox.IsDropDownOpen = false;
+                e.Handled = true;
+                return;
+            }
             if (TryResolveUnsavedAiChanges("收起工具窗口")) HideToTray();
             e.Handled = true;
         }

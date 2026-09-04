@@ -2,11 +2,11 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 0.11.0 |
-| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.3 |
+| 文档版本 | 0.12.1 |
+| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.7 |
 | 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 软件基线 | `VERSION` 0.11.0 |
-| 状态 | WPF/.NET 8 技术栈已冻结；0.11.0 增加存储迁移/维护、增量监视与分页排序、多提醒重复规则、自适应调度、主题与正式应用身份、AI fake-server、系统 E2E/签名/来源证明流程；170 项自动化通过，真实系统矩阵与证书状态由发布报告如实记录 |
+| 软件基线 | `VERSION` 0.12.1 |
+| 状态 | WPF/.NET 8 技术栈已冻结；0.12.1 修复 ComboBox 弹层与工具窗自动隐藏的竞争条件；173 项自动化通过，外部硬件与证书状态如实记录 |
 
 > 本文档定义“代码如何写”，与 PRD（定义产品行为）和 PROJECT_SPEC（定义工程规则）形成三层文档体系。技术栈一旦冻结，章节将标记为 **已冻结**；实现过程中如发生变更，必须先在本文更新并经评审。
 
@@ -19,6 +19,19 @@
 5. 给出单元/集成/E2E 测试框架选型。
 
 冻结条件：CI 通过、PRD 中 P0 验收所依赖的技术路径全部明确、安全/隐私评审完成。冻结后，模块边界与第三方依赖只允许通过 RFC 流程修改。
+
+### 0.12.1 修复摘要
+
+- 八个现有下拉框统一订阅展开/关闭事件；任一下拉展开时，工具窗口的 120ms 失焦自动隐藏计时器停止并保持抑制。
+- 下拉关闭后只在工具窗口确实仍失焦且无其他抑制状态时重新调度自动隐藏；按 Esc 时先关闭下拉，再次按 Esc 才收起工具窗口。
+- WPF 回归覆盖八个下拉框的选中对象、业务标量和可见项一致性，并覆盖下拉展开期自动隐藏状态。
+
+### 0.12.0 扩展实现摘要
+
+- 全部下拉框使用 WPF 原生 `ComboBox` 模板，保留统一尺寸与颜色，不再使用覆盖式透明 ToggleButton。
+- AI 配置先选择模板再创建；模板只复制可公开字段，Key 留空，复制后字段仍可编辑。
+- `test-ui-e2e.ps1`、`test-system-e2e.ps1` 和 `test-performance.ps1` 分别输出脱敏 UI 证据、PASS/FAIL/SKIP 环境矩阵和冻结性能预算。
+- Inno Setup 通过同一受保护 signer 在编译时签署安装器及卸载器；无证书时明确生成 unsigned 构建。
 
 ### 0.11.0 扩展实现摘要
 
@@ -560,7 +573,7 @@ MVP 阶段不开放 UI 自定义预设。若后续版本需要，按以下方式
 ### 11.1 便携版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.11.0
+pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.12.1
 ```
 
 - 入口：`dotnet publish src/AiPet.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true`；
@@ -570,7 +583,7 @@ pwsh -NoProfile -File packaging/build-portable.ps1 -Version 0.11.0
 ### 11.2 安装版
 
 ```powershell
-pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.11.0
+pwsh -NoProfile -File packaging/build-installer.ps1 -Version 0.12.1
 ```
 
 - 工具：Inno Setup 6.x；

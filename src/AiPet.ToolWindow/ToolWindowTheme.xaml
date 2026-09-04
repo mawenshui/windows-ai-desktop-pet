@@ -287,100 +287,19 @@
         <Setter Property="MinHeight" Value="44" />
         <Setter Property="Padding" Value="11,7" />
         <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Foreground" Value="{StaticResource Ink}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="ItemContainerStyle">
-            <Setter.Value>
-                <Style TargetType="ComboBoxItem">
-                    <Setter Property="Padding" Value="11,8" />
-                    <Setter Property="Margin" Value="3,2" />
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Focusable" Value="False" />
-                    <Setter Property="IsTabStop" Value="False" />
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="Foreground" Value="{StaticResource Ink}" />
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="ComboBoxItem">
-                                <Border x:Name="ItemChrome" Padding="{TemplateBinding Padding}"
-                                        Background="{TemplateBinding Background}" CornerRadius="8">
-                                    <ContentPresenter Content="{TemplateBinding Content}"
-                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                      ContentTemplateSelector="{TemplateBinding ContentTemplateSelector}"
-                                                      ContentStringFormat="{TemplateBinding ContentStringFormat}"
-                                                      TextElement.Foreground="{TemplateBinding Foreground}" />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsHighlighted" Value="True">
-                                        <Setter TargetName="ItemChrome" Property="Background" Value="{StaticResource AccentTint}" />
-                                    </Trigger>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="ItemChrome" Property="Background" Value="{StaticResource AccentSoft}" />
-                                        <Setter Property="Foreground" Value="{StaticResource AccentPressed}" />
-                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </Setter.Value>
-        </Setter>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ComboBox">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="24" />
-                        </Grid.ColumnDefinitions>
-                        <ContentPresenter x:Name="ContentSite" Grid.Column="0"
-                                          Margin="{TemplateBinding Padding}"
-                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                           Content="{TemplateBinding SelectionBoxItem}"
-                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                          TextElement.Foreground="{TemplateBinding Foreground}"
-                                          RecognizesAccessKey="True"
-                                          SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
-                                          IsHitTestVisible="False" />
-                        <Path Grid.Column="1" Width="8" Height="5" HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Data="M1,1 L4,4 7,1" Stroke="{StaticResource Muted}" StrokeThickness="1.4"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False" />
-                        <ToggleButton x:Name="DropDownToggle" Grid.ColumnSpan="2" Panel.ZIndex="1" Focusable="False" ClickMode="Press"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border Background="Transparent" />
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
-                        <Popup x:Name="PART_Popup" Grid.ColumnSpan="2" Placement="Bottom" AllowsTransparency="True"
-                                Focusable="False" StaysOpen="True" IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="None">
-                            <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                    MaxHeight="260" Margin="0,5,0,0" Padding="3"
-                                    Background="{StaticResource Card}" BorderBrush="{StaticResource Line}"
-                                    BorderThickness="1" CornerRadius="11" Effect="{StaticResource CardShadow}">
-                                <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto">
-                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
-                                </ScrollViewer>
-                            </Border>
-                        </Popup>
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="HasItems" Value="False">
-                            <Setter TargetName="PART_Popup" Property="MinHeight" Value="42" />
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="IsTextSearchEnabled" Value="True" />
+        <Setter Property="MaxDropDownHeight" Value="260" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Style.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="BarePasswordBox" TargetType="PasswordBox">

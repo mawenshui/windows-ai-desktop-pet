@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.12.1] - 2026-09-04
+
+### Changed
+
+- Prevent dropdown popups from triggering tool-window auto-hide, preserve all eight selections, and harden real-input regression coverage.
+
+### Fixed
+
+- 修复工具窗口启用失焦自动收起时，下拉弹层可能被当作外部窗口，导致用户尚未完成选择就收起并仍显示默认项的问题。
+- 全部八个下拉框继续使用 WPF 原生模板和对象级 `SelectedItem` 绑定；展开期间暂停自动隐藏，按 Esc 时优先只关闭下拉框。
+
+## [0.12.0] - 2026-09-03
+
+### Changed
+
+- Fix all shared dropdown selections, add template-based AI configuration creation, and establish the 0.12 desktop UI, compatibility, signing, and performance validation foundations.
+
 ## [0.11.0] - 2026-09-03
 
 ### Added

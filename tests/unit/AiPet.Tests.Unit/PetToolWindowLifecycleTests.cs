@@ -17,6 +17,7 @@ using AiPet.AI;
 using AiPet.Storage;
 using AiPet.ToolWindow;
 using AiPet.Shortcuts;
+using AiPet.Todos;
 using Xunit;
 
 namespace AiPet.Tests.Unit;
@@ -239,6 +240,41 @@ public sealed class PetToolWindowLifecycleTests
     }
 
     [Fact]
+    public void Open_dropdown_suppresses_auto_hide_and_escape_closes_only_the_dropdown()
+    {
+        RunSta(() =>
+        {
+            var window = new PetToolWindow { AutoHideOnDeactivate = true };
+            window.ShowNear(new Rect(900, 800, 176, 148), new Rect(0, 0, 1920, 1040));
+            PumpDispatcher();
+
+            var scope = FindElement<ComboBox>(window, "SearchScopeSelector");
+            Assert.NotNull(scope);
+            scope.IsDropDownOpen = true;
+            PumpDispatcher();
+
+            var suppressionProperty = typeof(PetToolWindow).GetProperty(
+                "IsAutoHideSuppressed",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(suppressionProperty);
+            Assert.True(Assert.IsType<bool>(suppressionProperty.GetValue(window)));
+
+            SendPreviewKey(window, Key.Escape);
+            PumpDispatcher();
+
+            Assert.False(scope.IsDropDownOpen);
+            Assert.True(window.IsVisible);
+            Assert.False(Assert.IsType<bool>(suppressionProperty.GetValue(window)));
+
+            SendPreviewKey(window, Key.Escape);
+            Assert.False(window.IsVisible);
+
+            window.AllowClose();
+            window.Close();
+        });
+    }
+
+    [Fact]
     public void Header_controls_toggle_stay_open_and_always_on_top_without_auto_hiding()
     {
         RunSta(() =>
@@ -276,7 +312,7 @@ public sealed class PetToolWindowLifecycleTests
     }
 
     [Fact]
-    public void Provider_and_category_dropdowns_update_bound_fields()
+    public void Native_dropdowns_update_bound_fields_and_keep_selected_values()
     {
         RunSta(() =>
         {
@@ -298,29 +334,57 @@ public sealed class PetToolWindowLifecycleTests
             Assert.NotNull(provider);
             Assert.NotNull(endpoint);
             Assert.NotNull(model);
+            var vm = Assert.IsType<HomeViewModel>(window.DataContext);
 
-            var providerToggle = provider.Template?.FindName("DropDownToggle", provider) as ToggleButton;
-            Assert.NotNull(providerToggle);
-            RaiseMouseClick(providerToggle);
+            var savedSelector = FindElement<ComboBox>(window, "SavedAiConfigurationSelector");
+            Assert.NotNull(savedSelector);
+            var firstSaved = new AiConfigurationOption("saved-1", "配置一");
+            var secondSaved = new AiConfigurationOption("saved-2", "配置二");
+            vm.SavedAiConfigurations.Add(firstSaved);
+            vm.SavedAiConfigurations.Add(secondSaved);
+            vm.SelectedAiConfigurationId = firstSaved.Id;
+            savedSelector.IsEnabled = true;
+            savedSelector.BringIntoView();
             PumpDispatcher();
-            Assert.True(provider.IsDropDownOpen);
+            savedSelector.IsDropDownOpen = true;
+            PumpDispatcher();
+            var secondSavedItem = savedSelector.ItemContainerGenerator.ContainerFromItem(secondSaved) as ComboBoxItem;
+            Assert.NotNull(secondSavedItem);
+            RaiseMouseClick(secondSavedItem);
+            PumpDispatcher();
+            Assert.Equal(secondSaved.Id, vm.SelectedAiConfigurationId);
+            Assert.Same(secondSaved, savedSelector.SelectedItem);
+
+            Assert.Null(provider.Template?.FindName("DropDownToggle", provider));
+            provider.BringIntoView();
+            PumpDispatcher();
+            provider.IsDropDownOpen = true;
+            PumpDispatcher();
             provider.UpdateLayout();
             var qwen = Assert.Single(provider.Items.Cast<AiProviderDescriptor>(), option => option.Id == "qwen");
             var qwenItem = provider.ItemContainerGenerator.ContainerFromItem(qwen) as ComboBoxItem;
             Assert.NotNull(qwenItem);
             RaiseMouseClick(qwenItem);
             PumpDispatcher();
-            var vm = Assert.IsType<HomeViewModel>(window.DataContext);
             Assert.Equal("qwen", vm.Provider);
             Assert.Same(qwen, provider.SelectedItem);
             Assert.Equal("qwen", vm.SelectedProvider?.Id);
             Assert.Equal("https://dashscope.aliyuncs.com/compatible-mode/v1", endpoint.Text);
             Assert.Equal("qwen-plus", model.Text);
-            var providerPresenter = provider.Template?.FindName("ContentSite", provider) as ContentPresenter;
-            Assert.NotNull(providerPresenter);
-            Assert.IsType<AiProviderDescriptor>(providerPresenter.Content);
-            Assert.Equal(qwen.DisplayName, ((AiProviderDescriptor)providerPresenter.Content).DisplayName);
-            Assert.Equal(qwen.DisplayName, FindTextBlock(providerPresenter)?.Text);
+            Assert.Same(qwen, provider.SelectionBoxItem);
+
+            var templateSelector = FindElement<ComboBox>(window, "AiTemplateSelector");
+            Assert.NotNull(templateSelector);
+            templateSelector.IsDropDownOpen = true;
+            PumpDispatcher();
+            templateSelector.UpdateLayout();
+            var moonshot = Assert.Single(templateSelector.Items.Cast<AiProviderDescriptor>(), option => option.Id == "moonshot");
+            var moonshotItem = templateSelector.ItemContainerGenerator.ContainerFromItem(moonshot) as ComboBoxItem;
+            Assert.NotNull(moonshotItem);
+            RaiseMouseClick(moonshotItem);
+            PumpDispatcher();
+            Assert.Same(moonshot, templateSelector.SelectedItem);
+            Assert.Equal("moonshot", vm.SelectedAiTemplate?.Id);
 
             tabs.SelectedIndex = 0;
             PumpDispatcher();
@@ -336,9 +400,7 @@ public sealed class PetToolWindowLifecycleTests
             PumpDispatcher();
             Assert.Equal("图片", category.SelectedItem);
             Assert.Equal("图片", vm.Category);
-            var categoryPresenter = category.Template?.FindName("ContentSite", category) as ContentPresenter;
-            Assert.NotNull(categoryPresenter);
-            Assert.Equal("图片", categoryPresenter.Content);
+            Assert.Equal("图片", category.SelectionBoxItem);
 
             // Search scope uses the same shared dropdown template. Selecting
             // an option must update both the control and its scalar VM value.
@@ -371,6 +433,52 @@ public sealed class PetToolWindowLifecycleTests
             PumpDispatcher();
             Assert.Equal("completed", vm.Todo.SelectedFilterId);
             Assert.Same(completedFilter, todoFilter.SelectedItem);
+
+            var aiTarget = FindElement<ComboBox>(window, "AiTargetSelector");
+            Assert.NotNull(aiTarget);
+            var now = DateTimeOffset.Now;
+            var firstTarget = new TodoRowViewModel(new TodoItem
+            {
+                Id = Guid.NewGuid(),
+                Title = "周报",
+                CreatedAt = now.AddMinutes(-2),
+                UpdatedAt = now.AddMinutes(-2),
+            });
+            var secondTarget = new TodoRowViewModel(new TodoItem
+            {
+                Id = Guid.NewGuid(),
+                Title = "周报",
+                CreatedAt = now.AddMinutes(-1),
+                UpdatedAt = now.AddMinutes(-1),
+            });
+            vm.Todo.AiTargetChoices.Add(firstTarget);
+            vm.Todo.AiTargetChoices.Add(secondTarget);
+            MakeVisibleThroughParents(aiTarget);
+            window.UpdateLayout();
+            aiTarget.IsDropDownOpen = true;
+            PumpDispatcher();
+            var secondTargetItem = aiTarget.ItemContainerGenerator.ContainerFromItem(secondTarget) as ComboBoxItem;
+            Assert.NotNull(secondTargetItem);
+            RaiseMouseClick(secondTargetItem);
+            PumpDispatcher();
+            Assert.Same(secondTarget, vm.Todo.SelectedAiTarget);
+            Assert.Same(secondTarget, aiTarget.SelectedItem);
+
+            tabs.SelectedIndex = 3;
+            PumpDispatcher();
+            window.UpdateLayout();
+            var theme = FindElement<ComboBox>(window, "ThemeSelector");
+            Assert.NotNull(theme);
+            theme.IsDropDownOpen = true;
+            PumpDispatcher();
+            theme.UpdateLayout();
+            var darkTheme = Assert.Single(theme.Items.Cast<AppearanceOption>(), option => option.Id == "dark");
+            var darkThemeItem = theme.ItemContainerGenerator.ContainerFromItem(darkTheme) as ComboBoxItem;
+            Assert.NotNull(darkThemeItem);
+            RaiseMouseClick(darkThemeItem);
+            PumpDispatcher();
+            Assert.Equal("dark", vm.ThemePreference);
+            Assert.Same(darkTheme, theme.SelectedItem);
 
             window.AllowClose();
             window.Close();
@@ -732,6 +840,17 @@ public sealed class PetToolWindowLifecycleTests
             if (nested is not null) return nested;
         }
         return null;
+    }
+
+    private static void MakeVisibleThroughParents(FrameworkElement element)
+    {
+        DependencyObject? current = element;
+        while (current is not null && current is not TabItem)
+        {
+            if (current is FrameworkElement frameworkElement)
+                frameworkElement.Visibility = Visibility.Visible;
+            current = VisualTreeHelper.GetParent(current);
+        }
     }
 
     private static TextBlock? FindTextBlock(DependencyObject parent)
