@@ -1,123 +1,47 @@
 # 待办与提醒设计
 
-| 属性 | 值 |
+软件：0.13.0；日期：2026-09-07。对应 TODO-01～09、EXT-01、EXT-06。
+
+## 1. 模型和时间
+
+todos.json schema 3，升级保存 .pre-v3.bak。普通待办与独立提醒分开；ReminderAt/AdditionalReminderTimes 去重并按最早时间归一，额外时间最多 32 个。Recurrence 包括 None、Daily、Weekly、Weekdays、CustomDays、Interval 1～365、EndsAt、TimeZoneId；RecurrenceAnchorAt 保存最初规则锚点，稍后/仅此次改期不漂移锚点。
+
+规则按固定当地钟点计算，不是每隔固定 24 小时。周间隔以星期一为边界；显式首次时间可以作为一次例外，后续按规则匹配。结束日期取规则时区 23:59。春季不存在的钟点顺延到首个有效分钟，秋季重复钟点只采用后一次。旧规则无 TimeZoneId 时维持保存偏移。系统时区变化触发重新调度，不改变已有规则所属时区。
+
+长期离线或休眠：到期项目汇总一次，排除已错过的额外时刻，日历计算直接找到未来时间，避免通知风暴。显式多时刻与日历下次取较早者。普通待办完成/取消整个规则清除全部后续时间；独立提醒取消规则同时结束该提醒项。
+
+## 2. 编辑与 AI
+
+待办页规则展开区支持间隔、星期、结束日期、时区、额外时间及前四个时刻预览。仅此次修改保留标题/备注/截止/通道/规则与锚点，改变当前提醒时刻；跳过此次保留后续规则，整条取消清除全部安排。
+
+AI 草稿新增 Recurrence 和 AdditionalReminderTimes，和手动入口共用校验。只发送本次输入、当前时间及时区，不发送既有列表。预览不写数据；本地匹配重名目标后明确选择，可更改所选目标。确认后执行创建/修改/完成/删除/稍后；一次撤销在内存中，重启不保留。
+
+## 3. 状态与事务
+
+| 状态 | 含义 |
 | :--- | :--- |
-| 目标版本 | 0.9.0 |
-| 需求范围 | `TODO-01`～`TODO-09`、`AI-05` |
-| 验收范围 | `AC-FUT-01`～`AC-FUT-09` |
-| 设计状态 | 已冻结，可实现 |
+| Scheduled / Snoozed | 有未来或错过时刻等待调度 |
+| Queued（待办） | 最后一次提醒已持久化排队，尚未完成宿主提交 |
+| Delivered（待办） | 对应宿主提交已经确认，不能推断用户已看到 |
+| Failed / Cancelled | 入队失败，或用户取消整个安排 |
+| Queued（中心） | 已保存待提交，不受临时窗口是否可见影响 |
+| Submitted（中心） | 提交给宿主，显示未确认 |
+| Handled / Cancelled（中心） | 用户处理，或关联事项被取消 |
 
-## 1. 本版范围
+调度器单次 Timer + SemaphoreSlim，空队列无限等待，Store.Changed 唤醒新提醒。写入前核对当前项和原到期时间，避免并发改期被旧任务消耗。先排队、再推进时间；队列按事项与时刻去重，提交与待办确认可在下次处理对账。两个 JSON 文件不构成操作系统级跨文件事务，崩溃后可能重试提交；不宣称展示恰好一次。
 
-- 将“计划”占位页替换为可用的“待办”页，提供待处理、今天、即将到期和已完成视图。
-- 支持手动新建、查看、编辑、完成、恢复、仅取消提醒和删除普通待办，并支持独立提醒项。
-- 支持一个待办最多一个一次性提醒；重复提醒和多提醒留到后续版本。
-- 独立提醒项必须设置提醒时间，可逐项启用桌宠漫游、桌宠气泡或两者；气泡与桌宠同窗并随移动跟随，投递成功后自动完成。
-- 使用已保存且测试通过的 OpenAI 兼容配置，把一句自然语言解析为结构化草稿。
-- AI 只生成草稿或变更预览。创建、修改、完成、稍后提醒和删除都必须再次确认后才写入。
-- 应用运行时以页内提醒为可靠反馈，并同时提交 Windows 托盘气泡通知；应用退出后不保证准点提醒。
+普通待办提交后不完成。独立提醒有后续时刻则继续待处理，最后一次排队仍不完成，宿主提交后才完成；中心“稍后”可原子恢复并安排新时间。
 
-## 2. 数据模型
+## 4. 低打扰提醒中心
 
-待办保存在当前 Windows 账户的 `%APPDATA%\WindowsAiDesktopPet\todos.json`，使用 UTF-8 JSON、`schemaVersion = 1` 和原子替换写入。
+App 的 DispatcherTimer 每 5 秒处理一次，合并所有排队事项，至少间隔 30 秒。静默使用当前 Windows 时区，支持跨午夜，结束后合并。中心列表逐项保留，提供完成、详情、5/10/30/60 分钟稍后及固定示例通道测试。
 
-```text
-TodoItem
-  Id: Guid
-  Title: string                     必填，去除首尾空白
-  Notes: string                     可空
-  DueAt: DateTimeOffset?            绝对时间，含偏移量
-  ReminderAt: DateTimeOffset?       下一次一次性提醒时间
-  Status: Pending | Completed
-  IsReminder: bool                   false=普通待办；true=独立提醒项
-  ReminderState: None | Scheduled | Delivered | Snoozed | Cancelled | Failed
-  ReminderRoamEnabled: bool          独立提醒项的桌宠漫游开关
-  ReminderBubbleEnabled: bool        独立提醒项的跟随气泡开关；默认 true
-  CreatedAt / UpdatedAt: DateTimeOffset
-  CompletedAt: DateTimeOffset?
-  LastReminderAttemptAt: DateTimeOffset?
-  ReminderFailureCode: string?
-```
+桌宠已隐藏时不强制显现；动画关闭尊重原运动开关。托盘摘要和提醒中心仍可访问。最多 2,000 条，满额拒绝新入队并标记失败，不能静默丢弃排队事项；清除已处理历史保留排队及待处理提交记录，不删除待办。
 
-约束：
+当前仍采用 NotifyIcon/桌宠气泡，宿主无法可靠观察专注助手抑制、真实显示、已读和退出后的准点唤醒。经评估，带安装身份的 Windows 通知适配器应在独立 RFC 中决定；本次未替换通知后端或建立进程外服务。
 
-1. `Title` 不得为空；`DueAt` 和 `ReminderAt` 均按本机当前时区输入并转换为 `DateTimeOffset`。
-2. 旧 schema v1 文件缺少新增字段时按 `IsReminder = false` 读取，保证历史记录继续使用普通待办语义；新增字段采用向后兼容的可选 JSON 属性。
-3. 已完成普通待办不再触发提醒；恢复普通待办不会自动恢复已取消或已投递提醒。
-4. “仅取消提醒”仅适用于普通待办，清空 `ReminderAt` 并记录 `Cancelled`，不删除待办。
-5. “稍后提醒 10 分钟”只更新普通待办的 `ReminderAt` 和 `ReminderState`，不改变完成状态。
-6. 独立提醒项必须有 `ReminderAt`；投递成功写入 `Completed + Delivered + CompletedAt + LastReminderAttemptAt`，并保留原定 `ReminderAt` 与通道偏好作为历史。
-7. 删除事项是物理删除；UI 必须在执行前显示包含标题的确认。
+## 5. 恢复与验证
 
-## 3. 提醒调度与补发
+待办和通知成组备份/恢复；旧备份无队列时重置陈旧中心，含 Queued 待办却缺记录的备份拒绝。恢复发生在调度器启动前。损坏 JSON 保留，后续写入拒绝覆盖；诊断不输出标题、备注或内容。
 
-`ReminderScheduler` 在应用启动后工作，并串行检查 `Pending + Scheduled/Snoozed + ReminderAt <= now` 的记录。
-
-1. 普通待办正常到期：页内展示“完成、10 分钟后、打开详情”并调用托盘通知；成功提交后标记 `Delivered`，不自动完成。
-2. 独立提醒项正常到期：按逐项设置执行桌宠漫游、气泡或两者，同时提交托盘提示；桌宠隐藏时若启用任一桌宠通道则先恢复显示。成功投递后自动标记 `Completed + Delivered`，不展示普通待办操作条。
-3. 应用未运行或系统休眠：下次启动/恢复检查时，对仍为 `Scheduled/Snoozed` 的过期记录补发一次并明确显示“补发”。
-4. 同一记录一旦进入 `Delivered`、`Cancelled` 或 `Failed`，不会再次自动投递；普通待办选择稍后提醒后才重新进入 `Snoozed`。
-5. 通知回调抛出异常或明确失败时记录 `Failed`；独立提醒项失败时不自动完成。
-6. 提醒气泡位于 `PetWindow` 内，漫游和拖动通过同一 `Left/Top` 更新天然保持跟随；Windows 关闭动画效果时跳过漫游，但气泡和托盘反馈仍可用。
-
-## 4. AI 状态机
-
-```text
-Idle
-  -> Parsing
-  -> DraftReady              创建草稿或唯一目标的变更预览
-  -> NeedsTarget             存在多个同名待办，用户选择唯一目标
-  -> NeedsClarification      缺少时间、存在冲突、时间已过去或没有匹配目标
-  -> Error                   未配置、鉴权、限流、网络、超时或格式错误
-
-DraftReady / NeedsTarget
-  -> Confirmed               仅此时写入 TodoStore
-  -> Cancelled               清除草稿，不写入
-  -> ManualFallback          保留原句并预填手动表单
-```
-
-AI 请求只包含：用户本次输入、本机当前绝对日期时间、当前时区，以及执行修改类意图时用于唯一目标确认的最小待办字段。不会附带搜索历史、文件路径、快捷项、API Key 以外的配置或其他本地数据。
-
-本版不持久化 AI 对话。输入、澄清和草稿只保存在内存中，“清除 AI 内容”立即清空这些状态。失败时原输入保持不变，并提供重试和转手动填写。
-
-创建草稿若只有 `ReminderAt`、没有 `DueAt`，客户端把它归类为独立提醒项，确认卡明确显示该类型；确认后默认 `ReminderBubbleEnabled = true`、`ReminderRoamEnabled = false`。其余创建草稿保持普通待办语义，模型不能自行绕过确认或改变逐项通道偏好。
-
-## 5. OpenAI 兼容协议
-
-- 请求：`POST {endpoint}/v1/chat/completions`；当用户端点已经以 `/vN` 结尾时追加 `/chat/completions`。
-- 鉴权：`Authorization: Bearer <Key>`。
-- 模型：使用设置页已保存且连接测试通过的模型。
-- 输出：要求 JSON 对象，包含 `status`、`operation`、`title`、`targetTitle`、`notes`、`dueAt`、`reminderAt` 和 `clarification`。
-- 客户端再次校验标题、绝对时间、过去时间、操作类型和目标唯一性；模型输出不能绕过领域校验。
-
-## 6. 页面结构与状态
-
-待办页采用紧凑操作队列布局：
-
-1. 顶部是一句话输入条，解析时保留输入并显示进度。
-2. 解析成功后在原位展示结构化确认卡，完整显示年月日、时间、UTC 偏移和操作前后差异。
-3. 手动编辑器默认折叠；“新建待办”或“转手动填写”时展开，标题、备注、截止和提醒按单列排列。
-4. 列表以待处理为默认视图，提供今天、即将到期和已完成筛选；每行显示事项类型、标题、时间、一次性提醒状态、桌宠通道和可用操作。
-5. 手动编辑器提供“这是提醒项”选项；选中后显示“桌宠漫游提醒”和“桌宠气泡提醒”两个独立复选框，标题/保存按钮同步使用提醒项文案。
-6. 首次空状态提供“新建待办”动作；错误、AI 降级、保存失败和提醒失败均使用可恢复的内联状态，不只依赖瞬时提示。
-
-键盘与无障碍：所有操作为真实 WPF 控件并具有可访问名称；`Tab` 顺序跟随视觉顺序；单行输入按 `Enter` 解析；编辑器保存按钮保持可达并在提交时显示字段错误。
-
-## 7. 测试矩阵
-
-| 层级 | 覆盖 |
-| :--- | :--- |
-| 单元 | JSON 往返、损坏文件恢复、标题/时间校验、完成/恢复/取消提醒/删除、稍后提醒 |
-| 单元 | 到期只投递一次、补发、通知失败不记成功、已完成不投递 |
-| 单元 | 独立提醒项通道往返、投递后自动完成、保留 Delivered/原定时间、普通待办不允许走自动完成 API |
-| 单元 | AI 端点拼接、JSON 提取、错误分类、过去时间澄清、同名目标选择、确认前无副作用 |
-| 单元 | 手动表单创建/编辑、筛选、AI 失败保留输入、清除内存会话、撤销 AI 操作 |
-| UI 结构 | 待办导航、空状态、确认卡、提醒项开关、共享下拉真实选择、手动表单、普通待办提醒操作条和可访问名称 |
-| 完整门禁 | `scripts/test.ps1 -CI`、便携/安装打包及受限会话可执行的烟雾检查 |
-
-## 8. 后续范围
-
-- 每日、每周、工作日、自定义重复和同一待办多次提醒。
-- 使用具有操作按钮和可查询权限状态的 Windows App SDK 通知通道。
-- 应用未运行时由系统注册的后台任务准点唤起。
-- AI 多轮对话持久化、保留周期配置和跨设备同步。
+ReminderRuleTests、NotificationCenterTests、TodoStoreTests、TodoViewModelTests、ReminderSchedulerTests、MaintenanceTransactionTests、AiTodoClientTests、PetToolWindowLifecycleTests 覆盖最早时刻、停机、跨月/闰年、DST、取消、同时到期、去重、跨午夜静默、重启、清历史、稍后和并发改期。物理休眠/时间调整、Windows 通知抑制、真实鼠标与键盘仍依赖独立环境验证。结果见[当前报告](release/0.13.0-test-report.md)。

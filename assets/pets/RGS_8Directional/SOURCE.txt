@@ -7,6 +7,7 @@ RGS 8-Direction Characters — 资源出处与授权留痕
 项目页 : https://rgsdev.itch.io/hand-drawn-square-characters-animated-8-directions-top-down-free-cc0
 下载   : 通过 https://rgsdev.itch.io/hand-drawn-square-characters-animated-8-directions-top-down-free-cc0 的「Download」按钮
 授权   : CC0 1.0 Universal（https://creativecommons.org/publicdomain/zero/1.0/）
+SPDX   : CC0-1.0
         公有领域献礼；可商用、可修改、可再分发；署名非强制。
 
 ---

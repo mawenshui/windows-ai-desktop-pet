@@ -17,7 +17,7 @@ public sealed record AiProviderDescriptor(
     IReadOnlyList<string>? SuggestedModels = null,
     bool SupportsStructuredJson = true,
     bool SupportsModelDiscovery = false,
-    string ValidationScope = "鉴权、端点可达性与最小结构化请求");
+    string ValidationScope = "模型列表验证；草稿生成需单独主动验证");
 
 public static class AiProviders
 {
@@ -27,7 +27,7 @@ public static class AiProviders
             "deepseek", "DeepSeek (默认)",
             "https://platform.deepseek.com/",
             "https://api.deepseek.com", "deepseek-chat",
-            "OpenAI 兼容;测试用 POST {endpoint}/v1/models"),
+            "OpenAI 兼容；连接测试 GET models；草稿生成单独验证"),
         new AiProviderDescriptor(
             "zhipu", "智谱 BigModel",
             "https://open.bigmodel.cn/",

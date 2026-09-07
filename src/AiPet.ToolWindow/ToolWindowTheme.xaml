@@ -16,14 +16,10 @@
     <SolidColorBrush x:Key="AccentPressed" Color="#FF934622" />
     <SolidColorBrush x:Key="Success" Color="#FF4F7A60" />
     <SolidColorBrush x:Key="Error" Color="#FFAE4F4F" />
-    <local:DisplayNameConverter x:Key="DisplayNameConverter" />
     <local:ShellIconConverter x:Key="ShellIconConverter" />
-    <DataTemplate x:Key="ComboBoxDisplayNameTemplate">
-        <TextBlock x:Name="SelectedValueText" Text="{Binding Converter={StaticResource DisplayNameConverter}}" />
-    </DataTemplate>
 
-    <!-- The result and shortcut lists use a deliberately quiet scrollbar so
-         the warm accent remains visible without competing with the content. -->
+    <!-- Tool-window scrollbars stay quiet at rest, but expose a comfortable
+         drag target and clear hover/drag feedback when the pointer approaches. -->
     <Style x:Key="CreamScrollBarRepeatButton" TargetType="RepeatButton">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="IsTabStop" Value="False" />
@@ -39,35 +35,43 @@
     </Style>
 
     <Style x:Key="CreamScrollBarThumb" TargetType="Thumb">
-        <Setter Property="Width" Value="8" />
-        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Width" Value="10" />
+        <Setter Property="MinHeight" Value="30" />
         <Setter Property="Background" Value="{StaticResource Accent}" />
+        <Setter Property="Opacity" Value="0.48" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Thumb">
-                    <Border Background="{TemplateBinding Background}" CornerRadius="4" />
+                    <Border Width="6" HorizontalAlignment="Center"
+                            Background="{TemplateBinding Background}" CornerRadius="3" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource AccentHover}" />
+                <Setter Property="Opacity" Value="1" />
             </Trigger>
             <Trigger Property="IsDragging" Value="True">
                 <Setter Property="Background" Value="{StaticResource AccentPressed}" />
+                <Setter Property="Opacity" Value="1" />
             </Trigger>
         </Style.Triggers>
     </Style>
 
     <Style x:Key="CreamScrollBar" TargetType="ScrollBar">
-        <Setter Property="Width" Value="8" />
-        <Setter Property="MinWidth" Value="8" />
-        <Setter Property="Background" Value="{StaticResource Soft}" />
+        <Setter Property="Width" Value="10" />
+        <Setter Property="MinWidth" Value="10" />
+        <Setter Property="Background" Value="Transparent" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
                     <Grid Width="{TemplateBinding Width}" Background="{TemplateBinding Background}">
-                        <Track x:Name="PART_Track" Orientation="{TemplateBinding Orientation}" IsDirectionReversed="True">
+                        <Border x:Name="ScrollRail" Width="6" Margin="0,1"
+                                HorizontalAlignment="Center" Background="{StaticResource Soft}"
+                                CornerRadius="3" Opacity="0.72" />
+                        <Track x:Name="PART_Track" Margin="0,1"
+                               Orientation="{TemplateBinding Orientation}" IsDirectionReversed="True">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Command="ScrollBar.PageUpCommand"
                                               CommandTarget="{Binding RelativeSource={RelativeSource AncestorType=ScrollBar}}"
@@ -83,10 +87,19 @@
                             </Track.IncreaseRepeatButton>
                         </Track>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ScrollRail" Property="Opacity" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- The theme dictionary is scoped to the tool window, so generated
+         ScrollViewer/ListBox scrollbars inherit the same treatment. -->
+    <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource CreamScrollBar}" />
 
     <DropShadowEffect x:Key="CardShadow" x:Shared="False"
                       BlurRadius="12" ShadowDepth="2" Direction="270"
@@ -283,23 +296,194 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="BareComboBox" TargetType="ComboBox">
-        <Setter Property="MinHeight" Value="44" />
-        <Setter Property="Padding" Value="11,7" />
+    <!-- Choices stay inside the tool window instead of opening a separate
+         popup.  ListBox preserves native single-selection, arrow-key and
+         screen-reader semantics while the check mark makes selection visible
+         without relying on colour alone. -->
+    <Style x:Key="InlineChoiceFocusVisual">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="1" RadiusX="9" RadiusY="9"
+                               Stroke="{StaticResource AccentPressed}"
+                               StrokeThickness="2" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="InlineChoiceList" TargetType="ListBox">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="Foreground" Value="{StaticResource Ink}" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="IsTextSearchEnabled" Value="True" />
-        <Setter Property="MaxDropDownHeight" Value="260" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="ScrollViewer.PanningMode" Value="VerticalOnly" />
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="KeyboardNavigation.DirectionalNavigation" Value="Contained" />
+        <Setter Property="KeyboardNavigation.TabNavigation" Value="Once" />
+        <Setter Property="AutomationProperties.HelpText" Value="使用方向键移动，空格键或鼠标单击选择" />
         <Style.Triggers>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Opacity" Value="0.45" />
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <Style x:Key="InlineSegmentGroup" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Soft}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="11" />
+        <Setter Property="Padding" Value="2" />
+    </Style>
+
+    <Style x:Key="InlineChoiceSurface" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Soft}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="4" />
+    </Style>
+
+    <Style x:Key="InlineChoiceItem" TargetType="ListBoxItem">
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="MinWidth" Value="48" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="Margin" Value="3" />
+        <Setter Property="Background" Value="{StaticResource Card}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource InlineChoiceFocusVisual}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="ChoiceChrome" Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10" SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="14" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Path x:Name="SelectionMark" Width="11" Height="9" Margin="0,0,4,0"
+                                  VerticalAlignment="Center" Data="M1,5 L4,8 10,1"
+                                  Stroke="{StaticResource AccentPressed}" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Opacity="0" Stretch="Uniform" />
+                            <ContentPresenter Grid.Column="1" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="False" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="Background" Value="{StaticResource AccentTint}" />
+                            <Setter TargetName="ChoiceChrome" Property="BorderBrush" Value="{StaticResource AccentSoft}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="Background" Value="{StaticResource AccentTint}" />
+                            <Setter TargetName="ChoiceChrome" Property="BorderBrush" Value="{StaticResource AccentSoft}" />
+                            <Setter TargetName="SelectionMark" Property="Opacity" Value="1" />
+                            <Setter Property="Foreground" Value="{StaticResource AccentPressed}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="IsMouseCaptured" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="Background" Value="{StaticResource AccentSoft}" />
+                            <Setter TargetName="ChoiceChrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="BorderBrush" Value="{StaticResource AccentPressed}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SegmentInlineChoiceItem" TargetType="ListBoxItem">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="3,6" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource InlineChoiceFocusVisual}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="ChoiceChrome" Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="9" SnapsToDevicePixels="True">
+                        <Grid>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="False" />
+                            <Border x:Name="SelectionBar" Height="2" Margin="5,0"
+                                    Width="18" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                    Background="{StaticResource AccentPressed}" CornerRadius="1"
+                                    Opacity="0" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="Background" Value="{StaticResource AccentTint}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="Background" Value="{StaticResource Card}" />
+                            <Setter TargetName="ChoiceChrome" Property="BorderBrush" Value="{StaticResource AccentSoft}" />
+                            <Setter TargetName="SelectionBar" Property="Opacity" Value="1" />
+                            <Setter Property="Foreground" Value="{StaticResource AccentPressed}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="IsMouseCaptured" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="Background" Value="{StaticResource AccentSoft}" />
+                            <Setter TargetName="ChoiceChrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="ChoiceChrome" Property="BorderBrush" Value="{StaticResource AccentPressed}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="InlineChoiceRowItem" TargetType="ListBoxItem" BasedOn="{StaticResource InlineChoiceItem}">
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="Padding" Value="11,8" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
+    <Style x:Key="CompactInlineChoiceItem" TargetType="ListBoxItem" BasedOn="{StaticResource InlineChoiceItem}">
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Padding" Value="7,6" />
+        <Setter Property="Margin" Value="0,0,5,5" />
     </Style>
 
     <Style x:Key="BarePasswordBox" TargetType="PasswordBox">
@@ -404,7 +588,8 @@
                         <Border Background="{StaticResource Soft}" CornerRadius="13" Padding="2" Margin="0,0,100,0">
                             <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
                         </Border>
-                        <ContentPresenter Grid.Row="1" Margin="0,14,0,0" ContentSource="SelectedContent" />
+                        <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" Margin="0,14,0,0"
+                                          ContentSource="SelectedContent" />
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>

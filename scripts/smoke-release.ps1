@@ -50,6 +50,20 @@ if ($expectSignatures) {
     Assert-AuthenticodeSignature $installedExe 'installed executable'
     Assert-AuthenticodeSignature $uninstaller 'uninstaller'
 }
-$uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -WindowStyle Hidden
-if ($uninstall.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($uninstall.ExitCode)." }
+$runKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Windows\CurrentVersion\Run', $true)
+$runName = 'WindowsAiDesktopPet'
+$priorValue = $runKey.GetValue($runName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+$priorKind = if ($null -ne $priorValue) { $runKey.GetValueKind($runName) } else { $null }
+try {
+    $runKey.SetValue($runName, ('"' + $installedExe + '" --tray'), [Microsoft.Win32.RegistryValueKind]::String)
+    $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -WindowStyle Hidden
+    if ($uninstall.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($uninstall.ExitCode)." }
+    if ($null -ne $runKey.GetValue($runName)) { throw 'Uninstall left its autorun command behind.' }
+    if (Test-Path -LiteralPath $installedExe) { throw 'Uninstall left the application executable behind.' }
+    Write-Output '[PASS] uninstall removed its application and autorun command.'
+} finally {
+    if ($null -ne $priorValue) { $runKey.SetValue($runName, $priorValue, $priorKind) }
+    else { $runKey.DeleteValue($runName, $false) }
+    $runKey.Dispose()
+}
 Write-Output "[PASS] portable, install, installed smoke and uninstall: $root"

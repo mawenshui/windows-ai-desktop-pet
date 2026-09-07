@@ -1,12 +1,10 @@
-# 应用图标来源
+# 应用图标来源与生成
 
-`windows-ai-desktop-pet.ico` 与同名 PNG 由 `scripts/build-app-icon.ps1` 确定性生成，
-基础角色帧取自 `assets/pets/RGS_8Directional/frames/hero/idle_down_01.png`。
+2026-09-07 按 0.13.0 代码核对。`windows-ai-desktop-pet.ico` 与同名 PNG 由 `scripts/build-app-icon.ps1` 生成，基础帧为 `assets/pets/RGS_8Directional/frames/hero/idle_down_01.png`。
 
-- 原始素材：RGS 8-Direction Characters
-- 作者：RGS_Dev
-- 许可：CC0-1.0
-- 用途：应用可执行文件、桌面/开始菜单快捷方式、托盘与安装器标识
-- 处理：暖橙圆角底板、透明边距、最近邻缩放，并封装 16～256 像素 PNG 帧的 ICO
+- 作者素材：RGS_Dev 的 RGS 8-Direction Characters，许可记录 CC0-1.0。
+- 处理：暖橙圆角底板、透明边距、最近邻缩放及多尺寸 ICO。
+- 使用：AiPet.App 项目 ApplicationIcon、TrayIcon、安装器及应用快捷方式。
+- 来源/许可原文见[资源包说明](../pets/RGS_8Directional/README.md)、同目录 SOURCE.txt 和 License.txt。
 
-重新生成：`pwsh -NoProfile -File scripts/build-app-icon.ps1`。
+在仓库根重新生成：`pwsh -NoProfile -File scripts/build-app-icon.ps1`。本次仅同步说明，没有重新生成或替换图标文件。

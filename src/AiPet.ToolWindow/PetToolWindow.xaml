@@ -66,14 +66,26 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                             <Border Background="{StaticResource AccentTint}" CornerRadius="14" Padding="10" Margin="0,0,0,12">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="132" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Height="44" Style="{StaticResource FieldChrome}">
-                                        <ComboBox x:Name="SearchScopeSelector" Style="{StaticResource BareComboBox}"
-                                                  ItemsSource="{Binding SearchScopes}" DisplayMemberPath="DisplayName"
-                                                   SelectedItem="{Binding SelectedSearchScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                  ToolTip="选择搜索范围" AutomationProperties.Name="搜索范围" />
-                                    </Border>
-                                    <Grid Grid.Column="2">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="176" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <ListBox x:Name="SearchScopeSelector" MaxHeight="92" VerticalAlignment="Top"
+                                             Style="{StaticResource InlineChoiceList}"
+                                             ItemContainerStyle="{StaticResource CompactInlineChoiceItem}"
+                                             ItemsSource="{Binding SearchScopes}"
+                                             SelectedItem="{Binding SelectedSearchScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="直接单击范围，或使用方向键切换"
+                                             AutomationProperties.AutomationId="SearchScopeSelector"
+                                             AutomationProperties.Name="搜索范围选项">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding DisplayName}" MaxWidth="132"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayName}" />
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <Grid Grid.Column="2" VerticalAlignment="Top">
                                         <TextBox x:Name="SearchBox" Height="44" Style="{StaticResource Field}" Padding="35,0,12,0"
                                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Left"
                                                  Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
@@ -93,13 +105,17 @@
                                     <TextBlock Text="先选择允许搜索的文件夹" FontWeight="SemiBold" FontSize="14" />
                                     <TextBlock Text="确认前只展示候选路径，不会枚举或读取其中的文件；搜索始终只匹配名称和路径元数据。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,9" />
                                     <ItemsControl ItemsSource="{Binding SearchOnboardingCandidates}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" MinHeight="36" Margin="0,1"
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" MinHeight="42" Margin="0,1,5,1"
                                                           AutomationProperties.Name="{Binding DisplayName}">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                                                        <TextBlock Text="{Binding Path}" Foreground="{StaticResource Muted}" FontSize="10" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Path}" Foreground="{StaticResource Muted}" FontSize="10"
+                                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
                                                     </StackPanel>
                                                 </CheckBox>
                                             </DataTemplate>
@@ -118,6 +134,7 @@
                             <StackPanel Grid.Row="4" Margin="0,8,0,0">
                                 <DockPanel Margin="0,0,0,8">
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Content="管理" Style="{StaticResource SecondaryButton}" Padding="10,7" Margin="0,0,6,0" Click="ManageShortcuts_Click" AutomationProperties.Name="展开快捷入口管理" />
                                         <Button Content="＋ 添加入口" Style="{StaticResource SecondaryButton}" Padding="12,7" Command="{Binding AddShortcutCommand}" AutomationProperties.Name="添加文件或应用快捷入口" />
                                         <Button Content="文件夹" Style="{StaticResource SecondaryButton}" Padding="10,7" Margin="6,0,0,0" Click="BrowseShortcutFolder_Click" AutomationProperties.Name="添加文件夹快捷入口" />
                                     </StackPanel>
@@ -202,21 +219,30 @@
                                 </Grid>
                             </StackPanel>
 
-                            <DockPanel Grid.Row="2" Margin="0,0,0,8">
-                                <Border DockPanel.Dock="Right" Width="112" MinHeight="40" Style="{StaticResource FieldChrome}">
-                                    <ComboBox x:Name="CategoryFilterSelector" Style="{StaticResource BareComboBox}" MinHeight="38" Padding="9,5"
-                                              ItemsSource="{Binding Categories}" SelectedItem="{Binding Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                              AutomationProperties.Name="结果类别" />
-                                </Border>
+                            <Grid Grid.Row="2" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                 <TextBlock Text="搜索结果" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0" />
-                            </DockPanel>
+                                <Border Grid.Column="2" Style="{StaticResource InlineSegmentGroup}">
+                                    <ListBox x:Name="CategoryFilterSelector"
+                                             Style="{StaticResource InlineChoiceList}"
+                                             ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}"
+                                             ItemsSource="{Binding Categories}"
+                                             SelectedItem="{Binding Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.AutomationId="CategoryFilterSelector"
+                                             AutomationProperties.Name="结果类别选项">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate><UniformGrid Columns="7" /></ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                    </ListBox>
+                                </Border>
+                            </Grid>
 
                             <Grid Grid.Row="3">
                                 <ListBox x:Name="ResultsList" ItemsSource="{Binding Results}" BorderThickness="0" Background="Transparent" SelectionMode="Single" MouseDoubleClick="Results_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True" ItemContainerStyle="{StaticResource ResultItem}" AutomationProperties.Name="搜索结果">
                                     <ListBox.Resources>
                                         <Style TargetType="ScrollBar" BasedOn="{StaticResource CreamScrollBar}" />
                                     </ListBox.Resources>
-                                    <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Width="30" Height="30" Background="{StaticResource AccentTint}" CornerRadius="8" VerticalAlignment="Center"><Image Width="22" Height="22" Source="{Binding Converter={StaticResource ShellIconConverter}}" Stretch="Uniform" SnapsToDevicePixels="True" /></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding RelativePath}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis" /></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+                                    <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Width="30" Height="30" Background="{StaticResource AccentTint}" CornerRadius="8" VerticalAlignment="Center"><Image Width="22" Height="22" Source="{Binding Converter={StaticResource ShellIconConverter}}" Stretch="Uniform" SnapsToDevicePixels="True" /></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding RelativePath}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis" /><DockPanel><Button DockPanel.Dock="Right" Content="{Binding PinLabel}" Style="{StaticResource SecondaryButton}" Padding="7,3" MinHeight="28" Command="{Binding DataContext.ToggleResultPinCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" /><TextBlock Text="{Binding MatchReason}" Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" /></DockPanel></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
                                 </ListBox>
                                 <Border VerticalAlignment="Stretch" MinHeight="38">
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="280">
@@ -299,8 +325,14 @@
                                                 </Grid>
                                                 <StackPanel Margin="0,9,0,0" Visibility="{Binding NeedsAiTarget, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="选择唯一待办" Style="{StaticResource SectionLabel}" />
-                                                    <Border Style="{StaticResource FieldChrome}">
-                                                        <ComboBox x:Name="AiTargetSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding AiTargetChoices}" DisplayMemberPath="TargetChoiceText" SelectedItem="{Binding SelectedAiTarget, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="选择 AI 操作目标" />
+                                                    <Border Style="{StaticResource InlineChoiceSurface}">
+                                                        <ListBox x:Name="AiTargetSelector" MaxHeight="144"
+                                                                 Style="{StaticResource InlineChoiceList}"
+                                                                 ItemContainerStyle="{StaticResource InlineChoiceRowItem}"
+                                                                 ItemsSource="{Binding AiTargetChoices}" DisplayMemberPath="TargetChoiceText"
+                                                                 SelectedItem="{Binding SelectedAiTarget, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 AutomationProperties.AutomationId="AiTargetSelector"
+                                                                 AutomationProperties.Name="AI 操作目标列表" />
                                                     </Border>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding AiChangeSummary}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,0" />
@@ -314,6 +346,7 @@
                                     </StackPanel>
                                 </Border>
 
+                                <local:NotificationInbox Margin="0,0,0,12" />
                                 <Border Background="#FFF2F7F3" BorderBrush="#554F7A60" BorderThickness="1" CornerRadius="10" Padding="11" Margin="0,0,0,10"
                                         Visibility="{Binding HasReminderAlert, Converter={StaticResource BoolToVisibility}}">
                                     <StackPanel>
@@ -328,18 +361,29 @@
                                     </StackPanel>
                                 </Border>
 
-                                <DockPanel Margin="1,0,0,9">
-                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Border Width="104" Height="38" Style="{StaticResource FieldChrome}">
-                                            <ComboBox x:Name="TodoFilterSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding Filters}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办日期筛选" />
-                                        </Border>
-                                        <Button Content="＋ 新建待办" Style="{StaticResource PrimaryButton}" MinHeight="38" Padding="12,7" Margin="7,0,0,0" Command="{Binding NewTodoCommand}" />
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="待办清单" FontSize="16" FontWeight="SemiBold" />
-                                        <TextBlock Text="一次性提醒 · 本地保存" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" />
-                                    </StackPanel>
-                                </DockPanel>
+                                <Grid Margin="1,0,0,9">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="＋ 新建待办" Style="{StaticResource PrimaryButton}" MinHeight="38" Padding="12,7" Command="{Binding NewTodoCommand}" />
+                                        <StackPanel>
+                                            <TextBlock Text="待办清单" FontSize="16" FontWeight="SemiBold" />
+                                            <TextBlock Text="重复与多次提醒 · 本地保存" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <Border Grid.Row="1" Margin="0,7,0,0" Style="{StaticResource InlineSegmentGroup}">
+                                        <ListBox x:Name="TodoFilterSelector"
+                                                 Style="{StaticResource InlineChoiceList}"
+                                                 ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}"
+                                                 ItemsSource="{Binding Filters}" DisplayMemberPath="DisplayName"
+                                                 SelectedItem="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.AutomationId="TodoFilterSelector"
+                                                 AutomationProperties.Name="待办日期筛选选项">
+                                            <ListBox.ItemsPanel>
+                                                <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+                                            </ListBox.ItemsPanel>
+                                        </ListBox>
+                                    </Border>
+                                </Grid>
 
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10" Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibility}}">
                                     <StackPanel>
@@ -349,7 +393,7 @@
                                         <TextBlock Text="备注（可选）" Style="{StaticResource SectionLabel}" Margin="0,10,0,7" />
                                         <TextBox Style="{StaticResource Field}" MinHeight="58" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
                                                  Text="{Binding EditorNotes, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办备注" />
-                                        <CheckBox x:Name="EditorIsReminderToggle" Content="这是提醒项（到期后自动标记为已完成）"
+                                        <CheckBox x:Name="EditorIsReminderToggle" Content="这是提醒项（最后一次投递后自动完成）"
                                                   IsChecked="{Binding EditorIsReminder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                   Margin="0,10,0,0" AutomationProperties.Name="设置为提醒项" />
                                         <StackPanel Visibility="{Binding EditorReminderOptionsVisible, Converter={StaticResource BoolToVisibility}}" Margin="0,4,0,0">
@@ -367,7 +411,28 @@
                                             <DatePicker Grid.Row="1" Grid.Column="3" Height="40" SelectedDate="{Binding EditorReminderDate, Mode=TwoWay}" Background="{StaticResource Card}" BorderBrush="{StaticResource Line}" AutomationProperties.Name="提醒日期" />
                                             <TextBox Grid.Row="1" Grid.Column="4" Height="40" Style="{StaticResource Field}" Margin="6,0,0,0" Text="{Binding EditorReminderTime, UpdateSourceTrigger=PropertyChanged}" ToolTip="HH:mm" AutomationProperties.Name="提醒时间" />
                                         </Grid>
-                                        <TextBlock Text="时间按当前 Windows 时区解释；不选择日期即表示不设置。" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap" />
+                                        <TextBlock Text="提醒按下方保存的时区解释；截止时间使用当前时区。不选择日期表示不设置。" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap" />
+                                        <Expander Header="重复与额外提醒" Margin="0,10,0,0">
+                                            <StackPanel>
+                                                <ListBox ItemsSource="{Binding RecurrenceOptions}" DisplayMemberPath="DisplayName" SelectedItem="{Binding EditorRecurrence}" Style="{StaticResource InlineChoiceList}" ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}" AutomationProperties.Name="重复规则">
+                                                    <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                                </ListBox>
+                                                <ItemsControl ItemsSource="{Binding Weekdays}" Margin="0,6">
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" Margin="0,0,10,0" ToolTip="自选星期规则使用这些日期" /></DataTemplate></ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Text="间隔（每天按天，其余按周；1–365）" Style="{StaticResource SectionLabel}" />
+                                                <TextBox Text="{Binding EditorInterval, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource Field}" AutomationProperties.Name="重复间隔" />
+                                                <TextBlock Text="结束日期（留空为持续重复）" Style="{StaticResource SectionLabel}" />
+                                                <DatePicker SelectedDate="{Binding EditorEndsOn}" AutomationProperties.Name="重复结束日期" />
+                                                <TextBlock Text="固定当地时间所属时区" Style="{StaticResource SectionLabel}" />
+                                                <ListBox ItemsSource="{Binding TimeZones}" SelectedItem="{Binding EditorTimeZoneId}" MaxHeight="95" Style="{StaticResource InlineChoiceList}" ItemContainerStyle="{StaticResource InlineChoiceRowItem}" AutomationProperties.Name="提醒时区" />
+                                                <TextBlock Text="额外时间（每行 yyyy-MM-dd HH:mm，最多 32 次）" Style="{StaticResource SectionLabel}" TextWrapping="Wrap" />
+                                                <TextBox Text="{Binding EditorAdditionalTimes, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="64" MaxHeight="120" VerticalScrollBarVisibility="Auto" Style="{StaticResource Field}" AutomationProperties.Name="额外提醒时间" />
+                                                <CheckBox Content="仅调整此次时间（保留标题和整个规则）" IsChecked="{Binding EditorOnlyThis}" Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Text="{Binding EditorRecurrencePreview}" TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,8" AutomationProperties.Name="下次提醒预览" />
+                                            </StackPanel>
+                                        </Expander>
                                         <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource Error}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BoolToVisibility}}" />
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,11,0,0">
                                             <Button Content="取消" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="14,7" Command="{Binding CancelEditorCommand}" />
@@ -405,7 +470,7 @@
                                                         <TextBlock Text="{Binding DueText}" Foreground="{StaticResource Muted}" FontSize="11" />
                                                         <TextBlock Text=" · " Foreground="{StaticResource Muted}" FontSize="11" />
                                                         <TextBlock Text="{Binding ReminderText}" Foreground="{StaticResource Muted}" FontSize="11" />
-                                                        <TextBlock Text=" · 一次性" Foreground="{StaticResource Muted}" FontSize="11" />
+                                                        <TextBlock Text="{Binding RepeatText, StringFormat= · {0}}" Foreground="{StaticResource Muted}" FontSize="11" />
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding ReminderChannelText}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" Visibility="{Binding IsReminder, Converter={StaticResource BoolToVisibility}}" />
                                                     <WrapPanel Margin="0,9,0,0">
@@ -421,7 +486,8 @@
                                                         <Button Content="10 分钟后" MinHeight="32" Padding="11,5" Margin="0,0,6,5" Command="{Binding DataContext.Todo.SnoozeTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}">
                                                             <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Style.Triggers><DataTrigger Binding="{Binding IsCompleted}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style>
                                                         </Button>
-                                                        <Button Content="仅取消提醒" MinHeight="32" Padding="11,5" Margin="0,0,6,5" Command="{Binding DataContext.Todo.CancelReminderCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}">
+                                                        <Button Content="跳过此次" MinHeight="32" Padding="11,5" Margin="0,0,6,5" Style="{StaticResource SecondaryButton}" Visibility="{Binding CanSkipOccurrence, Converter={StaticResource BoolToVisibility}}" Command="{Binding DataContext.Todo.SkipOccurrenceCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" />
+                                                        <Button Content="取消整个提醒规则" MinHeight="32" Padding="11,5" Margin="0,0,6,5" Command="{Binding DataContext.Todo.CancelReminderCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}">
                                                             <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanCancelReminder}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Button.Style>
                                                         </Button>
                                                         <Button Content="删除" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="11,5" Margin="0,0,6,5" Click="DeleteTodo_Click" Foreground="{StaticResource Error}" AutomationProperties.Name="删除待办" />
@@ -459,13 +525,16 @@
                                     <StackPanel>
                                         <TextBlock Text="桌宠形象" Style="{StaticResource SectionLabel}" />
                                         <TextBlock Text="选择后立即应用 · RGS CC0 角色资源" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,0,10" />
-                                        <ListBox x:Name="CharacterList" ItemsSource="{Binding PetCharacters}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectedValue="{Binding SelectedCharacter, Mode=TwoWay}" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="桌宠预设形象">
+                                        <ListBox x:Name="CharacterList" Style="{StaticResource InlineChoiceList}" ItemContainerStyle="{StaticResource InlineChoiceItem}" ItemsSource="{Binding PetCharacters}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectedValue="{Binding SelectedCharacter, Mode=TwoWay}" AutomationProperties.Name="桌宠预设形象">
                                             <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
-                                            <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="13,8" /><Setter Property="Margin" Value="0,0,8,8" /><Setter Property="Background" Value="{StaticResource Canvas}" /><Setter Property="Foreground" Value="{StaticResource Ink}" /><Setter Property="Cursor" Value="Hand" /><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Chip" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" BorderBrush="#66E6DBCF" BorderThickness="1" CornerRadius="10"><ContentPresenter /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentTint}" /></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentTint}" /><Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource Accent}" /><Setter Property="Foreground" Value="{StaticResource AccentPressed}" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chip" Property="BorderThickness" Value="2" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
                                         </ListBox>
                                         <CheckBox Content="登录 Windows 后自动启动" IsChecked="{Binding AutostartEnabled, Mode=TwoWay}" Command="{Binding ToggleAutostartCommand}" Margin="0,3,0,0" />
                                         <TextBlock Text="外观与动态效果" Style="{StaticResource SectionLabel}" Margin="0,14,0,7" />
-                                        <Border Style="{StaticResource FieldChrome}"><ComboBox x:Name="ThemeSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding ThemeOptions}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedTheme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="应用主题" /></Border>
+                                        <Border Style="{StaticResource InlineSegmentGroup}">
+                                            <ListBox x:Name="ThemeSelector" Style="{StaticResource InlineChoiceList}" ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}" ItemsSource="{Binding ThemeOptions}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedTheme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="ThemeSelector" AutomationProperties.Name="应用主题选项">
+                                                <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                            </ListBox>
+                                        </Border>
                                         <CheckBox Content="允许桌宠漫游" IsChecked="{Binding EnablePetRoaming, Mode=TwoWay}" MinHeight="36" />
                                         <CheckBox Content="允许提醒气泡动画" IsChecked="{Binding EnableBubbleAnimation, Mode=TwoWay}" MinHeight="36" />
                                         <CheckBox Content="允许朝向跟随鼠标" IsChecked="{Binding EnableFollowMotion, Mode=TwoWay}" MinHeight="36" />
@@ -514,7 +583,14 @@
                                         <TextBlock Text="文件名匹配方式" FontWeight="SemiBold" FontSize="12" />
                                         <CheckBox x:Name="WildcardSearchToggle" Content="启用 * 和 ? 通配符" IsChecked="{Binding EnableWildcardSearch, Mode=TwoWay}" MinHeight="40" Margin="0,5,0,0" AutomationProperties.Name="启用文件名通配符搜索" />
                                         <CheckBox x:Name="RegexSearchToggle" Content="启用 re: 正则表达式" IsChecked="{Binding EnableRegexSearch, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="启用文件名正则表达式搜索" />
-                                        <TextBlock Text="关闭时按普通文字搜索；当前只搜索文件名，不读取文件内容。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                        <ListBox ItemsSource="{Binding SearchFields}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedSearchField}" Style="{StaticResource InlineChoiceList}" ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}" AutomationProperties.Name="搜索匹配字段">
+                                            <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                        </ListBox>
+                                        <WrapPanel Margin="0,8,0,0">
+                                            <Button Content="{Binding SearchHistoryLabel}" Style="{StaticResource SecondaryButton}" Click="ToggleSearchHistory_Click" Margin="0,0,6,6" />
+                                            <Button Content="清除最近使用记录" Style="{StaticResource SecondaryButton}" Command="{Binding ClearSearchHistoryCommand}" Margin="0,0,0,6" />
+                                        </WrapPanel>
+                                        <TextBlock Text="关闭时按普通文字搜索；可匹配名称或相对路径，不读取文件内容。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
                                     </StackPanel>
                                 </Border>
 
@@ -523,23 +599,32 @@
                                         <Expander.Header><TextBlock Text="AI 接入（可选）" FontWeight="SemiBold" /></Expander.Header>
                                         <StackPanel Margin="0,12,0,0">
                                              <TextBlock Text="新建配置模板" Style="{StaticResource SectionLabel}" />
-                                             <Grid>
-                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                                 <Border Style="{StaticResource FieldChrome}">
-                                                     <ComboBox x:Name="AiTemplateSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding AiConfigurationTemplates}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedAiTemplate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="新建 AI 配置模板" />
-                                                 </Border>
-                                                 <Button Grid.Column="1" Content="从模板新建" Style="{StaticResource SecondaryButton}" Click="NewAiConfig_Click" Margin="8,0,0,0" AutomationProperties.Name="从模板新建 AI 配置" />
-                                             </Grid>
+                                             <ListBox x:Name="AiTemplateSelector" Style="{StaticResource InlineChoiceList}" ItemContainerStyle="{StaticResource InlineChoiceItem}" ItemsSource="{Binding AiConfigurationTemplates}" SelectedItem="{Binding SelectedAiTemplate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="AiTemplateSelector" AutomationProperties.Name="新建 AI 配置模板选项">
+                                                 <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                                 <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" TextAlignment="Center" /></DataTemplate></ListBox.ItemTemplate>
+                                             </ListBox>
+                                             <Button Content="从所选模板新建" Style="{StaticResource SecondaryButton}" Click="NewAiConfig_Click" Margin="0,7,0,0" HorizontalAlignment="Right" AutomationProperties.Name="从模板新建 AI 配置" />
                                              <TextBlock Text="{Binding SelectedAiTemplate.Notes}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
                                              <TextBlock Text="已保存配置" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" />
-                                             <Border Style="{StaticResource FieldChrome}">
-                                                 <ComboBox x:Name="SavedAiConfigurationSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding SavedAiConfigurations}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedAiConfiguration, Mode=OneWay}" SelectionChanged="SavedAiConfigurationSelector_SelectionChanged" IsEnabled="{Binding HasSavedAiConfigurations}" AutomationProperties.Name="已保存 AI 配置" />
+                                             <Border Style="{StaticResource InlineChoiceSurface}" MinHeight="44">
+                                                 <ListBox x:Name="SavedAiConfigurationSelector" MaxHeight="144"
+                                                          Style="{StaticResource InlineChoiceList}"
+                                                          ItemContainerStyle="{StaticResource InlineChoiceRowItem}"
+                                                          ItemsSource="{Binding SavedAiConfigurations}" DisplayMemberPath="DisplayName"
+                                                          SelectedItem="{Binding SelectedAiConfiguration, Mode=OneWay}"
+                                                          SelectionChanged="SavedAiConfigurationSelector_SelectionChanged"
+                                                          IsEnabled="{Binding HasSavedAiConfigurations}"
+                                                          AutomationProperties.AutomationId="SavedAiConfigurationSelector"
+                                                          AutomationProperties.Name="已保存 AI 配置列表" />
                                              </Border>
                                              <TextBlock Text="选择已保存配置后会立即作为待办 AI 的当前配置。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
                                              <TextBlock Text="配置名称" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" />
                                              <TextBox x:Name="AiConfigurationNameBox" Style="{StaticResource Field}" Text="{Binding AiConfigurationName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="AI 配置名称" />
                                              <TextBlock Text="供应商" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" />
-                                             <Border Style="{StaticResource FieldChrome}"><ComboBox x:Name="ProviderSelector" Style="{StaticResource BareComboBox}" ItemsSource="{Binding Providers}" DisplayMemberPath="DisplayName" SelectedItem="{Binding SelectedProvider, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="AI 供应商" /></Border>
+                                             <ListBox x:Name="ProviderSelector" Style="{StaticResource InlineChoiceList}" ItemContainerStyle="{StaticResource InlineChoiceItem}" ItemsSource="{Binding Providers}" SelectedItem="{Binding SelectedProvider, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="ProviderSelector" AutomationProperties.Name="AI 供应商选项">
+                                                 <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                                 <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" TextAlignment="Center" /></DataTemplate></ListBox.ItemTemplate>
+                                             </ListBox>
                                             <TextBlock Text="服务地址" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" /><TextBox x:Name="EndpointBox" Style="{StaticResource Field}" Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="AI 服务地址" />
                                             <TextBlock Text="模型" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" /><TextBox x:Name="ModelBox" Style="{StaticResource Field}" Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="AI 模型" />
                                             <TextBlock Text="API Key" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" /><Border Style="{StaticResource FieldChrome}"><PasswordBox x:Name="ApiKeyBox" Style="{StaticResource BarePasswordBox}" PasswordChanged="ApiKeyBox_PasswordChanged" AutomationProperties.Name="AI API Key" /></Border>
@@ -548,12 +633,23 @@
                                                 <Button DockPanel.Dock="Left" Content="删除当前配置" Style="{StaticResource SecondaryButton}" Foreground="{StaticResource Error}" Click="DeleteAiConfig_Click" Visibility="{Binding HasSelectedAiConfiguration, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="删除当前 AI 配置及凭据" />
                                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="{Binding TestButtonLabel}" Style="{StaticResource SecondaryButton}" Command="{Binding TestConnectionCommand}" Margin="0,0,8,0" AutomationProperties.Name="测试 AI 连接" /><Button Content="保存配置" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAiConfigCommand}" AutomationProperties.Name="保存 AI 配置" /></StackPanel>
                                             </DockPanel>
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Content="验证草稿生成（使用额度）" Style="{StaticResource SecondaryButton}" Click="VerifyGeneration_Click" IsEnabled="{Binding CanVerifyGeneration}" Margin="0,0,6,6" />
+                                                <Button Content="取消测试" Style="{StaticResource SecondaryButton}" Click="CancelAiVerification_Click" IsEnabled="{Binding IsTestingAi}" Margin="0,0,0,6" />
+                                            </WrapPanel>
+                                            <Expander Header="配置迁移（不含 Key）" Margin="0,6">
+                                                <WrapPanel>
+                                                    <Button Content="导出配置" Style="{StaticResource SecondaryButton}" Click="ExportAiConfigurations_Click" Margin="0,0,6,6" />
+                                                    <Button Content="导入配置" Style="{StaticResource SecondaryButton}" Click="ImportAiConfigurations_Click" Margin="0,0,6,6" />
+                                                    <Button Content="导入 Provider 预设" Style="{StaticResource SecondaryButton}" Click="ImportProviderPresets_Click" Margin="0,0,0,6" />
+                                                </WrapPanel>
+                                            </Expander>
                                             <TextBlock Text="{Binding AiStatus}" FontWeight="SemiBold" Foreground="{StaticResource Ink}" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite" /><TextBlock Text="{Binding AiStatusDetail}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0" AutomationProperties.LiveSetting="Polite" />
                                         </StackPanel>
                                     </Expander>
                                 </Border>
                                 <Button Content="打开用户手册" Style="{StaticResource SecondaryButton}" Command="{Binding OpenHelpCommand}" HorizontalAlignment="Left" />
-                                            <TextBlock Text="Windows AI Desktop Pet 0.12.1 · RGS_Dev CC0-1.0" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding SoftwareVersion, StringFormat='Windows AI Desktop Pet {0} · RGS_Dev CC0-1.0'}" Foreground="{StaticResource Muted}" FontSize="10" Margin="2,12,0,4" TextWrapping="Wrap" />
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

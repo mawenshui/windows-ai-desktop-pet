@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\prototypes\AiPet.Prototypes\AiPet.Prototypes.csproj" />
     <ProjectReference Include="..\..\..\src\AiPet.AI\AiPet.AI.csproj" />
     <ProjectReference Include="..\..\..\src\AiPet.Common\AiPet.Common.csproj" />
     <ProjectReference Include="..\..\..\src\AiPet.Pet\AiPet.Pet.csproj" />

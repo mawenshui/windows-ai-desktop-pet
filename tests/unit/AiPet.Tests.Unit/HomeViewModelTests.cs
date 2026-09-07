@@ -374,7 +374,7 @@ public sealed class HomeViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Category_dropdown_immediately_requeries_with_kind_filter()
+    public async Task Category_selection_immediately_requeries_with_kind_filter()
     {
         var folder = Path.Combine(_root, "search-items");
         Directory.CreateDirectory(folder);

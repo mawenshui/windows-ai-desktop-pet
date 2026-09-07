@@ -28,7 +28,8 @@ public sealed class FutureFeatureTests : IDisposable
     [Fact]
     public void Backup_and_restore_are_module_selective_and_exclude_credentials()
     {
-        File.WriteAllText(Path.Combine(_root, "settings.json"), "settings");
+        const string settings = "{\"schemaVersion\":3}";
+        File.WriteAllText(Path.Combine(_root, "settings.json"), settings);
         File.WriteAllText(Path.Combine(_root, "todos.json"), "todos");
         var service = new DataMaintenanceService(_root);
         var zip = service.Backup(Path.Combine(_root, "backup.zip"), DataModule.Settings);
@@ -41,7 +42,7 @@ public sealed class FutureFeatureTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "settings.json"), "changed");
         var result = service.Restore(zip, DataModule.Settings);
         Assert.Empty(result.Errors);
-        Assert.Equal("settings", File.ReadAllText(Path.Combine(_root, "settings.json")));
+        Assert.Equal(settings, File.ReadAllText(Path.Combine(_root, "settings.json")));
         Assert.Equal("todos", File.ReadAllText(Path.Combine(_root, "todos.json")));
     }
 
@@ -89,7 +90,8 @@ public sealed class FutureFeatureTests : IDisposable
         var advanced = store.AdvanceReminder(created.Id, now.AddMinutes(5));
         Assert.Equal(now.AddMinutes(10), advanced.ReminderAt);
         advanced = store.AdvanceReminder(created.Id, now.AddMinutes(10));
-        Assert.Equal(now.AddMinutes(10).AddDays(1), advanced.ReminderAt);
+        // Extra one-off reminders must not move the daily wall-clock anchor.
+        Assert.Equal(now.AddMinutes(5).AddDays(1), advanced.ReminderAt);
         Assert.Equal(ReminderState.Scheduled, advanced.ReminderState);
     }
 

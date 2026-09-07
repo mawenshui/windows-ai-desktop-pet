@@ -20,6 +20,8 @@ public sealed record SearchItem(
     bool IsValid)
 {
     public int RelevanceScore { get; init; }
+    public bool IsPinned { get; init; }
+    public string PinLabel => IsPinned ? "取消固定" : "固定";
     public string MatchReason { get; init; } = "按最近修改时间";
     /// <summary>
     /// True if the underlying file/directory is still present at <see cref="FullPath"/>.

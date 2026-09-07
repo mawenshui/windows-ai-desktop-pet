@@ -11,6 +11,7 @@ $screenshotPath = Join-Path $reportRoot 'ui-e2e-failure.png'
 $stage = 'initialize'
 $process = $null
 $startedAt = [DateTimeOffset]::UtcNow
+$selectorEvidence = [Collections.Generic.List[object]]::new()
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -25,6 +26,7 @@ public static class AiPetMouseInput {
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
     public static IntPtr[] GetTopLevelWindows(uint targetProcessId) {
@@ -83,6 +85,13 @@ function Find-Element([string]$Name, [int]$TimeoutSeconds = 10) {
 
 function Click-Element([string]$Name) {
     $element = Find-Element $Name
+    try {
+        $invoke = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+        Write-Output ("[UI] invoke '{0}' type={1}" -f $Name, $element.Current.ControlType.ProgrammaticName)
+        $invoke.Invoke()
+        Start-Sleep -Milliseconds 150
+        return
+    } catch { }
     $rect = $element.Current.BoundingRectangle
     if ($element.Current.IsOffscreen -or $rect.IsEmpty -or $rect.Width -le 0 -or $rect.Height -le 0) {
         throw "UI element is not clickable: $Name"
@@ -100,35 +109,6 @@ function Click-Element([string]$Name) {
     Start-Sleep -Milliseconds 100
 }
 
-function Click-ScreenPoint([int]$X, [int]$Y, [string]$Label) {
-    Write-Output ("[UI] click '{0}' point={1},{2}" -f $Label, $X, $Y)
-    if ($script:toolWindowHandle -ne [IntPtr]::Zero) {
-        [AiPetMouseInput]::SetForegroundWindow($script:toolWindowHandle) | Out-Null
-        Start-Sleep -Milliseconds 100
-    }
-    [AiPetMouseInput]::SetCursorPos($X, $Y) | Out-Null
-    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
-    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftUp, 0, 0, 0, [UIntPtr]::Zero)
-    Start-Sleep -Milliseconds 150
-}
-
-function Select-ComboByKeyboard([int]$DownCount) {
-    $keys = '{HOME}' + ((1..$DownCount | ForEach-Object { '{DOWN}' }) -join '') + '{ENTER}'
-    $lastError = $null
-    for ($attempt = 0; $attempt -lt 3; $attempt++) {
-        try {
-            [System.Windows.Forms.SendKeys]::SendWait($keys)
-            $lastError = $null
-            break
-        } catch {
-            $lastError = $_
-            Start-Sleep -Milliseconds 150
-        }
-    }
-    if ($null -ne $lastError) { throw $lastError }
-    Start-Sleep -Milliseconds 200
-}
-
 function Expand-Element([string]$Name) {
     $element = Find-Element $Name
     $pattern = $element.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
@@ -138,9 +118,87 @@ function Expand-Element([string]$Name) {
     }
 }
 
-function Select-ComboItem([string]$ComboName, [string]$ItemName) {
-    Click-Element $ComboName
-    Click-Element $ItemName
+function Select-VisibleChoice([string]$SelectorName, [string]$ItemName) {
+    $selector = Find-Element $SelectorName
+    Assert-AppForeground
+    $itemCondition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $ItemName),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $item = $selector.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $itemCondition)
+    if ($null -eq $item) {
+        $label = $selector.FindFirst(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, $ItemName))
+        $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+        while ($null -ne $label -and $label -ne $selector) {
+            if ($label.Current.ControlType -eq [System.Windows.Automation.ControlType]::ListItem) {
+                $item = $label
+                break
+            }
+            $label = $walker.GetParent($label)
+        }
+    }
+    if ($null -eq $item) { throw "Visible choice was not found: $SelectorName -> $ItemName" }
+    try { $item.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 100 } catch { }
+    $rect = $item.Current.BoundingRectangle
+    if ($item.Current.IsOffscreen -or $rect.IsEmpty -or $rect.Width -le 0 -or $rect.Height -le 0) {
+        throw "Visible choice is not physically clickable: $SelectorName -> $ItemName"
+    }
+    $owner = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($selector)
+    while ($null -ne $owner -and $owner.Current.ControlType -ne [System.Windows.Automation.ControlType]::Window) {
+        $owner = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($owner)
+    }
+    if ($null -ne $owner -and $owner.Current.NativeWindowHandle -ne 0) {
+        [AiPetMouseInput]::SetForegroundWindow([IntPtr]$owner.Current.NativeWindowHandle) | Out-Null
+        Start-Sleep -Milliseconds 120
+    }
+    [AiPetMouseInput]::SetCursorPos([int]($rect.Left + ($rect.Width / 2)), [int]($rect.Top + ($rect.Height / 2))) | Out-Null
+    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
+    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftUp, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 250
+    $pattern = $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if (-not $pattern.Current.IsSelected) {
+        throw "Physical click did not select: $SelectorName -> $ItemName"
+    }
+    Write-Output ("[UI] physically selected '{0}' from '{1}'" -f $ItemName, $SelectorName)
+    $selectorEvidence.Add(@{selector=$SelectorName;input='mouse';status='PASS'})
+}
+
+function Assert-AppForeground {
+    $window=Find-Element '小方工具袋'
+    [AiPetMouseInput]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle) | Out-Null
+    Start-Sleep -Milliseconds 150
+    [uint32]$foregroundProcess=0
+    [AiPetMouseInput]::GetWindowThreadProcessId([AiPetMouseInput]::GetForegroundWindow(),[ref]$foregroundProcess) | Out-Null
+    if ($foregroundProcess -ne $script:process.Id) { throw 'Interactive desktop cannot foreground the app; input was not sent.' }
+}
+
+function Test-KeyboardChoice([string]$SelectorName) {
+    Assert-AppForeground
+    $selector=Find-Element $SelectorName
+    $selector.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
+    Start-Sleep -Milliseconds 150
+    $selection=$selector.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
+    $first=@($selection.GetCurrentSelection())
+    if ($first.Count -ne 1) { throw "Keyboard selection missing: $SelectorName" }
+    [System.Windows.Forms.SendKeys]::SendWait('{END}')
+    Start-Sleep -Milliseconds 150
+    $last=@($selection.GetCurrentSelection())
+    if ($last.Count -ne 1 -or $first[0].Equals($last[0])) { throw "Keyboard did not change selection: $SelectorName" }
+    $selectorEvidence.Add(@{selector=$SelectorName;input='keyboard';status='PASS'})
+}
+
+function Select-Tab([string]$Name) {
+    $tab = Find-Element $Name
+    $pattern = $tab.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    $pattern.Select()
+    Start-Sleep -Milliseconds 200
+    Write-Output ("[UI] selected tab '{0}'" -f $Name)
 }
 
 function Get-Value([string]$Name) {
@@ -149,7 +207,10 @@ function Get-Value([string]$Name) {
 }
 
 function Save-Screenshot([string]$Path) {
-    $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+    # Capture only this application's foreground window, never a lock/PIN screen or unrelated app.
+    Assert-AppForeground
+    $rect=(Find-Element '小方工具袋').Current.BoundingRectangle
+    $bounds=[System.Drawing.Rectangle]::new([int]$rect.Left,[int]$rect.Top,[int]$rect.Width,[int]$rect.Height)
     $bitmap = [System.Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
     $temporaryPath = "$Path.$PID.tmp.png"
     try {
@@ -177,6 +238,12 @@ try {
     $isolatedData = Join-Path $projectRoot ('build\ui-e2e-data\' + [Guid]::NewGuid().ToString('N'))
     $probePath = Join-Path $isolatedData 'ui-probe.json'
     [System.IO.Directory]::CreateDirectory($isolatedData) | Out-Null
+    $profiles=@(foreach($id in @('fixture-a','fixture-b')) { @{id=$id;displayName=$id;providerId='deepseek';endpoint='https://example.invalid';model='fixture';secretTargetName="WindowsAiDesktopPet:AI:$id";lastStatus='Untested'} })
+    @{schemaVersion=3;search=@{onboardingCompleted=$true};ai=@{activeProfileId='fixture-a';profiles=$profiles}} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $isolatedData 'settings.json') -Encoding utf8NoBOM
+    $todoFixtures=@(foreach($minute in @(1,2)) { @{id=[Guid]::NewGuid().ToString();title='UI fixture';notes='anonymous fixture';createdAt=([DateTimeOffset]'2026-09-01T10:00:00+08:00').AddMinutes($minute).ToString('O');status='Pending'} })
+    @{schemaVersion=3;items=$todoFixtures} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $isolatedData 'todos.json') -Encoding utf8NoBOM
+    $draftPath=Join-Path $isolatedData 'draft-fixture.json'
+    @{Operation=2;TargetTitle='UI fixture'} | ConvertTo-Json | Set-Content -LiteralPath $draftPath -Encoding utf8NoBOM
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new($exe, '--preview --ui-e2e')
     $startInfo.UseShellExecute = $false
     $startInfo.Environment['AIPET_UI_TEST'] = '1'
@@ -185,35 +252,55 @@ try {
     $startInfo.Environment['LOCALAPPDATA'] = $isolatedData
     $startInfo.Environment['AIPET_APP_DATA_ROOT'] = $isolatedData
     $startInfo.Environment['AIPET_UI_E2E_PROBE'] = $probePath
+    $startInfo.Environment['AIPET_UI_E2E_DRAFT'] = $draftPath
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $toolWindow = Find-Element '小方工具袋' 15
-    $toolWindowHandle = [IntPtr]$toolWindow.Current.NativeWindowHandle
 
-    $stage = 'dropdown-selection'
-    $stage = 'dropdown-search-scope'
-    $toolBounds = $toolWindow.Current.BoundingRectangle
-    Click-ScreenPoint ([int]($toolBounds.Left + 102)) ([int]($toolBounds.Top + 141)) 'SearchScopeSelector'
-    Select-ComboByKeyboard 1
+    $stage = 'inline-choice-selection'
+    $stage = 'inline-search-scope'
+    Select-VisibleChoice 'SearchScopeSelector' '仅应用'
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).SelectedSearchScopeId -ne 'apps') { throw 'Search scope did not update.' }
-    $stage = 'dropdown-result-category'
-    Click-ScreenPoint ([int]($toolBounds.Left + 340)) ([int]($toolBounds.Top + 461)) 'CategoryFilterSelector'
-    Select-ComboByKeyboard 4
+    Test-KeyboardChoice 'SearchScopeSelector'
+    $stage = 'inline-result-category'
+    Select-VisibleChoice 'CategoryFilterSelector' '图片'
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).Category -ne '图片') { throw 'Result category did not update.' }
+    Test-KeyboardChoice 'CategoryFilterSelector'
 
     $stage = 'keyboard-navigation'
-    Click-Element '待办'
-    $stage = 'dropdown-todo-filter'
-    Click-ScreenPoint ([int]($toolBounds.Left + 216)) ([int]($toolBounds.Top + 280)) 'TodoFilterSelector'
-    Select-ComboByKeyboard 3
+    Select-Tab '待办'
+    $stage = 'inline-ai-target'
+    $targetSelector=Find-Element 'AiTargetSelector'
+    $targetItems=$targetSelector.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ListItem))
+    if ($targetItems.Count -lt 2) { throw 'Two anonymous AI target fixtures are required.' }
+    Select-VisibleChoice 'AiTargetSelector' $targetItems[0].Current.Name
+    Test-KeyboardChoice 'AiTargetSelector'
+    if (-not (Get-Content $probePath -Raw | ConvertFrom-Json).SelectedAiTargetId) { throw 'AI target did not update.' }
+    $stage = 'inline-todo-filter'
+    Select-VisibleChoice 'TodoFilterSelector' '已完成'
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).todoFilterId -ne 'completed') { throw 'Todo filter did not update.' }
-    Click-Element '设置'
-    $stage = 'dropdown-theme'
-    Click-ScreenPoint ([int]($toolBounds.Left + 200)) ([int]($toolBounds.Top + 360)) 'ThemeSelector'
-    Select-ComboByKeyboard 2
+    Test-KeyboardChoice 'TodoFilterSelector'
+    Select-Tab '设置'
+    $stage = 'inline-theme'
+    Select-VisibleChoice 'ThemeSelector' '深色'
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).ThemePreference -ne 'dark') { throw 'Theme did not update.' }
+    Test-KeyboardChoice 'ThemeSelector'
+    Expand-Element 'AI 接入设置'
+    $stage='inline-ai-template'
+    Select-VisibleChoice 'AiTemplateSelector' '通义千问 Qwen'
+    Test-KeyboardChoice 'AiTemplateSelector'
+    $stage='inline-ai-saved'
+    $saved=Find-Element 'SavedAiConfigurationSelector'
+    $savedItems=$saved.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ListItem))
+    Select-VisibleChoice 'SavedAiConfigurationSelector' $savedItems[$savedItems.Count-1].Current.Name
+    Test-KeyboardChoice 'SavedAiConfigurationSelector'
+    $stage='inline-ai-provider'
+    Select-VisibleChoice 'ProviderSelector' '通义千问 Qwen'
+    Test-KeyboardChoice 'ProviderSelector'
+    if (@($selectorEvidence | Where-Object input -eq 'mouse').Count -ne 8 -or @($selectorEvidence | Where-Object input -eq 'keyboard').Count -ne 8) { throw 'Not all eight selectors were exercised.' }
 
     $stage = 'dialog-and-focus-restore'
-    Click-Element '主页'
+    Assert-AppForeground
+    [System.Windows.Forms.SendKeys]::SendWait('^{TAB}')
     $null = Find-Element 'AI 配置尚未保存'
     Click-Element '取消'
     Click-Element '收起工具窗口'
@@ -225,16 +312,20 @@ try {
     $null = Find-Element 'AI 配置尚未保存'
     Click-Element '放弃修改'
 
-    $stage = 'tray-equivalent-and-exit'
-    $pet = Find-Element '桌面宠物'
-    $rect = $pet.Current.BoundingRectangle
-    [AiPetMouseInput]::SetCursorPos([int]($rect.Left + $rect.Width / 2), [int]($rect.Top + $rect.Height / 2)) | Out-Null
-    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::RightDown, 0, 0, 0, [UIntPtr]::Zero)
-    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::RightUp, 0, 0, 0, [UIntPtr]::Zero)
+    $stage = 'tray-actions'
+    $trayCondition=[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty,'Windows AI Desktop Pet · 方块伙伴')
+    $tray=[System.Windows.Automation.AutomationElement]::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$trayCondition)
+    if ($null -eq $tray -or $tray.Current.IsOffscreen) { throw 'Actual notification-area icon must be visible for tray validation.' }
+    $rect=$tray.Current.BoundingRectangle
+    [AiPetMouseInput]::SetCursorPos([int]($rect.Left+$rect.Width/2),[int]($rect.Top+$rect.Height/2)) | Out-Null
+    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::RightDown,0,0,0,[UIntPtr]::Zero)
+    [AiPetMouseInput]::mouse_event([AiPetMouseInput]::RightUp,0,0,0,[UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 250
     Click-Element '退出'
     if (-not $process.WaitForExit(5000)) { throw 'Application did not exit through its context menu.' }
 
-    $report = [ordered]@{ schemaVersion = 1; status = 'PASS'; startedAtUtc = $startedAt; completedAtUtc = [DateTimeOffset]::UtcNow; stages = @('launch','keyboard-navigation','dropdown-selection','dialog-and-focus-restore','tray-equivalent-and-exit') }
+    $checks=@('eight-selectors-mouse','eight-selectors-keyboard','unsaved-navigation','focus-restore','tray-actions') | ForEach-Object { @{name=$_;status='PASS'} }
+    $report = [ordered]@{ schemaVersion = 1; status = 'PASS'; startedAtUtc = $startedAt; completedAtUtc = [DateTimeOffset]::UtcNow; selectors=@($selectorEvidence.ToArray()); checks=@($checks); environment=@{os=[Environment]::OSVersion.VersionString;displayCount=[System.Windows.Forms.Screen]::AllScreens.Count} }
     [System.IO.File]::WriteAllText($reportPath, ($report | ConvertTo-Json -Depth 4), [System.Text.UTF8Encoding]::new($false))
     Write-Output "[PASS] independent desktop UI automation completed: $reportPath"
 }

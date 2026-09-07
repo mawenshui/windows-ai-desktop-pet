@@ -13,6 +13,9 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'test-release-evidence.ps1')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
     $_.Name -ne '.gitkeep'
 })
@@ -38,8 +41,26 @@ elseif (Test-Path -LiteralPath (Join-Path $projectRoot 'package.json')) {
 elseif (Test-Path -LiteralPath (Join-Path $projectRoot 'src\AiPet.sln') -PathType Leaf) {
     $testRunnerFound = $true
     $solution = Get-Item -LiteralPath (Join-Path $projectRoot 'src\AiPet.sln')
-    Write-Output "[INFO ] running: dotnet test $($solution.FullName) --configuration Release"
-    & dotnet test $solution.FullName --configuration Release --nologo
+    $isolatedDotnetRoot = Join-Path $projectRoot 'build\dotnet-user'
+    $isolatedNugetRoot = Join-Path $isolatedDotnetRoot 'NuGet'
+    $isolatedLocalData = Join-Path $isolatedDotnetRoot 'AppData\Local'
+    [System.IO.Directory]::CreateDirectory($isolatedNugetRoot) | Out-Null
+    [System.IO.Directory]::CreateDirectory($isolatedLocalData) | Out-Null
+    [System.IO.File]::Copy(
+        (Join-Path $projectRoot 'NuGet.Config'),
+        (Join-Path $isolatedNugetRoot 'NuGet.Config'),
+        $true)
+    $env:APPDATA = $isolatedDotnetRoot
+    $env:LOCALAPPDATA = $isolatedLocalData
+
+    Write-Output "[INFO ] restoring: dotnet restore $($solution.FullName) with isolated user configuration"
+    & dotnet restore $solution.FullName --configfile (Join-Path $projectRoot 'NuGet.Config') --ignore-failed-sources --nologo -p:NuGetAudit=false
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    & dotnet build $solution.FullName --configuration Release --no-restore --nologo -p:NuGetAudit=false
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Write-Output "[INFO ] running: dotnet test $($solution.FullName) --configuration Release --no-restore"
+    & dotnet test $solution.FullName --configuration Release --no-restore --nologo -p:NuGetAudit=false
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 elseif (Test-Path -LiteralPath (Join-Path $projectRoot 'CMakeLists.txt')) {

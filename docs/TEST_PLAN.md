@@ -1,278 +1,45 @@
-# Windows AI Desktop Pet — 测试计划
+# 测试计划与覆盖
 
-| 属性 | 值 |
+基线：0.13.0，2026-09-07；测试结果以[本次报告](release/0.13.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
+
+## 1. 执行入口
+
+| 命令 | 作用 |
 | :--- | :--- |
-| 文档版本 | 0.12.1（实现阶段维护） |
-| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.7 |
-| 工程基线 | `docs/PROJECT_SPEC.md` 1.0 |
-| 技术基线 | `docs/TECHNICAL_DESIGN.md` 0.12.1 |
-| 软件基线 | `VERSION` 0.12.1 |
-| 状态 | 173 项自动化回归通过；八个下拉框和自动隐藏协调已有 WPF 回归；物理多屏、Explorer 重启、休眠和证书签名仅在具备对应环境时计为通过 |
+| scripts/validate-project.ps1 -CI | 项目结构、必需文档、UTF-8、版本/CHANGELOG 等校验 |
+| scripts/test.ps1 -CI | 结构、发布门禁反例、完整 solution 构建、xUnit |
+| scripts/test-ui-e2e.ps1 -CI | 独立程序真实八组鼠标/键盘、AI 未保存导航/取消、焦点和实际托盘；无法前台激活立即停止输入 |
+| scripts/test-system-e2e.ps1 -CI | 几何合同、启动/帮助/存储/退出 smoke、当前显示环境记录 |
+| scripts/test-performance.ps1 -Enforce | 匿名 20,000 条名称查询与 UI/进程指标，按 config/performance-budgets.json 判断 |
+| scripts/package.ps1 | ZIP / Inno Setup、离线手册/资源、SHA-256 和 provenance |
+| scripts/smoke-release.ps1 | 便携运行、安装、安装后运行、静默卸载及安装路径自启清理；签名按实际配置报告 |
+| scripts/collect-release-evidence.ps1 -Gate ... | 绑定当前版本/提交/输入指纹/环境/时间/资产的七类证据 |
+| scripts/verify-release.ps1 | 验证干净工作区、完整新鲜证据、资产及清单哈希 |
+| tests/prototypes/AiPet.Prototypes | EXT-07/08 隔离评估和 20,000/100,000 元数据测量 |
 
-## 0. 目的
+从仓库根使用 pwsh -NoProfile -File 运行 PowerShell 入口。单元工程包含进程内 WPF 和文件/SQLite 边界集成用例；目录命名不表示全部为纯内存单元测试。尚未设置覆盖率、格式或漏洞扫描阈值，不伪装为已执行。
 
-1. 把 PRD 中每条 P0 验收条件（AC-01 ~ AC-24）及待办/提醒验收（AC-FUT-01 ~ AC-FUT-09）映射到可执行测试用例；
-2. 明确测试环境、测试数据、覆盖率目标与缺陷分级；
-3. 与 CI 入口 `scripts/test.ps1 -CI` 对齐，确保“未运行 ≠ 通过”；
-4. 明确回归、性能、安全、可访问性四类非功能测试的最小可验证方法。
+## 2. 需求覆盖
 
-## 1. 测试层级
-
-0.12.1 验证 runners：
-
-- `scripts/test-ui-e2e.ps1`：隔离应用数据，验证启动、导航、下拉选择、未保存对话框与桌宠退出；失败保存截图和脱敏阶段码。
-- `scripts/test-performance.ps1`：固定 20,000 条匿名元数据和 200 次查询/唤出采样，输出冻结预算对照。
-- `scripts/test-system-e2e.ps1`：
-
-```powershell
-pwsh -NoProfile -File scripts/test-system-e2e.ps1 -CI
-```
-
-runner 固定输出 `build/reports/system-e2e-report.json`，每项状态只能为 PASS、FAIL 或 SKIP。Explorer 重启因会中断当前桌面会话，不在非交互执行中静默触发；物理多屏与缩放必须记录实际硬件条件。发布签名使用 `scripts/sign.ps1`，未提供证书时不得将 unsigned 记录为通过。
-
-| 层级 | 工具 | 触发时机 | 负责模块 |
-| :--- | :--- | :--- | :--- |
-| 单元（Unit） | xUnit + FluentAssertions + NSubstitute | 每次 PR 与合并前 | `AiPet.*` 所有模块 |
-| 集成（Integration） | xUnit + 真实 SQLite / 真实 CredMan（测试账户） | 每次 PR 与合并前 | `Storage` / `Secrets` / `Search` / `AI` |
-| 端到端（E2E） | Windows Application Driver / FlaUI | 每日 + 发布前 | UI 自动化主路径 |
-| 性能（Performance） | BenchmarkDotNet + 人工脚本 | 发布前 + 灰度期 | `Search` / `ToolWindow` 唤出 |
-| 安全（Security） | 自研 Key 扫描 + `Microsoft.Security.Code.Analysis` | 每次 PR | 全量；CI 必跑 |
-| 可访问性（A11y） | 自动化部分 + 人工验证 | 发布前 | UI 控件 |
-| 兼容性（Compatibility） | 人工 + 脚本驱动 | 发布前 | 多显示器 / 缩放 / 任务栏 |
-| 烟雾（Smoke） | 安装器 + 便携版 + WinAppDriver | 每次 Release 前 | 完整产品 |
-
-## 2. 测试环境
-
-### 2.1 验收参考机（性能基线）
-
-| 维度 | 规格（首版候选；技术评审时确认） |
+| 需求 | 核心测试 |
 | :--- | :--- |
-| CPU | Intel i5-12500H 或同级 |
-| 内存 | 16 GB DDR4 |
-| 磁盘 | NVMe SSD 512 GB |
-| 系统 | Windows 11 23H2 22631.x |
-| 缩放 | 100% / 150% |
-| 显示器 | 1× 1080p + 1× 2K（异缩放） |
-| .NET 运行时 | .NET 8 Desktop Runtime 8.0.x |
+| PET/WIN/NAV/SET | PetWindowPositioner、PetPopoverPositioner、PetToolWindowLifecycle、HomePageLayout、ShellNavigation；未保存导航取消保留、主题/页内选择、渲染与新管理窗 |
+| SRCH-01～06 / EXT-04 | SearchService、SearchIndex、SearchLifecycle；授权撤销竞争、重启监听、目录改名、相对路径、稳定分页和固定/清历史 |
+| QCK-01～06 / EXT-05 | ShortcutStore、ShortcutOrganization；重复 ID、100 项排序/分组、批量预览过期、撤销图标、扫描取消 |
+| TODO-01～09 / EXT-01 | TodoStore、TodoViewModel、ReminderRule、ReminderScheduler；跨月闰年/DST/规则时区、最早额外时刻、停机跳过、整条取消和仅此次保存 |
+| EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离 |
+| AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留 |
+| DATA-01/02 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile；路径/容量/schema/hash、中途失败/中断回滚、真实模块/图标/队列成组恢复、损坏后写保护、卸载只删已知应用引用 |
+| EXT-00 | test-release-evidence.ps1；缺失、过期、未来时间、版本/提交/输入不符、FAIL/SKIP、缺检查及资产错误必须失败 |
+| EXT-07/08 | PrototypeTests；正文单独同意、大小/编码/取消/撤销；包路径/缺帧/超大/未知字段/许可/重复/损坏回退 |
+| AUTO/TRAY/HELP | 自启、托盘重建合同、帮助路径与 smoke；真实重登录/Explorer 单列 |
 
-> 性能数字与 AC-NFR-01 必须在这台机器上达成。CI 不强制跑性能测试，但每次性能变更需要在人工环境记录基准。
+外部服务默认 fake HTTP；无实际 API Key、待办标题、搜索原文或个人路径进入测试 fixture/诊断。渲染截图只使用匿名测试数据，build 目录不作为源码交付；不得将锁屏、PIN 或其他程序截为桌宠证据。
 
-### 2.2 CI 环境
+## 3. 独立发布门禁
 
-- GitHub Actions `windows-latest`；
-- 无头/无显示器：E2E 在 `windows-latest` + 虚拟显示下跳过交互用例，保留只读结构验证；
-- 性能测试不在 CI 跑，标记为“灰度人工”；
-- AI 集成测试使用 fake 服务（自托管 `WireMock.Net` 或本地桩），不消耗真实额度。
+七组 gate：automated、ui、system、performance、package-smoke、signatures、hardware。输入指纹覆盖源码/测试/脚本/资源/配置/离线手册及版本构建元数据，报告必须来自当前提交且不超过 72 小时。缺少必需检查、FAIL/SKIP、错资产或 dirty 都拒绝。
 
-### 2.3 测试数据
+系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
 
-- `tests/fixtures/` 仅放匿名、可公开数据；
-- 不引用开发者真实目录、账户、Key、邮件、待办或私人文件；
-- 搜索元数据集：构建脚本 `scripts/seed-search-corpus.ps1` 生成 20,000 条名称/路径样本到 CI 临时目录；
-- 性能数据：相同生成脚本，固定路径前缀 `C:\AiPetBench\`。
-
-## 3. 覆盖率目标
-
-| 模块 | 行覆盖目标 | 分支覆盖目标 | 说明 |
-| :--- | :--- | :--- | :--- |
-| `AiPet.Search` | ≥ 80% | ≥ 70% | 匹配、状态机、取消 |
-| `AiPet.Shortcuts` | ≥ 85% | ≥ 75% | CRUD、失效检测 |
-| `AiPet.Storage` | ≥ 80% | ≥ 70% | 持久化、迁移、备份 |
-| `AiPet.Secrets` | ≥ 90% | ≥ 80% | 凭据读写、清空、回滚 |
-| `AiPet.AI` | ≥ 80% | ≥ 70% | 错误分类、超时、并发 |
-| `AiPet.Todos` | ≥ 85% | ≥ 75% | JSON 恢复、状态转换、提醒去重与补发 |
-| `AiPet.SystemIntegration` | ≥ 70% | ≥ 60% | 自启、显示器、通知 |
-| `AiPet.ToolWindow` | ≥ 60% | ≥ 50% | ViewModel 逻辑；UI 控件由 E2E 覆盖 |
-| `AiPet.Pet` | ≥ 50% | ≥ 40% | 行为主要由 E2E 覆盖 |
-
-总覆盖率目标 ≥ 70% 行；关键安全/版本/迁移路径不依赖总覆盖率指标（必须命中具体测试）。
-
-## 4. P0 验收用例映射
-
-下表把 PRD 5.1 中每条 AC 映射为可执行用例。`ID` 用于测试代码命名，格式 `AC{编号}-{模块}-{场景}`。
-
-| PRD AC | 用例 ID | 类型 | 前置条件 | 步骤摘要 | 期望 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| AC-01 PET-01 | AC01-PET-Visibility | E2E | 应用已启动，工具窗口收起 | 静置 30 分钟观察 | 宠物始终可见可点击；进程未退出 |
-| AC-02 WIN-01/02 | AC02-WIN-Position | E2E | 宠物分别位于主屏顶部/底部/副屏边缘 | 点击宠物，计时 | 300ms P95 内出现唯一窗口；优先上方且不越界；再次点击/Esc 收起 |
-| AC-03 NAV-01/02 | AC03-NAV-Default | E2E | 工具窗口从隐藏恢复 | 切换至扩展页后收起，再唤出 | 进入主页；切换 60 次无重复实例 |
-| AC-04 SRCH-01 | AC04-SRCH-Fuzzy | Unit + E2E | 范围含 `季度复盘.docx` 与开始菜单 LNK `复盘助手.lnk`（App Paths 也命中 `复盘助手.exe`） | 输入 “复盘” | 两条结果同时返回；不读文档正文；输入过程不卡顿 |
-| AC-05 SRCH-02 | AC05-SRCH-Onboarding | E2E | 首次启动、范围未配置 | 进入主页 | 顶部弹出卡片，**预勾选** `桌面/文档/下载` 三个候选；未经确认前无任何 IO 活动（用 Procmon/ETW 验证）；确认后逐个入队索引，状态由“准备中→可用”；点“稍后”则保持空范围 |
-| AC-05 SRCH-02 | AC05-SRCH-AddRemoveScope | E2E | 两个已确认范围 | 添加/选择/撤销目录 | 深层名称被递归索引；单范围结果不串范围；撤销后不再命中 |
-| AC-06 SRCH-03 | AC06-SRCH-Filter | E2E | 验收数据集 | 依次选择 7 个类别 | 结果只含对应类型；切回“全部”恢复全集；关键词保留 |
-| AC-07 SRCH-04 | AC07-SRCH-Open | E2E | 含可访问文件/文件夹/应用 | 双击 + 键盘 Enter | 三类目标均被 Windows 正确打开；列表展示图标、名称、路径/位置 |
-| AC-08 SRCH-05 | AC08-SRCH-States | E2E | 6 种状态分别触发 | 逐一触发 | 每态有非技术提示 + 至少一个可执行恢复动作；关键词保留；页面可操作 |
-| AC-09 QCK-01 | AC09-QCK-Layout | E2E | 快捷项 0/1/超量 | 打开主页 | 显示添加引导 / 单项 / 可滚动；不遮挡搜索主操作区 |
-| AC-10 QCK-02 | AC10-QCK-Add | E2E | 选择有效应用/文件 | 添加并取消/重复 | 取消不生成记录；重复提示并允许取消；系统图标与默认名称正确 |
-| AC-11 QCK-03 | AC11-QCK-Icon | E2E | 已有快捷项 | 替换图标 + 改名称/描述 | 主页立即更新；读取失败回退默认图标 |
-| AC-12 QCK-04 | AC12-QCK-Edit | E2E | ≥3 个快捷项 | 编辑/删除/排序后重启 | 修改与顺序保持；被删项目标文件未变 |
-| AC-13 QCK-05 | AC13-QCK-Invalid | E2E | 1 个有效 + 1 个失效 | 启动 | 有效项启动成功；失效项不崩溃、不自动删除；显示“重新定位”和“移除” |
-| AC-14 TRAY-01/02 | AC14-TRAY-Menu | E2E | 应用运行 | 宠物右键隐藏 + 托盘双击/菜单恢复 | 托盘常驻；宠物与工具窗口菜单独立；显示状态同步 |
-| AC-15 TRAY-03 | AC15-TRAY-Exit | E2E | 范围准备中 | 选退出 | 任务停止；配置保存；5s 内退出；再次启动读取上次配置；无残留进程 |
-| AC-16 AUTO-01/02 | AC16-AUTO-Switch | E2E | 默认关闭 | 开启 → 注销登录 | 重新登录后自启但不弹工具窗；关闭后不自启；模拟策略拒绝时两处回滚 |
-| AC-17 HELP-01/02 | AC17-HELP-Open | E2E | 离线 HTML 手册完整 / 缺失 | 托盘帮助 | 完整时 3s 内启动默认程序；缺失时不弹错网（无在线兜底），显示修复建议 |
-| AC-18 HELP-03 | AC18-HELP-Content | Manual | 候选发布包 | 翻阅离线 HTML 手册 | 9 类内容均可定位；手册与 `VERSION` 在同一安装包，CI 校验 `docs/USER_MANUAL.html` 存在 |
-| AC-19 SET-01 | AC19-SET-Single | E2E | 设置已开 | 再开一次 | 无第二实例；不合法字段就地提示；未保存关闭有三种选择 |
-| AC-20 AI-01 | AC20-AI-DefaultDeepSeek | E2E + Unit | 全新安装 | 进入 AI 设置 | 默认供应商为 DeepSeek；端点 = `https://api.deepseek.com`、模型 = `deepseek-chat`；Key 字段为空；下拉右侧显示“信息来源：DeepSeek 官方文档” |
-| AC-20 AI-01 | AC20-AI-SwitchPreset | E2E | 在 AI 设置中 | 依次切换到“智谱 / 通义千问 / 月之暗面 / 百度千帆 / 腾讯混元 / 零一万物 / 硅基流动” | 每次切换后端点/模型自动填入选中预设的默认值；Key 字段保留；协议版本字段按预设更新；提示“字段为厂商公开默认值，可直接修改”可见 |
-| AC-20 AI-01 | AC20-AI-CustomPreset | E2E | 在 AI 设置中 | 选“自定义（OpenAI 兼容）”，填写自建端点 `http://127.0.0.1:11434/v1` 与模型 `llama3.1` | 自定义字段可编辑；填写完整后测试可用，测试通过前保存禁用 |
-| AC-20 AI-01 | AC20-AI-OverrideField | E2E | 选中“通义千问”预设 | 把模型从 `qwen-plus` 改写成 `qwen-max-2025-xx` | 不覆盖回 `qwen-plus`；状态变为“待测试”，保存禁用 |
-| AC-20 AI-01 | AC20-AI-Input | E2E + Unit | 进入 AI 设置 | 输入 Key / 切预设 | Key 掩码；切换预设只显示该预设所需字段；清除后状态为“未配置” |
-| AC-21 AI-02 | AC21-AI-Secrets | Security + Integration | 保存测试 Key | 检查普通配置/日志/埋点/错误界面 | 不存在完整 Key 或可还原值；换账户无法读；清除后无法继续测试 |
-| AC-22 AI-03 | AC22-AI-Test | E2E | 配置完整、fake 服务可控 | 连续点测试 | 测试中→成功显示“连接正常”与耗时；无并发；通过后保存启用；请求不含本地数据 |
-| AC-22 AI-03 | AC22-AI-TestSuccess | E2E | 完整配置且 fake 服务可达 | 测试通过后保存；随后修改模型 | 通过前保存禁用；通过后启用；保存后或任一字段变化后重新禁用；Key 不进入普通配置 |
-| AC-22 AI-03 | AC22-AI-TestFailure | Unit/UI | fake 服务返回失败 | 点击“测试连接” | 输入保持原样、保存持续禁用、磁盘中上一份配置不被覆盖 |
-| AC-22 AI-03 | AC22-AI-TestConcurrency | E2E | 测试中 | 再次点击 | 按钮禁用，重复点击不产生并发请求；超时或完成后才允许再次触发 |
-| AC-22 AI-03 | AC22-AI-TestDirty | E2E | 已验证状态 | 修改任一字段 | 状态自动回到“未验证”；测试按钮旁显示“已修改，需重新测试”轻量提示 |
-| AC-23 AI-04 | AC23-AI-Errors | E2E + Unit | fake 服务返回 8 类错误 | 触发测试 | 8 类映射正确；UI 明确显示“连接异常”（红色 ✗）+ 错误类别 + 建议；UI 与日志不含原始鉴权/响应 |
-| AC-23 AI-04 | AC23-AI-ErrorDeepSeekAuth | E2E | DeepSeek fake 返回 401 | 触发测试 | 错误类别 = 鉴权失败；文案“API Key 无效或已过期，请核对后重试”；无原始响应/Header 出现在 UI 与日志 |
-| AC-23 AI-04 | AC23-AI-ErrorTimeout | E2E | fake 服务 21 秒不返回 | 触发测试 | 20 秒内取消；错误类别 = 超时；文案“连接测试超时，请检查网络与服务状态” |
-| AC-24 DATA-01 | AC24-Data-Persist | Integration | 修改设置/快捷/范围 → 模拟写入中断 | 重启 | 完整恢复；中断不覆盖可用备份 |
-
-### 4.1 0.10.0 UI 与提醒回归用例
-
-本版本继续覆盖 0.8.2 的四个 UI 缺陷，并增加全局下拉与独立提醒项回归；用例必须绑定当前工作树的 `src/AiPet.sln`，不得从 `build/` 或 `dist/` 历史副本运行。
-
-| 用例 ID | 类型 | 前置条件 | 步骤摘要 | 期望 |
-| :--- | :--- | :--- | :--- | :--- |
-| FIX-081-AI-ProviderSelection | WPF UI | 打开设置 → AI 接入，存在多个供应商预设 | 打开供应商下拉框并选择非默认供应商 | 选中值保持为所选供应商，并显示其 `DisplayName`，不显示 `AiProviderDescriptor { ... }` 等对象字符串；端点和模型同步为该预设默认值 |
-| FIX-081-AI-SaveAfterTest | WPF UI + Unit | 当前供应商、地址、模型和 Key 完整，fake AI 服务可达 | 执行“测试连接”并等待“连接正常” | “保存配置”立即可用；保存后按钮重新禁用；修改任一字段后必须重新测试 |
-| FIX-081-QCK-EmptyState | WPF UI | 主页快捷入口为空/已有至少一项 | 依次添加一个快捷入口并观察快捷栏 | 空列表显示添加引导；存在快捷项时空状态背景及“文件夹＋”装饰图标均隐藏，快捷项不会被遮挡 |
-| FIX-082-TODO-InputRendering | WPF UI | 打开待办页，输入框可编辑 | 输入中文一句话安排并取消选择 | 文本仍保留在输入框和 ViewModel 中，内容宿主有可见高度且文字与背景满足可读对比度；不会出现“可复制但不可见” |
-| FIX-090-ComboBox-All | WPF UI | 主页、待办和设置页均可用 | 依次选择搜索范围、结果类别、待办状态、AI 目标和非默认供应商 | 每个控件的 `SelectedValue/SelectedItem`、ViewModel 标量值和可见文字一致，关联搜索/过滤/供应商默认值立即更新 |
-| FIX-121-ComboBox-AutoHide | WPF UI | 工具窗口开启失焦自动收起 | 依次展开八个下拉框，选择非默认项；展开时模拟工具窗失焦；按两次 Esc | 弹层展开期间工具窗不收起；选择后可见项与业务值保持；第一次 Esc 只关闭下拉，第二次才收起工具窗 |
-| FIX-100-AI-Profile-Retest | WPF UI + Unit | 已保存一组 AI 配置 | 选择已保存配置并再次测试连接 | 测试成功后“保存配置”立即可用；保存只更新当前配置的验证状态，不要求重新录入 Key |
-| FIX-100-AI-Profile-Switch | WPF UI + Unit | 已保存两组不同供应商配置 | 在“已保存配置”下拉中切换 | 供应商、地址、模型和 Key 引用同步切换；当前配置写入 `ActiveProfileId`，待办 AI 使用新配置 |
-| OPT-SRCH-001-Onboarding | Unit + WPF UI | 空设置，注入隔离候选目录 | 构造主页、确认所选候选或稍后设置 | 确认前扫描器调用为 0；确认后只索引所选目录；授权卡含隐私说明与明确按钮 |
-| OPT-SRCH-002-Staging | Unit | 已有一份可查询索引 | 让重新索引中途抛错或取消 | 状态分别为失败/已取消；错误码稳定；旧索引仍可查询且 staging 不泄漏 |
-| OPT-AI-001-Delete | Unit + WPF UI | 已保存 AI 配置与 fake 凭据 | 确认删除当前配置 | 删除凭据引用、非敏感 profile、验证快照和内存 Key；重名配置保存零写入 |
-| OPT-REL-001-Isolation | Package + Smoke | `build/` 与 `dist/` 已存在旧内容 | 运行 `scripts/package.ps1`，核对清单，隔离安装并卸载 | 新 run-id staging；清单只含当前两项；ZIP/安装包哈希匹配；安装后烟雾与卸载成功 |
-| TODO-090-Reminder-Editor | WPF UI + Unit | 打开新建编辑器 | 标记为提醒项，分别切换漫游/气泡 | 两个开关独立持久化；标题/保存文案切换为提醒项；普通待办不受影响 |
-| TODO-090-Reminder-Delivery | Unit | 四类通道组合与过期提醒项 | 执行一次调度检查 | 回调收到逐项开关；成功后 `Completed + Delivered` 且保留原定时间，失败不完成；第二次检查不重复投递 |
-| TODO-090-Reminder-Pet | WPF UI + Manual | 桌宠可见或已隐藏 | 触发启用气泡与漫游的提醒项 | 启用桌宠通道时恢复宠物；气泡显示 8 秒并随漫游/拖动移动；关闭系统动画后只跳过漫游 |
-
-### 4.2 待办与提醒验收映射
-
-| PRD AC | 用例 ID | 类型 | 关键断言 |
-| :--- | :--- | :--- | :--- |
-| AC-FUT-01 | TODO-Manual-RoundTrip | Unit + E2E | 标题、备注、截止和一次性提醒重启恢复；完成、恢复、编辑、仅取消提醒和删除互不混淆 |
-| AC-FUT-02 | TODO-AI-CreateConfirm | Unit + E2E | “明天下午 3 点提醒我提交周报”显示完整绝对时间；确认前 0 条新增，确认后恰好 1 条 |
-| AC-FUT-03 | TODO-AI-Clarification | Unit | 模糊、过去或冲突时间进入澄清；原输入可转手动且不落库 |
-| AC-FUT-04 | TODO-AI-TargetChoice | Unit + E2E | 同名目标必须选择唯一项；确认前无副作用，确认卡显示变更摘要 |
-| AC-FUT-05 | TODO-AI-Fallback | Unit | 未配置、鉴权、限流、网络、超时和 JSON 失败保留输入，可重试或手动填写 |
-| AC-FUT-06 | TODO-Reminder-Once | Unit + E2E | 到期只提交一次；完成、稍后提醒、打开详情具有不同状态变化 |
-| AC-FUT-07 | TODO-Reminder-Recovery | Unit + Manual | 过期待投递记录启动后补发一次；失败不记成功；同一记录不重复轰炸 |
-| AC-FUT-08 | TODO-AI-Privacy | Security + Unit | 请求仅含本次输入、参考时间和时区；日志/普通配置无 Key、对话、标题、备注或具体时间 |
-| AC-FUT-09 | TODO-Reminder-PetChannels | Unit + WPF UI + Manual | 每项通道独立；同窗气泡跟随；成功自动完成；失败不完成；降低动态效果安全降级 |
-
-## 5. 非功能验收
-
-### 5.1 性能（AC-NFR-01）
-
-| 指标 | 目标 | 方法 | 频率 |
-| :--- | :--- | :--- | :--- |
-| 工具窗口唤出 P95 | ≤ 300ms | WinAppDriver 计时 200 次唤出 | 灰度期 |
-| 搜索首屏可交互 P95 | ≤ 1s | 自动化脚本 200 次代表性查询 | 灰度期 |
-| AI 测试连接 P95（DeepSeek 端点） | ≤ 3s（网络正常） | E2E：选 DeepSeek → 测试 50 次，记录按钮按下到结果呈现 | 灰度期 |
-| AI 测试连接超时上限 | 20s | E2E：fake 慢响应 21s | 每次发布前 |
-| UI 持续响应 | 不可冻结主线程 | 测试中监控 `Dispatcher` 队列 | 每次 E2E |
-
-### 5.2 稳定性（AC-NFR-02）
-
-- 1,000 个有效会话中无崩溃率 ≥ 99.5%；
-- 灰度期通过自动化回归会话 + 人工抽样；未启用远程埋点时使用本地计数；
-- 崩溃材料不含 Key/查询原文/完整路径（自研扫描器验证）。
-
-### 5.3 多屏与缩放（AC-NFR-03）
-
-- 矩阵：100/125/150/200% 缩放 × 1 屏 / 2 屏 / 主副屏互换；
-- 每个组合至少 3 次唤出工具窗口、3 次拖动宠物；
-- 通过条件：宠物与工具窗口可见可操作、无严重布局截断。
-
-### 5.4 权限与隐私（AC-NFR-04）
-
-- 未授权 / 已撤销目录不返回对象（E2E）；
-- 日志、遥测载荷、崩溃材料扫描器：无 Key、无查询原文、无完整路径、无自定义描述；
-- 测试数据集明确不包含真实数据。
-
-### 5.5 可用性（AC-NFR-05）
-
-- 招募 20 名首次接触产品的测试用户；
-- 五项核心任务成功率 ≥ 95%；
-- 失败原因记录到 `docs/usability/<date>.md`，阻断项必须在发布评审关闭。
-
-## 6. 安全测试
-
-| 项 | 方法 | 通过条件 |
-| :--- | :--- | :--- |
-| Key 不入普通配置 | 单元：写入普通配置后正则扫描 `sk-`、`Bearer `、Base64 长串 | 0 命中 |
-| Key 不入日志 | 单元：触发测试后扫描 `%LOCALAPPDATA%\WindowsAiDesktopPet\logs\` | 0 命中 |
-| Key 不入崩溃 dump | E2E 触发异常后扫描 dump | 0 命中 |
-| Key 不入错误 UI | E2E：8 类错误全部触发，UI 文本正则扫描 | 0 命中 |
-| CredMan 隔离 | 在另一 Windows 账户启动应用 | 无法读取凭据 |
-| 撤销范围不可恢复 | 撤销后搜索无该目录对象 | 命中 0 |
-| 自启无提权 | 监控进程令牌 | 不出现管理员组 |
-| 诊断导出白名单 | 触发导出后扫描 zip | 不含 Key/缓存 |
-
-## 7. 兼容性矩阵
-
-| 维度 | 取值 |
-| :--- | :--- |
-| Windows 版本 | **10 1809（最低，2026-08-26 用户确认）** / 10 22H2 / 11 21H2 / 11 23H2 |
-| 缩放 | 100% / 125% / 150% / 175% / 200% |
-| 显示器数量 | 1 / 2 / 3 |
-| 任务栏位置 | 底部 / 顶部 / 左侧 / 右侧 |
-| Explorer 重启 | 是 / 否 |
-| 网络 | 离线 / 限流 / 正常 / 不可达 DNS |
-| 账户类型 | 本地账户 / Microsoft 账户 / 公司账户（仅冒烟） |
-
-每个组合至少 1 个冒烟用例；矩阵生成脚本 `scripts/print-compat-matrix.ps1`。
-
-## 8. 缺陷分级
-
-| 级别 | 定义 | SLA（修复时限） |
-| :--- | :--- | :--- |
-| P0-Block | 阻止 P0 AC 通过 / 数据丢失 / 安全泄露 | 24h |
-| P1-Critical | 主要功能不可用，但有可恢复路径 | 72h |
-| P2-Major | 非主路径功能失效 / 体验严重下降 | 14d |
-| P3-Minor | 文字、视觉、轻微体验问题 | 下一个 minor |
-| P4-Trivial | 优化、提示文案 | 排队 |
-
-## 9. 报告与产物
-
-- 每次 PR：CI 产出 `tests-results/unit.xml`、`integration.xml`；
-- 每次 Release：人工补充 `docs/release/<version>-test-report.md`，记录：
-  - 用例总数、通过/失败/跳过；
-  - 性能基线；
-  - 兼容矩阵执行摘要；
-  - 已知问题与负责人；
-  - 安全扫描结果摘要。
-
-## 10. 与 CI 入口的契约
-
-- `scripts/test.ps1 -CI` 流水线必须依次执行：
-  1. 结构与文档校验（含 `TECHNICAL_DESIGN.md` / `USER_MANUAL.md` / `TEST_PLAN.md` 存在性）；
-  2. 静态分析（`dotnet format --verify-no-changes` + `Microsoft.Security.Code.Analysis`）；
-  3. 单元测试 + 覆盖率门禁；
-  4. 集成测试（含 Key 扫描器、CredMan 集成）；
-  5. E2E（CI 受限子集）；
-  6. 打包烟雾（若已实现打包适配器）。
-- 当前 WPF 项目的 .NET 测试入口固定为 `src/AiPet.sln`；脚本必须输出该规范化路径，并拒绝选择 `build/`、`dist/` 或其他复制目录中的历史解决方案。
-- 任何失败都阻断版本升级与 Release；
-- “未运行” 必须在报告里显式标出，不得伪装为通过。
-
-## 11. 当前阶段差距与下一阶段动作
-
-| 缺口 | 原因 | 下一阶段动作 |
-| :--- | :--- | :--- |
-| UI 自动化与覆盖率门禁未完整落地 | 当前版本的 xUnit 套件新增 schema 迁移/选择性恢复、诊断白名单、搜索监视/排序/分页、重复提醒、Provider 预设和 fake server 状态/传输/无效 JSON 分类，并继续覆盖既有待办、提醒、多 AI 配置、窗口生命周期和 WPF 布局；另有独立系统 runner 与隔离安装/烟雾/卸载脚本 | 下一阶段补独立桌面 UI 自动化、Explorer/托盘通知区自动化、休眠/时区变化、真实鼠标失焦、多显示器连续拖动帧率与覆盖率报告 |
-| 性能参考机未定 | 硬件资源未固定 | 评审中确认机器型号与 .NET 运行时 |
-| AI 供应商未定 | 外部依赖未确认 | 选型后扩展 §6 错误映射与 §4 用例 |
-| 远程埋点未启用 | 隐私评审未完成 | 评审通过后扩展 §5 稳定性的灰度口径 |
-| 待办与提醒系统通知 E2E | 当前受限会话无法可靠观察托盘/专注助手行为 | 在普通交互 Windows 会话验证托盘气泡、休眠恢复、系统抑制和安装版启动 |
-
-## 12. 评审与变更
-
-- 本计划随技术栈冻结、MVP 验收口径调整同步更新；
-- 任何新增 P0 必须在 §4 新增一行并提供前置条件、步骤、期望；
-- §3 覆盖率目标在技术栈冻结后第一次评审中确认。
+NotifyIcon/桌宠提交无法证明展示，需实测专注助手、隐藏桌宠、动画关闭和中心处理。UI 无法获取前台或运行失败不应降低测试条件、替换为属性赋值并声称真实输入 PASS。完整门禁不齐只保留候选，不创建正式 Release。

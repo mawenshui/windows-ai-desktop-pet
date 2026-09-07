@@ -1,3 +1,5 @@
+> 2026-09-07 文档核对：当前基线为 0.13.0，四页是主页、待办、维护、设置，八组选择器已使用页内 ListBox。本文保留设计决策记录；旧日期的 ComboBox 描述属于历史。当前实现与验证边界见 [技术设计](../docs/TECHNICAL_DESIGN.md) 和 [当前状态](../docs/CURRENT_STATUS.md)。
+
 # 多功能 AI 桌宠 · 设计令牌
 
 ## Primitive
@@ -40,8 +42,9 @@
 ## Component
 
 - Tool popover: 20px outer radius, paper surface, near-invisible edge and one warm neutral shadow.
-- Search field and dropdown: 11px radius, white surface, 44px height, accent focus ring; no native gray-gradient chrome.
+- Search field and inline selector: 11px radius, white surface, at least 40px row height, solid accent focus ring; compact segmented selectors share one soft group surface and retain a non-color selected marker.
+- Scrollbar: 10px interaction lane with a centered 6px warm-accent thumb, 30px minimum thumb height, quiet soft rail, and stronger hover/drag feedback.
 - Buttons: 10px radius, 44px normal height; icon-only controls use a 44×44 hit target.
 - Cards: 14px radius, white surface, `0 2px 12px` equivalent warm shadow; primary result/shortcut hover lifts 2px without changing layout.
-- Pet bubble: 12px radius, paper surface, concise one-line text; only appears for hover/action feedback.
+- Pet bubble: 12px radius, paper surface, concise one-line text; appears for hover/action feedback, low-frequency idle phrases, and configured reminder messages.
 - Navigation: compact four-item top strip; selected item is a raised white pill with warm-orange text.

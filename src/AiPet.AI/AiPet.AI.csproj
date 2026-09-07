@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiPet.Common\AiPet.Common.csproj" />
+    <ProjectReference Include="..\AiPet.Todos\AiPet.Todos.csproj" />
   </ItemGroup>
 
 </Project>

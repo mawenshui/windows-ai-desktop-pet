@@ -9,63 +9,37 @@ permissions:
   contents: write
 
 jobs:
-  package-and-release:
-    runs-on: windows-latest
+  verified-release:
+    # The protected runner owns reviewed physical-device evidence and tested assets.
+    # Publish the exact bytes that were tested; rebuilding invalidates asset bindings.
+    runs-on: [self-hosted, Windows, X64, aipet-release]
     environment: release
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Verify tag matches VERSION
-        shell: pwsh
-        run: |
-          $version = (Get-Content -LiteralPath VERSION -Raw -Encoding UTF8).Trim()
-          if ("v$version" -ne "${{ github.ref_name }}") {
-            throw "Tag ${{ github.ref_name }} does not match VERSION $version."
-          }
-
-      - name: Run full tests
-        shell: pwsh
-        run: ./scripts/test.ps1 -CI
-
-      - name: Prepare protected signing certificate
-        if: ${{ secrets.AIPET_SIGN_CERT_BASE64 != '' }}
+      - uses: actions/checkout@v4
+      - name: Verify tag and all independent gates
         shell: pwsh
         env:
-          AIPET_SIGN_CERT_BASE64: ${{ secrets.AIPET_SIGN_CERT_BASE64 }}
+          AIPET_RELEASE_EVIDENCE_DIR: ${{ vars.AIPET_RELEASE_EVIDENCE_DIR }}
         run: |
-          $certificatePath = Join-Path $env:RUNNER_TEMP 'aipet-release-signing.pfx'
-          [System.IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:AIPET_SIGN_CERT_BASE64))
-          "AIPET_SIGN_CERT_PATH=$certificatePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "AIPET_REQUIRE_SIGNING=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Build portable and installer assets
-        shell: pwsh
-        env:
-          AIPET_SIGN_CERT_PASSWORD: ${{ secrets.AIPET_SIGN_CERT_PASSWORD }}
-        run: ./scripts/package.ps1
-
-      - name: Smoke-test packaged assets and signatures
-        shell: pwsh
-        run: ./scripts/smoke-release.ps1
-
-      - name: Verify release notes
-        shell: pwsh
-        run: |
-          $version = (Get-Content -LiteralPath VERSION -Raw -Encoding UTF8).Trim()
-          $notes = "docs/RELEASE_NOTES_$version.md"
-          if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) {
-            throw "Missing UTF-8 release notes: $notes"
-          }
-
-      - name: Create GitHub Release
+          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
+          if ("v$version" -ne "${{ github.ref_name }}") { throw 'Tag and VERSION mismatch.' }
+          ./scripts/verify-release.ps1
+      - name: Publish tested assets
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = (Get-Content -LiteralPath VERSION -Raw -Encoding UTF8).Trim()
+          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
           $notes = "docs/RELEASE_NOTES_$version.md"
+          if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) { throw 'Release notes missing.' }
           $portable = "dist/portable/windows-ai-desktop-pet-v$version-portable.zip"
           $installer = "dist/installer/windows-ai-desktop-pet-v$version-setup.exe"
-          $checksums = "dist/checksums/SHA256SUMS.txt"
-          gh release create "v$version" $portable $installer $checksums --title "Windows AI Desktop Pet v$version" --notes-file $notes --verify-tag
+          gh release create "v$version" $portable $installer dist/checksums/SHA256SUMS.txt --title "Windows AI Desktop Pet v$version" --notes-file $notes --verify-tag
+          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed.' }
+          $download = Join-Path $env:RUNNER_TEMP ("aipet-verify-" + [Guid]::NewGuid().ToString('N'))
+          gh release download "v$version" --dir $download
+          if ($LASTEXITCODE -ne 0) { throw 'Remote asset download failed.' }
+          foreach ($file in @($portable,$installer,'dist/checksums/SHA256SUMS.txt')) {
+            $remote = Join-Path $download ([IO.Path]::GetFileName($file))
+            if ((Get-FileHash -LiteralPath $file).Hash -ne (Get-FileHash -LiteralPath $remote).Hash) { throw 'Remote asset hash mismatch.' }
+          }

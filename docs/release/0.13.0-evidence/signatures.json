@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "gate": "signatures",
+  "version": "0.13.0",
+  "sourceCommit": "e0a38ebf8be09fc39a7e581326ca35a20cc4097d",
+  "inputFingerprint": "d541dbd9352beb7cb3c651cb062e0d7694c49e0b2fb042c25507316c1aa1a6e6",
+  "status": "SKIP",
+  "startedAtUtc": "2026-09-07T07:58:40.8013876+00:00",
+  "completedAtUtc": "2026-09-07T07:58:42.9034942+00:00",
+  "environment": {
+    "runtime": "10.0.11",
+    "interactive": true,
+    "os": "Microsoft Windows NT 10.0.26200.0"
+  },
+  "checks": [
+    {
+      "detail": "NotSigned",
+      "status": "SKIP",
+      "name": "installer-signature"
+    },
+    {
+      "detail": "NotSigned",
+      "status": "SKIP",
+      "name": "portable-executable-signature"
+    }
+  ],
+  "assets": [
+    {
+      "name": "windows-ai-desktop-pet-v0.13.0-portable.zip",
+      "sha256": "4554bb6ab8c5b9783d98612e259f821581fb7c5f0ad5a7479d01ffddf0b993bf"
+    },
+    {
+      "name": "windows-ai-desktop-pet-v0.13.0-setup.exe",
+      "sha256": "a1e9eb3894064d67bcebe72a55c0ebb8f0337c821c6d627330cbdb656396be5e"
+    }
+  ]
+}

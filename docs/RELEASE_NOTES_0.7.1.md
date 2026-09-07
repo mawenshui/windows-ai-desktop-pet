@@ -1,3 +1,5 @@
+> 历史记录：正文保留当时版本、验证结果和提交状态。当前 0.13.0 范围与验收见 [CURRENT_STATUS.md](CURRENT_STATUS.md) 和 [本次报告](release/0.13.0-test-report.md)。
+
 # Windows AI Desktop Pet 0.7.1 发布候选说明
 
 > 状态：修复已完成，源码、文档、发布资产和校验和已同步到 GitHub `main`。尚未创建版本标签或 GitHub Release，不代表已正式公开发布。

@@ -86,7 +86,7 @@ public sealed class AiTodoClientTests
             CancellationToken.None);
 
         Assert.Equal(AiTodoParseStatus.Failed, result.Status);
-        Assert.Equal(AiErrorCategory.Unknown, result.ErrorCategory);
+        Assert.Equal(AiErrorCategory.InvalidResponse, result.ErrorCategory);
         Assert.Null(result.Draft);
     }
 

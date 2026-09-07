@@ -19,6 +19,15 @@ public static class Program
         };
         try
         {
+            if(args.Length==2 && args[0]=="--remove-local-data" && args[1]=="--confirmed-by-uninstaller")
+            {
+                using var instance=new SingleInstance();
+                if(!instance.IsFirstInstance) return 2;
+                var settings=new AiPet.Storage.SettingsStore();
+                var logs=System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"WindowsAiDesktopPet","logs");
+                var result=new AiPet.Storage.DataMaintenanceService(settings.AppDataDir,logs).RemoveApplicationData(AiPet.Secrets.WindowsCredentialStore.Delete);
+                return result.Errors.Count==0?0:1;
+            }
             var app = new App();
             return app.Run();
         }

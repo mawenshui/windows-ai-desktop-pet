@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,7 +23,7 @@ namespace AiPet.ToolWindow;
 /// from a single page: search input, category filter, search results,
 /// shortcut strip, AI status, autostart toggle, and search-range list.
 /// </summary>
-public sealed class HomeViewModel : INotifyPropertyChanged
+public sealed partial class HomeViewModel : INotifyPropertyChanged
 {
     // Mutable so the XAML-resolved parameterless instance can be
     // upgraded in place via Attach() once the App layer has built the
@@ -46,6 +47,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private IReadOnlyList<SearchRangeCandidateOption>? _searchOnboardingCandidateSource;
 
     public TodoViewModel Todo { get; } = new();
+    public string SoftwareVersion => typeof(HomeViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown";
 
     public HomeViewModel(
         SearchService search,
@@ -172,7 +174,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Object selection used by the homepage ComboBox.  Binding the selected
+    /// Object selection used by the homepage visible choice list. Binding the selected
     /// option itself avoids a transient blank value while the scope list is
     /// refreshed (for example after a range is added or removed).
     /// </summary>
@@ -358,8 +360,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             MarkAiConfigurationChanged();
         }
     }
-    public IReadOnlyList<AiProviderDescriptor> Providers => AiProviders.Builtin;
-    public IReadOnlyList<AiProviderDescriptor> AiConfigurationTemplates => AiProviders.Builtin;
+    public IReadOnlyList<AiProviderDescriptor> Providers => AiProviders.Builtin.Concat(_customProviders).ToArray();
+    public IReadOnlyList<AiProviderDescriptor> AiConfigurationTemplates => Providers;
     private AiProviderDescriptor? _selectedAiTemplate = AiProviders.FindById("deepseek");
     public AiProviderDescriptor? SelectedAiTemplate
     {
@@ -373,7 +375,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     }
     public AiProviderDescriptor? SelectedProvider
     {
-        get => AiProviders.FindById(_provider);
+        get => Providers.FirstOrDefault(provider => provider.Id == _provider);
         set
         {
             if (value is not null) Provider = value.Id;
@@ -500,7 +502,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private async void RestartSearch(bool immediate = false)
     {
         // Text input is debounced, while explicit filter/scope changes apply
-        // immediately so the dropdown never appears inert.
+        // immediately so the visible choice control never appears inert.
         _searchCts?.Cancel();
         _searchCts = new CancellationTokenSource();
         var token = _searchCts.Token;
@@ -522,6 +524,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             SetSearching(false);
             Status = "请输入关键词，或选择类别。";
             Results.Clear();
+            HasMoreResults = false;
             OnPCFor(nameof(HasResults));
             OnPCFor(nameof(ResultEmptyMessage));
             return;
@@ -546,9 +549,11 @@ public sealed class HomeViewModel : INotifyPropertyChanged
                 enableWildcard,
                 enableRegex,
                 scope,
-                Limit: pageSize + 1);
-            var rows = await Task.Run(() => _search.Search(query, kind, options), ct);
+                Limit: pageSize + 1, Field: SelectedSearchField.Field, UseRecentHistory: UseRecentSearchHistory);
+            var page = await Task.Run(() => _search.SearchPage(query, kind, options, ct), ct);
+            var rows = page.Items;
             if (!IsCurrentSearch(generation, ct)) return;
+            _searchPageRevision = page.Revision;
             Results.Clear();
             foreach (var r in rows.Take(pageSize)) Results.Add(r);
             HasMoreResults = rows.Count > pageSize;
@@ -580,6 +585,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     private async Task LoadMoreResultsAsync()
     {
         if (_search is null || !HasMoreResults) return;
+        var generation = Volatile.Read(ref _searchGeneration);
+        var ct = _searchCts?.Token ?? CancellationToken.None;
         SetSearching(true);
         try
         {
@@ -587,13 +594,20 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             var category = Category;
             var scope = SearchScopes.FirstOrDefault(x => x.Id == SelectedSearchScopeId)?.RangeId;
             var kind = category == "全部" ? (SearchItemKind?)null : MapCategory(category);
-            var options = new SearchQueryOptions(EnableWildcardSearch, EnableRegexSearch, scope, pageSize + 1, Results.Count);
-            var rows = await Task.Run(() => _search.Search(Query, kind, options));
+            var query = Query;
+            var options = new SearchQueryOptions(EnableWildcardSearch, EnableRegexSearch, scope, pageSize + 1, Results.Count, SelectedSearchField.Field, UseRecentSearchHistory);
+            var page = await Task.Run(() => _search.SearchPage(query, kind, options, ct), ct);
+            if (!IsCurrentSearch(generation, ct)) return;
+            if (page.Revision != _searchPageRevision) { RestartSearch(immediate: true); Status = "索引已更新，正在刷新结果。"; return; }
+            var rows = page.Items;
             foreach (var row in rows.Take(pageSize)) Results.Add(row);
             HasMoreResults = rows.Count > pageSize;
             Status = HasMoreResults ? $"已显示 {Results.Count} 条，可继续加载" : $"已显示全部 {Results.Count} 条";
         }
-        finally { SetSearching(false); (LoadMoreResultsCommand as RelayCommand)?.RaiseCanExecuteChanged(); }
+        catch (OperationCanceledException) { }
+        catch (SearchQueryException ex) { if (IsCurrentSearch(generation, ct)) Status = ex.Message; }
+        catch { if (IsCurrentSearch(generation, ct)) Status = "加载失败，请重新搜索。"; }
+        finally { if (generation == Volatile.Read(ref _searchGeneration)) SetSearching(false); (LoadMoreResultsCommand as RelayCommand)?.RaiseCanExecuteChanged(); }
     }
 
     private bool IsCurrentSearch(int generation, CancellationToken ct) =>
@@ -631,6 +645,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             };
             if (item.Kind == SearchItemKind.Folder) psi.FileName = item.FullPath;
             System.Diagnostics.Process.Start(psi);
+            if (UseRecentSearchHistory) _search?.RecordUse(item);
         }
         catch { Status = "打开失败，请检查权限或默认程序。"; }
     }
@@ -648,6 +663,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
 
     public bool HasShortcutTarget(string path) =>
         _shortcuts is not null && _shortcuts.ContainsTarget(path);
+
+    public ShortcutManagerWindow? CreateShortcutManager(System.Windows.Window owner) => _shortcuts is null ? null : new(owner, _shortcuts, RelocateShortcut, ReloadShortcuts);
 
     public bool AddShortcut(string path, bool allowDuplicate = false)
     {
@@ -746,6 +763,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
                 DisplayName = displayName,
                 Description = string.IsNullOrWhiteSpace(description) ? displayName : description.Trim(),
                 IconPath = iconPath,
+                Group = item.Group,
+                Pinned = item.Pinned,
                 Order = item.Order,
                 CreatedAt = item.CreatedAt,
                 UpdatedAt = item.UpdatedAt,
@@ -779,6 +798,8 @@ public sealed class HomeViewModel : INotifyPropertyChanged
                 DisplayName = item.DisplayName,
                 Description = item.Description,
                 IconPath = item.IconPath,
+                Group = item.Group,
+                Pinned = item.Pinned,
                 Order = item.Order,
                 CreatedAt = item.CreatedAt,
                 UpdatedAt = item.UpdatedAt,
@@ -1113,11 +1134,12 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task TestConnectionAsync()
+    private async Task TestConnectionAsync(bool generation = false)
     {
         if (!CanTest || _ai is null) return;
         var testedConfiguration = CurrentAiConfiguration();
         _isTestingAi = true;
+        _aiUserCancelled = false;
         _verifiedAiConfiguration = null;
         AiStatus = "测试中…";
         AiStatusDetail = "正在验证服务地址、模型和凭据。";
@@ -1126,7 +1148,9 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _aiTestCts = timeout;
         try
         {
-            var r = await _ai.TestConnectionAsync(
+            var r = generation && _ai is IAiCapabilityClient capability
+                ? await capability.VerifyGenerationAsync(testedConfiguration.Endpoint, testedConfiguration.Model, testedConfiguration.ApiKey, timeout.Token)
+                : await _ai.TestConnectionAsync(
                 testedConfiguration.Endpoint,
                 testedConfiguration.Model,
                 testedConfiguration.ApiKey,
@@ -1146,21 +1170,21 @@ public sealed class HomeViewModel : INotifyPropertyChanged
                 // when the loaded profile fields were not edited.
                 _aiConfigurationDirty = true;
                 AiStatus = "连接正常";
-                AiStatusDetail = $"耗时 {r.LatencyMs} ms；可以保存配置。";
+                AiStatusDetail = $"{r.CapabilitySummary}\n耗时 {r.LatencyMs} ms；可以保存配置。";
                 Status = $"AI 连接正常 ({r.LatencyMs} ms)";
             }
             else
             {
                 AiStatus = "连接异常";
-                AiStatusDetail = r.Suggestion ?? r.LocalizedMessage ?? "未知错误";
+                AiStatusDetail = r.CapabilitySummary + "\n" + (r.Suggestion ?? r.LocalizedMessage ?? "未知错误");
                 Status = "AI 连接异常: " + (r.LocalizedMessage ?? "未知错误");
             }
         }
         catch (OperationCanceledException)
         {
             AiStatus = "连接异常";
-            AiStatusDetail = "连接测试超时，请检查网络与服务状态。";
-            Status = "AI 连接测试超时";
+            AiStatusDetail = _aiUserCancelled ? "测试已取消，输入保留，未保存验证结果。" : "连接测试超时，请检查网络与服务状态。";
+            Status = _aiUserCancelled ? "AI 测试已取消" : "AI 连接测试超时";
         }
         catch
         {
@@ -1194,6 +1218,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
     {
         OnPCFor(nameof(IsTestingAi));
         OnPCFor(nameof(CanTest));
+        OnPCFor(nameof(CanVerifyGeneration));
         OnPCFor(nameof(CanSaveAiConfig));
         OnPCFor(nameof(HasUnsavedAiChanges));
         OnPCFor(nameof(HasSelectedAiConfiguration));
@@ -1303,7 +1328,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         OnPCFor(nameof(SelectedSearchScope));
         OnPCFor(nameof(ResultEmptyMessage));
         // Removing a range or repairing a stale persisted selection changes
-        // the effective query even though the ComboBox setter is not called.
+        // the effective query even though the selection setter is not called.
         // Re-run the current non-empty query so results never belong to the
         // previous scope.
         if (selectionChanged && (!string.IsNullOrWhiteSpace(Query) || Category != "全部"))
@@ -1639,29 +1664,34 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         RefreshSearchScopes();
     }
 
-    public string BackupLocalData(string destination)
+    public event EventHandler? MaintenanceExitRequested;
+    public DataMaintenanceService Maintenance => new(_settings?.AppDataDir ?? throw new InvalidOperationException("应用服务尚未就绪。"), Path.GetDirectoryName(ApplicationDataPaths.GetDiagnosticLogPath()));
+
+    public string BackupLocalData(string destination, DataModule modules = DataModule.AllNonSecret & ~DataModule.SearchIndex)
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
-        var path = new DataMaintenanceService(_settings.AppDataDir).Backup(destination);
+        var path = Maintenance.Backup(destination, modules);
         Status = "本地数据备份完成（不含 API Key）。";
         return path;
     }
 
-    public DataMaintenanceResult RestoreLocalData(string source)
+    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache)
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
-        var result = new DataMaintenanceService(_settings.AppDataDir).Restore(source,
-            DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts);
-        Status = result.Errors.Count == 0 ? "本地数据恢复完成，重启应用后全部生效。" : "部分数据恢复失败，请导出诊断查看错误代码。";
-        return result;
+        Maintenance.QueueRestore(source, modules);
+        Status = "备份已验证；退出后请重新启动应用完成恢复。";
+        MaintenanceExitRequested?.Invoke(this, EventArgs.Empty);
+        return new(Array.Empty<DataModule>(), Array.Empty<string>());
     }
 
     public DataMaintenanceResult ResetLocalCaches()
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
-        var result = new DataMaintenanceService(_settings.AppDataDir).Reset(DataModule.SearchIndex | DataModule.IconCache | DataModule.Logs);
-        Status = result.Errors.Count == 0 ? "索引、图标缓存与日志已清理，用户数据保留。" : "部分缓存未能清理。";
-        return result;
+        _shortcuts?.CleanupUnreferencedIcons();
+        Maintenance.QueueReset(DataModule.SearchIndex | DataModule.Logs);
+        Status = "无引用图标已清理；重启后重建索引并清理日志。";
+        MaintenanceExitRequested?.Invoke(this, EventArgs.Empty);
+        return new(Array.Empty<DataModule>(), Array.Empty<string>());
     }
 
     public void ExportDiagnostics(string destination)
@@ -1676,7 +1706,7 @@ public sealed class HomeViewModel : INotifyPropertyChanged
             ThemeManager.Resolve(loaded.Appearance.Theme),
             Ranges.Count,
             Shortcuts.Count,
-            Todo.Items.Count(item => item.Item.Status == TodoStatus.Pending),
+            Todo.TotalPendingCount,
             loaded.Ai.ProviderId,
             loaded.Ai.LastStatus,
             Ranges.Where(range => !string.IsNullOrWhiteSpace(range.LastError)).Select(range => range.LastError!).Distinct().ToArray()));
@@ -1699,11 +1729,15 @@ public sealed class HomeViewModel : INotifyPropertyChanged
         _shortcuts = shortcuts;
         _ai = ai;
         _settings = settings;
+        LoadCustomProviderPresets();
         _secretStore = secretStore ?? new WindowsAiSecretStore();
         var loaded = settings.Load();
         _selectedCharacter = loaded.Pet.PreferredCharacter;
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
+        _selectedSearchField = SearchFields.First(field => field.Id == (loaded.Search.QueryField == "path" ? "path" : "name"));
+        _useRecentSearchHistory = loaded.Search.UseRecentHistory;
+        OnPCFor(nameof(SelectedSearchField)); OnPCFor(nameof(SearchHistoryLabel));
         _themePreference = loaded.Appearance.Theme;
         _enablePetRoaming = loaded.Appearance.EnablePetRoaming;
         _enableBubbleAnimation = loaded.Appearance.EnableBubbleAnimation;
@@ -1762,9 +1796,8 @@ public sealed record SearchRangeCandidateOption(string DisplayName, string Path)
 public sealed record AppearanceOption(string Id, string DisplayName);
 public sealed record SearchScopeOption(string Id, string DisplayName, Guid? RangeId)
 {
-    // The compact ComboBox template presents SelectionBoxItem directly.  A
-    // readable value keeps the selected scope visible even when WPF does not
-    // materialize SelectionBoxItemTemplate for an object-bound selection.
+    // Visible selection controls and UI Automation may use ToString as the item
+    // name. Keep it concise while preserving the full option as the object.
     public override string ToString() => DisplayName;
 }
 

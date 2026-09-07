@@ -1,0 +1,47 @@
+using System.IO;
+using AiPet.Shortcuts;
+using Xunit;
+
+namespace AiPet.Tests.Unit;
+
+public sealed class ShortcutOrganizationTests : IDisposable
+{
+    private readonly string _root=Path.Combine(Path.GetTempPath(),"aipet-shortcut-organize-"+Guid.NewGuid().ToString("N"));
+    public ShortcutOrganizationTests()=>Directory.CreateDirectory(_root);
+    [Fact]
+    public void Repeated_reorder_ids_never_duplicate_records()
+    {
+        var store=new ShortcutStore(_root);
+        var one=store.Add(new() {TargetPath=Path.Combine(_root,"one"),DisplayName="one"});
+        var two=store.Add(new() {TargetPath=Path.Combine(_root,"two"),DisplayName="two"});
+        store.Reorder(new[] {two.Id,two.Id,one.Id});
+        Assert.Equal(new[] {two.Id,one.Id},store.Load().Select(item=>item.Id));
+    }
+    [Fact]
+    public async Task Hundred_entries_keep_groups_and_order_and_batch_undo_preserves_original_files_and_icons()
+    {
+        var store=new ShortcutStore(_root); Directory.CreateDirectory(store.IconsDir);
+        var icon=Path.Combine(store.IconsDir,"custom.png"); File.WriteAllText(icon,"fixture");
+        var items=Enumerable.Range(0,100).Select(number=>new ShortcutItem {DisplayName=$"item {number}",TargetPath=Path.Combine(_root,$"item-{number}.txt"),Order=number,IconPath=icon}).ToArray();
+        foreach (var item in items) File.WriteAllText(item.TargetPath,"fixture"); store.Save(items);
+        store.Organize(items.Take(20).Select(item=>item.Id),"work",true);
+        store.Reorder(items.AsEnumerable().Reverse().Select(item=>item.Id));
+        var restarted=new ShortcutStore(_root); Assert.Equal(100,restarted.Load().Count); Assert.Equal("work",restarted.Load()[0].Group); Assert.True(restarted.Load()[0].Pinned);
+        var preview=store.PreviewRemoval(items.Take(50).Select(item=>item.Id)); Assert.Equal(50,store.RemoveMany(preview));
+        Assert.All(items,item=>Assert.True(File.Exists(item.TargetPath)));
+        store.CleanupUnreferencedIcons(); Assert.True(File.Exists(icon));
+        Assert.Equal(50,store.UndoRemoval()); Assert.Equal(100,store.Load().Count);
+        File.Delete(items[0].TargetPath);
+        Assert.Equal(items[0].Id,Assert.Single(await store.ScanInvalidAsync()));
+        using var cancellation=new CancellationTokenSource(); cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>store.ScanInvalidAsync(cancellation.Token));
+    }
+    [Fact]
+    public void Stale_batch_preview_is_rejected_without_removing_changed_entry()
+    {
+        var store=new ShortcutStore(_root); var item=store.Add(new(){DisplayName="original",TargetPath="fixture"});
+        var preview=store.PreviewRemoval(new[]{item.Id}); item.DisplayName="changed"; store.Update(item);
+        Assert.Throws<InvalidOperationException>(()=>store.RemoveMany(preview)); Assert.Single(store.Load());
+    }
+    public void Dispose()=>Directory.Delete(_root,true);
+}

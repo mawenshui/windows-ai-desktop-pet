@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "gate": "ui",
+  "version": "0.13.0",
+  "sourceCommit": "e0a38ebf8be09fc39a7e581326ca35a20cc4097d",
+  "inputFingerprint": "d541dbd9352beb7cb3c651cb062e0d7694c49e0b2fb042c25507316c1aa1a6e6",
+  "status": "FAIL",
+  "startedAtUtc": "2026-09-07T07:57:34.0670210+00:00",
+  "completedAtUtc": "2026-09-07T07:57:36.7652937+00:00",
+  "environment": {
+    "runtime": "10.0.11",
+    "interactive": true,
+    "os": "Microsoft Windows NT 10.0.26200.0"
+  },
+  "checks": [
+    {
+      "status": "FAIL",
+      "detail": "RuntimeException",
+      "name": "runner"
+    }
+  ],
+  "assets": []
+}

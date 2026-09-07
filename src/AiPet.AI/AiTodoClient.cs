@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using AiPet.Todos;
 
 namespace AiPet.AI;
 
@@ -28,7 +29,8 @@ public enum AiTodoParseStatus
 public sealed record AiTodoParseRequest(
     string UserText,
     DateTimeOffset LocalNow,
-    string TimeZoneDisplayName);
+    string TimeZoneDisplayName,
+    int MaxOutputTokens = 1024);
 
 public sealed record AiTodoDraft(
     AiTodoOperation Operation,
@@ -39,7 +41,9 @@ public sealed record AiTodoDraft(
     DateTimeOffset? ReminderAt,
     bool ClearDue,
     bool ClearReminder,
-    int? SnoozeMinutes);
+    int? SnoozeMinutes,
+    RecurrenceRule? Recurrence = null,
+    IReadOnlyList<DateTimeOffset>? AdditionalReminderTimes = null);
 
 public sealed record AiTodoParseResult(
     AiTodoParseStatus Status,
@@ -77,6 +81,7 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() },
     };
 
     private readonly HttpClient _httpClient;
@@ -93,8 +98,7 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
         AiTodoParseRequest request,
         CancellationToken cancellationToken)
     {
-        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUri)
-            || endpointUri.Scheme is not ("http" or "https"))
+        if (!OpenAiCompatibleClient.IsValidEndpoint(endpoint))
             return AiTodoParseResult.Failed(
                 AiErrorCategory.BadEndpoint,
                 "AI 服务地址无效。",
@@ -119,6 +123,7 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
         {
             model,
             temperature = 0,
+            max_tokens = Math.Clamp(request.MaxOutputTokens, 128, 2048),
             messages = new object[]
             {
                 new
@@ -141,17 +146,20 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
 
         try
         {
+            using var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(25));
             using var response = await _httpClient.SendAsync(
                 httpRequest,
                 HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken).ConfigureAwait(false);
+                timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return FailureForStatus(response.StatusCode);
 
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken)
+            var responseBody = await BoundedAiResponse.ReadAsync(response.Content,256*1024,timeout.Token)
                 .ConfigureAwait(false);
             return ParseResponse(responseBody, request.LocalNow);
         }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return AiTodoParseResult.Failed(
                 AiErrorCategory.Timeout,
@@ -168,7 +176,7 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
         catch (JsonException)
         {
             return AiTodoParseResult.Failed(
-                AiErrorCategory.Unknown,
+                AiErrorCategory.InvalidResponse,
                 "AI 返回的内容无法解析。",
                 "请重试并换一种说法，或转为手动填写。");
         }
@@ -192,11 +200,11 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
     public static AiTodoParseResult ParseResponse(string responseBody, DateTimeOffset localNow)
     {
         using var root = JsonDocument.Parse(responseBody);
-        var content = root.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString();
+        if(root.RootElement.ValueKind!=JsonValueKind.Object || !root.RootElement.TryGetProperty("choices",out var choices) || choices.ValueKind!=JsonValueKind.Array || choices.GetArrayLength()==0 ||
+            choices[0].ValueKind!=JsonValueKind.Object || !choices[0].TryGetProperty("message",out var message) || message.ValueKind!=JsonValueKind.Object ||
+            !message.TryGetProperty("content",out var body) || body.ValueKind!=JsonValueKind.String)
+            throw new JsonException("Missing structured response.");
+        var content = body.GetString();
         if (string.IsNullOrWhiteSpace(content))
             return AiTodoParseResult.Failed(
                 AiErrorCategory.Unknown,
@@ -243,6 +251,20 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
         if (operation == AiTodoOperation.Snooze && wire.SnoozeMinutes is null && reminderAt is null)
             return AiTodoParseResult.NeedsClarification("要稍后多久再次提醒？");
 
+        try
+        {
+            if (wire.Recurrence is { } rule)
+            {
+                RecurrenceCalculator.Validate(rule);
+                if (rule.Kind != RecurrenceKind.None && (reminderAt is null || string.IsNullOrEmpty(rule.TimeZoneId)))
+                    return AiTodoParseResult.NeedsClarification("重复提醒需要首次时间和明确时区。");
+                if (rule.EndsAt is { } end && end < reminderAt)
+                    return AiTodoParseResult.NeedsClarification("规则结束时间不能早于首次提醒。");
+            }
+            if (wire.AdditionalReminderTimes is { } times && (times.Count > 32 || times.Any(time => time <= localNow)))
+                return AiTodoParseResult.NeedsClarification("额外提醒最多 32 次且必须是未来时间。");
+        }
+        catch (TodoValidationException ex) { return AiTodoParseResult.NeedsClarification(ex.Message); }
         return AiTodoParseResult.DraftReady(new AiTodoDraft(
             operation,
             wire.Title?.Trim(),
@@ -252,7 +274,7 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
             reminderAt,
             wire.ClearDue,
             wire.ClearReminder,
-            wire.SnoozeMinutes));
+            wire.SnoozeMinutes, wire.Recurrence, wire.AdditionalReminderTimes));
     }
 
     private static string BuildSystemPrompt(DateTimeOffset localNow, string timeZoneDisplayName) =>
@@ -272,6 +294,8 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
           "clearDue": false,
           "clearReminder": false,
           "snoozeMinutes": 整数或 null,
+          "recurrence": null 或 { "kind": "Daily" | "Weekly" | "Weekdays" | "CustomDays" | "None", "interval": 1, "timeZoneId": "有效系统时区ID", "daysOfWeek": ["Monday"], "endsAt": null },
+          "additionalReminderTimes": null 或 ISO 8601 绝对时间数组,
           "clarification": 只在 status=clarification 时填写
         }
         相对日期必须基于当前本地时间换算并保留当前 UTC 偏移。像“下午”但没有具体钟点、互相冲突、存在多种合理解释或时间已经过去时，status 必须为 clarification，且只追问最少必要字段，绝不猜测。不要执行操作，不要声称已经创建或修改。
@@ -329,6 +353,10 @@ public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
 
     private sealed class AiTodoWireResult
     {
+        [JsonPropertyName("recurrence")]
+        public RecurrenceRule? Recurrence { get; init; }
+        [JsonPropertyName("additionalReminderTimes")]
+        public IReadOnlyList<DateTimeOffset>? AdditionalReminderTimes { get; init; }
         [JsonPropertyName("status")]
         public string? Status { get; init; }
 

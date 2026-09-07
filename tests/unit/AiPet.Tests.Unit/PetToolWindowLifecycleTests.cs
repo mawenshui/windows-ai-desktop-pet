@@ -111,7 +111,7 @@ public sealed class PetToolWindowLifecycleTests
             var close = FindButton(window, "收起工具窗口");
             var stayOpen = FindElement<System.Windows.Controls.Primitives.ToggleButton>(window, "StayOpenButton");
             var alwaysOnTop = FindElement<System.Windows.Controls.Primitives.ToggleButton>(window, "AlwaysOnTopButton");
-            var scope = FindElement<ComboBox>(window, "SearchScopeSelector");
+            var scope = FindElement<ListBox>(window, "SearchScopeSelector");
             Assert.NotNull(tabs);
             Assert.NotNull(search);
             Assert.NotNull(close);
@@ -240,7 +240,7 @@ public sealed class PetToolWindowLifecycleTests
     }
 
     [Fact]
-    public void Open_dropdown_suppresses_auto_hide_and_escape_closes_only_the_dropdown()
+    public void Inline_choices_need_no_popup_suppression_and_escape_hides_the_window()
     {
         RunSta(() =>
         {
@@ -248,25 +248,18 @@ public sealed class PetToolWindowLifecycleTests
             window.ShowNear(new Rect(900, 800, 176, 148), new Rect(0, 0, 1920, 1040));
             PumpDispatcher();
 
-            var scope = FindElement<ComboBox>(window, "SearchScopeSelector");
+            var scope = FindElement<ListBox>(window, "SearchScopeSelector");
             Assert.NotNull(scope);
-            scope.IsDropDownOpen = true;
-            PumpDispatcher();
 
             var suppressionProperty = typeof(PetToolWindow).GetProperty(
                 "IsAutoHideSuppressed",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.NotNull(suppressionProperty);
-            Assert.True(Assert.IsType<bool>(suppressionProperty.GetValue(window)));
+            Assert.False(Assert.IsType<bool>(suppressionProperty.GetValue(window)));
 
             SendPreviewKey(window, Key.Escape);
             PumpDispatcher();
 
-            Assert.False(scope.IsDropDownOpen);
-            Assert.True(window.IsVisible);
-            Assert.False(Assert.IsType<bool>(suppressionProperty.GetValue(window)));
-
-            SendPreviewKey(window, Key.Escape);
             Assert.False(window.IsVisible);
 
             window.AllowClose();
@@ -312,7 +305,7 @@ public sealed class PetToolWindowLifecycleTests
     }
 
     [Fact]
-    public void Native_dropdowns_update_bound_fields_and_keep_selected_values()
+    public void Visible_choice_lists_update_bound_fields_and_keep_selected_values()
     {
         RunSta(() =>
         {
@@ -327,7 +320,7 @@ public sealed class PetToolWindowLifecycleTests
             aiSettings.IsExpanded = true;
             PumpDispatcher();
             window.UpdateLayout();
-            var provider = FindElement<ComboBox>(window, "ProviderSelector");
+            var provider = FindElement<ListBox>(window, "ProviderSelector");
             var endpoint = FindElement<TextBox>(window, "EndpointBox");
             var model = FindElement<TextBox>(window, "ModelBox");
             Assert.NotNull(tabs);
@@ -336,7 +329,7 @@ public sealed class PetToolWindowLifecycleTests
             Assert.NotNull(model);
             var vm = Assert.IsType<HomeViewModel>(window.DataContext);
 
-            var savedSelector = FindElement<ComboBox>(window, "SavedAiConfigurationSelector");
+            var savedSelector = FindElement<ListBox>(window, "SavedAiConfigurationSelector");
             Assert.NotNull(savedSelector);
             var firstSaved = new AiConfigurationOption("saved-1", "配置一");
             var secondSaved = new AiConfigurationOption("saved-2", "配置二");
@@ -346,23 +339,18 @@ public sealed class PetToolWindowLifecycleTests
             savedSelector.IsEnabled = true;
             savedSelector.BringIntoView();
             PumpDispatcher();
-            savedSelector.IsDropDownOpen = true;
-            PumpDispatcher();
-            var secondSavedItem = savedSelector.ItemContainerGenerator.ContainerFromItem(secondSaved) as ComboBoxItem;
+            var secondSavedItem = savedSelector.ItemContainerGenerator.ContainerFromItem(secondSaved) as ListBoxItem;
             Assert.NotNull(secondSavedItem);
             RaiseMouseClick(secondSavedItem);
             PumpDispatcher();
             Assert.Equal(secondSaved.Id, vm.SelectedAiConfigurationId);
             Assert.Same(secondSaved, savedSelector.SelectedItem);
 
-            Assert.Null(provider.Template?.FindName("DropDownToggle", provider));
             provider.BringIntoView();
-            PumpDispatcher();
-            provider.IsDropDownOpen = true;
             PumpDispatcher();
             provider.UpdateLayout();
             var qwen = Assert.Single(provider.Items.Cast<AiProviderDescriptor>(), option => option.Id == "qwen");
-            var qwenItem = provider.ItemContainerGenerator.ContainerFromItem(qwen) as ComboBoxItem;
+            var qwenItem = provider.ItemContainerGenerator.ContainerFromItem(qwen) as ListBoxItem;
             Assert.NotNull(qwenItem);
             RaiseMouseClick(qwenItem);
             PumpDispatcher();
@@ -371,15 +359,12 @@ public sealed class PetToolWindowLifecycleTests
             Assert.Equal("qwen", vm.SelectedProvider?.Id);
             Assert.Equal("https://dashscope.aliyuncs.com/compatible-mode/v1", endpoint.Text);
             Assert.Equal("qwen-plus", model.Text);
-            Assert.Same(qwen, provider.SelectionBoxItem);
 
-            var templateSelector = FindElement<ComboBox>(window, "AiTemplateSelector");
+            var templateSelector = FindElement<ListBox>(window, "AiTemplateSelector");
             Assert.NotNull(templateSelector);
-            templateSelector.IsDropDownOpen = true;
-            PumpDispatcher();
             templateSelector.UpdateLayout();
             var moonshot = Assert.Single(templateSelector.Items.Cast<AiProviderDescriptor>(), option => option.Id == "moonshot");
-            var moonshotItem = templateSelector.ItemContainerGenerator.ContainerFromItem(moonshot) as ComboBoxItem;
+            var moonshotItem = templateSelector.ItemContainerGenerator.ContainerFromItem(moonshot) as ListBoxItem;
             Assert.NotNull(moonshotItem);
             RaiseMouseClick(moonshotItem);
             PumpDispatcher();
@@ -389,52 +374,44 @@ public sealed class PetToolWindowLifecycleTests
             tabs.SelectedIndex = 0;
             PumpDispatcher();
             window.UpdateLayout();
-            var category = FindElement<ComboBox>(window, "CategoryFilterSelector");
+            var category = FindElement<ListBox>(window, "CategoryFilterSelector");
             Assert.NotNull(category);
-            category.IsDropDownOpen = true;
-            PumpDispatcher();
             category.UpdateLayout();
-            var categoryItem = category.ItemContainerGenerator.ContainerFromItem("图片") as ComboBoxItem;
+            var categoryItem = category.ItemContainerGenerator.ContainerFromItem("图片") as ListBoxItem;
             Assert.NotNull(categoryItem);
             RaiseMouseClick(categoryItem);
             PumpDispatcher();
             Assert.Equal("图片", category.SelectedItem);
             Assert.Equal("图片", vm.Category);
-            Assert.Equal("图片", category.SelectionBoxItem);
 
-            // Search scope uses the same shared dropdown template. Selecting
-            // an option must update both the control and its scalar VM value.
-            var scope = FindElement<ComboBox>(window, "SearchScopeSelector");
+            // Search scope uses the same visible option-list contract.
+            // Selecting a chip updates the control and its scalar VM value.
+            var scope = FindElement<ListBox>(window, "SearchScopeSelector");
             Assert.NotNull(scope);
-            scope.IsDropDownOpen = true;
-            PumpDispatcher();
             var appsScope = Assert.Single(scope.Items.Cast<SearchScopeOption>(), option => option.Id == "apps");
-            var appsScopeItem = scope.ItemContainerGenerator.ContainerFromItem(appsScope) as ComboBoxItem;
+            var appsScopeItem = scope.ItemContainerGenerator.ContainerFromItem(appsScope) as ListBoxItem;
             Assert.NotNull(appsScopeItem);
             RaiseMouseClick(appsScopeItem);
             PumpDispatcher();
             Assert.Equal("apps", vm.SelectedSearchScopeId);
             Assert.Same(appsScope, scope.SelectedItem);
 
-            // The todo date filter also shares BareComboBox and binds through
-            // SelectedValue so it cannot remain visually stuck on its default.
+            // The todo filter remains visible and uses object-level selection.
             tabs.SelectedIndex = 1;
             PumpDispatcher();
             window.UpdateLayout();
-            var todoFilter = FindElement<ComboBox>(window, "TodoFilterSelector");
+            var todoFilter = FindElement<ListBox>(window, "TodoFilterSelector");
             Assert.NotNull(todoFilter);
-            todoFilter.IsDropDownOpen = true;
-            PumpDispatcher();
             todoFilter.UpdateLayout();
             var completedFilter = Assert.Single(todoFilter.Items.Cast<TodoFilterOption>(), option => option.Id == "completed");
-            var completedFilterItem = todoFilter.ItemContainerGenerator.ContainerFromItem(completedFilter) as ComboBoxItem;
+            var completedFilterItem = todoFilter.ItemContainerGenerator.ContainerFromItem(completedFilter) as ListBoxItem;
             Assert.NotNull(completedFilterItem);
             RaiseMouseClick(completedFilterItem);
             PumpDispatcher();
             Assert.Equal("completed", vm.Todo.SelectedFilterId);
             Assert.Same(completedFilter, todoFilter.SelectedItem);
 
-            var aiTarget = FindElement<ComboBox>(window, "AiTargetSelector");
+            var aiTarget = FindElement<ListBox>(window, "AiTargetSelector");
             Assert.NotNull(aiTarget);
             var now = DateTimeOffset.Now;
             var firstTarget = new TodoRowViewModel(new TodoItem
@@ -455,9 +432,7 @@ public sealed class PetToolWindowLifecycleTests
             vm.Todo.AiTargetChoices.Add(secondTarget);
             MakeVisibleThroughParents(aiTarget);
             window.UpdateLayout();
-            aiTarget.IsDropDownOpen = true;
-            PumpDispatcher();
-            var secondTargetItem = aiTarget.ItemContainerGenerator.ContainerFromItem(secondTarget) as ComboBoxItem;
+            var secondTargetItem = aiTarget.ItemContainerGenerator.ContainerFromItem(secondTarget) as ListBoxItem;
             Assert.NotNull(secondTargetItem);
             RaiseMouseClick(secondTargetItem);
             PumpDispatcher();
@@ -467,13 +442,11 @@ public sealed class PetToolWindowLifecycleTests
             tabs.SelectedIndex = 3;
             PumpDispatcher();
             window.UpdateLayout();
-            var theme = FindElement<ComboBox>(window, "ThemeSelector");
+            var theme = FindElement<ListBox>(window, "ThemeSelector");
             Assert.NotNull(theme);
-            theme.IsDropDownOpen = true;
-            PumpDispatcher();
             theme.UpdateLayout();
             var darkTheme = Assert.Single(theme.Items.Cast<AppearanceOption>(), option => option.Id == "dark");
-            var darkThemeItem = theme.ItemContainerGenerator.ContainerFromItem(darkTheme) as ComboBoxItem;
+            var darkThemeItem = theme.ItemContainerGenerator.ContainerFromItem(darkTheme) as ListBoxItem;
             Assert.NotNull(darkThemeItem);
             RaiseMouseClick(darkThemeItem);
             PumpDispatcher();
@@ -774,15 +747,59 @@ public sealed class PetToolWindowLifecycleTests
     }
 
     [Fact]
-    public void Rounded_dropdown_converter_uses_display_name_and_keeps_plain_text()
+    public void Navigation_and_notification_entry_preserve_unsaved_ai_edits_when_cancelled()
     {
-        var converter = new DisplayNameConverter();
-        Assert.Equal(
-            "全部范围",
-            converter.Convert(new SearchScopeOption("all", "全部范围", null), typeof(string), null, CultureInfo.InvariantCulture));
-        Assert.Equal(
-            "图片",
-            converter.Convert("图片", typeof(string), null, CultureInfo.InvariantCulture));
+        RunSta(()=>
+        {
+            var window=new PetToolWindow {AutoHideOnDeactivate=false};
+            window.ShowNear(new Rect(900,800,176,148),new Rect(0,0,1920,1040),showSettings:true);
+            var vm=Assert.IsType<HomeViewModel>(window.DataContext); vm.Model="anonymous-edited-model";
+            Assert.True(vm.HasUnsavedAiChanges);
+            foreach(var index in new[]{0,1,2})
+            {
+                window.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>
+                {
+                    var dialog=Assert.Single(window.OwnedWindows.Cast<Window>().Where(owned=>owned.Title=="AI 配置尚未保存"));
+                    dialog.DialogResult=false;
+                }));
+                Assert.False(window.TrySelectTab(index));
+                Assert.Equal(3,FindElement<TabControl>(window,"ShellTabs")!.SelectedIndex);
+                Assert.Equal("anonymous-edited-model",vm.Model);
+            }
+            window.AllowClose(); window.Close();
+        });
+    }
+
+    [Fact]
+    public void New_reminder_and_shortcut_surfaces_render_and_keep_editor_rule_changes()
+    {
+        RunSta(()=>
+        {
+            var root=Path.Combine(Path.GetTempPath(),"aipet-feature-ui-"+Guid.NewGuid().ToString("N"));
+            var now=DateTimeOffset.Now; var store=new TodoStore(root,()=>now);
+            var entry=store.Create(new TodoItem {Title="伸展一下",ReminderAt=now.AddHours(1),IsReminder=true,Recurrence=new(){Kind=RecurrenceKind.Weekdays,TimeZoneId=TimeZoneInfo.Local.Id}});
+            var window=new PetToolWindow {AutoHideOnDeactivate=false};
+            window.ShowNear(new Rect(900,800,176,148),new Rect(0,0,1920,1040)); window.SelectTodoTab();
+            var todo=Assert.IsType<HomeViewModel>(window.DataContext).Todo;
+            todo.Attach(store,new UnusedTodoAiClient(),()=>null,()=>now);
+            var center=new NotificationCenter(root,()=>now); center.Enqueue(new(entry,false)); todo.AttachNotificationCenter(center);
+            PumpDispatcher(); window.UpdateLayout(); AssertVisualHasContent(window,"reminder-inbox");
+            todo.EditTodoCommand.Execute(entry.Id); todo.EditorOnlyThis=true;
+            todo.EditorReminderTime=now.AddHours(2).ToString("HH:mm"); todo.EditorTitle="ignored-title"; todo.EditorInterval=-1; todo.EditorAdditionalTimes="ignored-invalid-extra";
+            todo.SaveEditorCommand.Execute(null);
+            var saved=Assert.Single(store.Load()); Assert.Equal("伸展一下",saved.Title); Assert.Equal(RecurrenceKind.Weekdays,saved.Recurrence.Kind); Assert.Equal(entry.RecurrenceAnchorAt,saved.RecurrenceAnchorAt);
+            Assert.True(saved.ReminderAt>entry.ReminderAt);
+            var shortcuts=new ShortcutStore(root);
+            for(var index=0;index<100;index++) shortcuts.Add(new ShortcutItem {DisplayName=$"入口 {index+1}",TargetPath=Path.Combine(root,$"fixture-{index}.txt"),Group=index%2==0?"工作":"生活",Pinned=index<3});
+            var manager=new ShortcutManagerWindow(window,shortcuts,(_,_)=>{},()=>{}); manager.Show(); PumpDispatcher(); manager.UpdateLayout();
+            Assert.Equal(100,FindElement<ListBox>(manager,"Entries")!.Items.Count); AssertVisualHasContent(manager,"shortcut-manager");
+            manager.Close(); window.AllowClose(); window.Close(); Directory.Delete(root,true);
+        });
+    }
+
+    private sealed class UnusedTodoAiClient : ITodoAiClient
+    {
+        public Task<AiTodoParseResult> ParseAsync(string endpoint,string model,string apiKey,AiTodoParseRequest request,CancellationToken cancellationToken)=>throw new InvalidOperationException("No network expected.");
     }
 
     private static void RunSta(Action action)

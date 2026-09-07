@@ -80,6 +80,10 @@ public sealed class ToolWindowSettings
 
 public sealed class SearchSettings
 {
+    [JsonPropertyName("queryField")]
+    public string QueryField { get; set; } = "name";
+    [JsonPropertyName("useRecentHistory")]
+    public bool UseRecentHistory { get; set; }
     [JsonPropertyName("ranges")]
     public List<string> Ranges { get; set; } = new();
     [JsonPropertyName("onboardingCompleted")]
@@ -96,6 +100,8 @@ public sealed class SearchSettings
 
 public sealed class AiSettings
 {
+    [JsonPropertyName("requireExplicitActivation")]
+    public bool RequireExplicitActivation { get; set; }
     [JsonPropertyName("providerId")]
     public string ProviderId { get; set; } = "deepseek";
     [JsonPropertyName("endpoint")]
@@ -208,6 +214,7 @@ public sealed class SettingsStore
 
     public void Save(AppSettings settings)
     {
+        if (File.Exists(SettingsPath)) DataMaintenanceService.ValidateJson("settings.json", File.ReadAllBytes(SettingsPath));
         var text = JsonSerializer.Serialize(Normalize(settings), Options);
         RecoverableAtomicFile.WriteAllText(SettingsPath, text);
     }
@@ -278,7 +285,7 @@ public sealed class SettingsStore
 
         var active = settings.Ai.Profiles.FirstOrDefault(profile =>
             string.Equals(profile.Id, settings.Ai.ActiveProfileId, StringComparison.Ordinal));
-        active ??= settings.Ai.Profiles.FirstOrDefault();
+        if (!settings.Ai.RequireExplicitActivation) active ??= settings.Ai.Profiles.FirstOrDefault();
         settings.Ai.ActiveProfileId = active?.Id;
         if (active is not null) CopyProfileToActiveSettings(active, settings.Ai);
 

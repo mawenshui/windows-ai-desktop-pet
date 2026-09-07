@@ -9,6 +9,8 @@ public sealed class ReminderScheduler : IDisposable
     private readonly SemaphoreSlim _checkGate = new(1, 1);
     private Timer? _timer;
     private Func<ReminderNotification, bool>? _deliver;
+    private readonly bool _queuesNotifications;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Raised after a delivery has been accepted and the store has been
@@ -17,10 +19,12 @@ public sealed class ReminderScheduler : IDisposable
     /// </summary>
     public event Action<ReminderNotification>? Delivered;
 
-    public ReminderScheduler(TodoStore store, Func<DateTimeOffset>? now = null)
+    public ReminderScheduler(TodoStore store, Func<DateTimeOffset>? now = null, bool queuesNotifications = false)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _now = now ?? (() => DateTimeOffset.Now);
+        _queuesNotifications = queuesNotifications;
+        _store.Changed += Reschedule;
     }
 
     public void Start(
@@ -34,8 +38,9 @@ public sealed class ReminderScheduler : IDisposable
         _timer = new Timer(
             async _ =>
             {
-                await CheckNowAsync(_deliver).ConfigureAwait(false);
-                ScheduleNext(period);
+                try { if (!_disposed) await CheckNowAsync(_deliver).ConfigureAwait(false); }
+                catch { /* Persisted failed/unprocessed work remains available for diagnosis. */ }
+                finally { if (!_disposed) ScheduleNext(period); }
             },
             null,
             TimeSpan.Zero,
@@ -46,10 +51,10 @@ public sealed class ReminderScheduler : IDisposable
 
     private void ScheduleNext(TimeSpan maximumDelay)
     {
-        if (_timer is null) return;
+        if (_timer is null || _disposed) return;
         var next = _store.GetNextReminder();
         var delay = next is null ? Timeout.InfiniteTimeSpan : next.Value - _now();
-        if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+        if (next is not null && delay < TimeSpan.Zero) delay = TimeSpan.Zero;
         if (delay != Timeout.InfiniteTimeSpan && delay > maximumDelay) delay = maximumDelay;
         try { _timer.Change(delay, Timeout.InfiniteTimeSpan); } catch (ObjectDisposedException) { }
     }
@@ -58,31 +63,31 @@ public sealed class ReminderScheduler : IDisposable
         Func<ReminderNotification, bool> deliver,
         CancellationToken cancellationToken = default)
     {
+        if (_disposed) return 0;
         if (!await _checkGate.WaitAsync(0, cancellationToken).ConfigureAwait(false)) return 0;
         try
         {
             var now = _now();
             var dueItems = _store.Load()
                 .Where(item => item.Status == TodoStatus.Pending)
-                .Where(item => item.ReminderAt is not null && item.ReminderAt <= now)
+                .Where(item => TodoStore.GetNextReminder(item) is { } time && time <= now)
                 .Where(item => item.ReminderState is ReminderState.Scheduled or ReminderState.Snoozed)
-                .OrderBy(item => item.ReminderAt)
+                .OrderBy(TodoStore.GetNextReminder).ThenBy(item => item.Id)
                 .ToArray();
 
             var deliveredCount = 0;
             foreach (var item in dueItems)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var scheduledAt = item.ReminderAt!.Value;
+                var scheduledAt = TodoStore.GetNextReminder(item)!.Value;
                 var notification = new ReminderNotification(
                     item,
                     now - scheduledAt > TimeSpan.FromMinutes(1));
                 try
                 {
-                    if (deliver(notification))
+                    var deliveredItem = _store.DeliverReminderIfCurrent(item.Id,scheduledAt,now,current => deliver(notification with {Item=current}),_queuesNotifications);
+                    if (deliveredItem is not null)
                     {
-                        TodoItem deliveredItem;
-                        deliveredItem = _store.AdvanceReminder(item.Id, now);
                         try
                         {
                             Delivered?.Invoke(notification with { Item = deliveredItem });
@@ -94,14 +99,10 @@ public sealed class ReminderScheduler : IDisposable
                         }
                         deliveredCount++;
                     }
-                    else
-                    {
-                        _store.MarkReminderFailed(item.Id, now, "NotificationRejected");
-                    }
                 }
                 catch
                 {
-                    _store.MarkReminderFailed(item.Id, now, "NotificationException");
+                    // A failed durable write leaves the original occurrence recoverable.
                 }
             }
             return deliveredCount;
@@ -114,7 +115,14 @@ public sealed class ReminderScheduler : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
+        _store.Changed -= Reschedule;
         _timer?.Dispose();
-        _checkGate.Dispose();
+        // An in-flight check still owns the semaphore; do not dispose it under Release().
+    }
+    public async Task WaitForIdleAsync()
+    {
+        await _checkGate.WaitAsync().ConfigureAwait(false);
+        _checkGate.Release();
     }
 }

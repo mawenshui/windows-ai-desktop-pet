@@ -110,6 +110,14 @@ public sealed class TrayIcon : IDisposable
         _menu.Items.Insert(0, _reminderActions);
     }
 
+    public void ShowNotificationInbox(int count, Action open)
+    {
+        if (_disposed) return;
+        ClearReminderActions();
+        _reminderActions = new ToolStripMenuItem($"打开提醒中心（{count} 条）", CreateMenuGlyph("help"), (_, _) => open());
+        _menu.Items.Insert(0, _reminderActions);
+    }
+
     private void ClearReminderActions()
     {
         if (_reminderActions is null) return;

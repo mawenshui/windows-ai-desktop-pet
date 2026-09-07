@@ -14,7 +14,7 @@ namespace AiPet.Shortcuts;
 /// aligned with PRD §3.2 (QCK-05). Corrupted files fall back to an
 /// empty list (no destructive overwrite).
 /// </summary>
-public sealed class ShortcutStore
+public sealed partial class ShortcutStore
 {
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -43,7 +43,7 @@ public sealed class ShortcutStore
             var text = File.ReadAllText(ShortcutsPath);
             var f = JsonSerializer.Deserialize<ShortcutsFile>(text, Options);
             if (f is null) return Array.Empty<ShortcutItem>();
-            return f.Items.OrderBy(i => i.Order).ThenBy(i => i.CreatedAt).ToList();
+            return f.Items.OrderByDescending(i => i.Pinned).ThenBy(i => i.Order).ThenBy(i => i.CreatedAt).ToList();
         }
         catch
         {
@@ -53,7 +53,11 @@ public sealed class ShortcutStore
 
     public void Save(IEnumerable<ShortcutItem> items)
     {
-        var f = new ShortcutsFile { Items = items.ToList() };
+        if (File.Exists(ShortcutsPath)) DataMaintenanceService.ValidateJson("shortcuts.json", File.ReadAllBytes(ShortcutsPath));
+        var list = items.ToList();
+        if (list.Any(item => item.Id == Guid.Empty || item.Group?.Length > 40) || list.Select(item => item.Id).Distinct().Count() != list.Count)
+            throw new InvalidOperationException("快捷入口 ID 或分组无效。");
+        var f = new ShortcutsFile { Items = list };
         RecoverableAtomicFile.WriteAllText(
             ShortcutsPath,
             JsonSerializer.Serialize(f, Options));
@@ -128,7 +132,7 @@ public sealed class ShortcutStore
         var order = 0;
         foreach (var id in orderedIds)
         {
-            if (all.TryGetValue(id, out var it))
+            if (!placed.Contains(id) && all.TryGetValue(id, out var it))
             {
                 it.Order = order++;
                 list.Add(it);
@@ -146,7 +150,7 @@ public sealed class ShortcutStore
     public int CleanupUnreferencedIcons()
     {
         if (!Directory.Exists(IconsDir)) return 0;
-        var referenced = Load().Select(item => item.IconPath).Where(path => !string.IsNullOrWhiteSpace(path))
+        var referenced = Load().Concat(_removedForUndo).Select(item => item.IconPath).Where(path => !string.IsNullOrWhiteSpace(path))
             .Select(path => Path.GetFullPath(path!)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var deleted = 0;
         foreach (var file in Directory.EnumerateFiles(IconsDir))

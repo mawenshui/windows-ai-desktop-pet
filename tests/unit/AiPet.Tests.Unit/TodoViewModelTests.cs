@@ -170,7 +170,14 @@ public sealed class TodoViewModelTests : IDisposable
         Assert.True(saved.ReminderRoamEnabled);
         Assert.False(saved.ReminderBubbleEnabled);
         Assert.Equal(TodoStatus.Pending, saved.Status);
-        Assert.False(vm.CancelReminderCommand.CanExecute(saved.Id));
+        Assert.True(vm.CancelReminderCommand.CanExecute(saved.Id));
+
+        vm.CancelReminderCommand.Execute(saved.Id);
+        var cancelled = Assert.Single(store.Load());
+        Assert.Equal(ReminderState.Cancelled, cancelled.ReminderState);
+        Assert.Equal(TodoStatus.Completed, cancelled.Status);
+        Assert.Null(cancelled.ReminderAt);
+        Assert.Empty(cancelled.AdditionalReminderTimes);
 
         store.CompleteReminder(saved.Id, _now.AddHours(1));
         vm.RefreshItems();

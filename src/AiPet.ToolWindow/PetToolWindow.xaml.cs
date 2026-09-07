@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using AiPet.Search;
 using AiPet.Shortcuts;
+using AiPet.Storage;
 using Microsoft.Win32;
 
 namespace AiPet.ToolWindow;
@@ -31,7 +32,6 @@ public partial class PetToolWindow : Window
     private bool _allowClose;
     private bool _applyingWindowPreferences;
     private bool _suppressAiSelectionChange;
-    private readonly HashSet<ComboBox> _openComboBoxes = new();
     private readonly DispatcherTimer _autoHideTimer;
 
     public bool AutoHideOnDeactivate { get; set; } = true;
@@ -77,22 +77,6 @@ public partial class PetToolWindow : Window
             _autoHideTimer.Stop();
             if (AutoHideOnDeactivate && !IsActive && !IsAutoHideSuppressed) HideToTray();
         };
-        foreach (var comboBox in new[]
-        {
-            SearchScopeSelector,
-            CategoryFilterSelector,
-            AiTargetSelector,
-            TodoFilterSelector,
-            ThemeSelector,
-            AiTemplateSelector,
-            SavedAiConfigurationSelector,
-            ProviderSelector,
-        })
-        {
-            comboBox.DropDownOpened += OnComboBoxDropDownOpened;
-            comboBox.DropDownClosed += OnComboBoxDropDownClosed;
-        }
-
         if (DataContext is HomeViewModel vm)
         {
             vm.PropertyChanged += OnHomeVmPropertyChanged;
@@ -162,7 +146,7 @@ public partial class PetToolWindow : Window
         Activate();
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
-            Control target = showSettings ? CharacterList : SearchBox;
+            Control target = targetTab == 3 ? CharacterList : SearchBox;
             target.Focus();
             Keyboard.Focus(target);
         }));
@@ -170,7 +154,15 @@ public partial class PetToolWindow : Window
 
     public void SelectTodoTab()
     {
-        ShellTabs.SelectedIndex = 1;
+        TrySelectTab(1);
+    }
+
+    public bool TrySelectTab(int index)
+    {
+        if(index<0 || index>=ShellTabs.Items.Count) throw new ArgumentOutOfRangeException(nameof(index));
+        if(ShellTabs.SelectedIndex==3 && index!=3 && !TryResolveUnsavedAiChanges("切换页面")) return false;
+        ShellTabs.SelectedIndex=index;
+        return true;
     }
 
     /// <summary>
@@ -204,8 +196,6 @@ public partial class PetToolWindow : Window
     public void HideToTray()
     {
         _autoHideTimer.Stop();
-        foreach (var comboBox in _openComboBoxes.ToArray()) comboBox.IsDropDownOpen = false;
-        _openComboBoxes.Clear();
         Hide();
     }
 
@@ -218,25 +208,7 @@ public partial class PetToolWindow : Window
     public void EndAnchorInteraction() => _anchorInteractionActive = false;
 
     private bool IsAutoHideSuppressed =>
-        StayOpen || _suppressAutoHide || _anchorInteractionActive || _openComboBoxes.Count > 0;
-
-    private void OnComboBoxDropDownOpened(object? sender, EventArgs e)
-    {
-        if (sender is ComboBox comboBox) _openComboBoxes.Add(comboBox);
-        _autoHideTimer.Stop();
-    }
-
-    private void OnComboBoxDropDownClosed(object? sender, EventArgs e)
-    {
-        if (sender is ComboBox comboBox) _openComboBoxes.Remove(comboBox);
-
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            if (!IsVisible || !AutoHideOnDeactivate || IsActive || IsAutoHideSuppressed) return;
-            _autoHideTimer.Stop();
-            _autoHideTimer.Start();
-        }), DispatcherPriority.Input);
-    }
+        StayOpen || _suppressAutoHide || _anchorInteractionActive;
 
     public void AllowClose() => _allowClose = true;
 
@@ -285,18 +257,26 @@ public partial class PetToolWindow : Window
     private void BackupData_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SaveFileDialog { Filter = "AI 桌宠备份 (*.zip)|*.zip", FileName = $"aipet-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip", AddExtension = true };
-        if (dialog.ShowDialog(this) != true || DataContext is not HomeViewModel vm) return;
-        try { vm.BackupLocalData(dialog.FileName); }
-        catch (Exception ex) { MessageBox.Show(this, "备份失败：" + ex.Message, "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        if (ShowMaintenanceFileDialog(dialog) != true || DataContext is not HomeViewModel vm) return;
+        try
+        {
+            var modules = SelectMaintenanceModules(vm.Maintenance.Preview().Where(item => item.Module != DataModule.SearchIndex).Select(item => new RestorePreview(item.Module,item.DisplayName,item.Bytes,item.Bytes,item.Exists ? 1 : 0)).ToArray(), false);
+            if (modules != DataModule.None) vm.BackupLocalData(dialog.FileName, modules);
+        }
+        catch { MessageBox.Show(this, "备份未完成。请检查文件权限、容量和数据格式，原数据保留。", "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private void RestoreData_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog { Filter = "AI 桌宠备份 (*.zip)|*.zip", Multiselect = false };
-        if (dialog.ShowDialog(this) != true || DataContext is not HomeViewModel vm) return;
-        if (MessageBox.Show(this, "将恢复备份中的设置、窗口位置、待办和快捷入口。当前同名数据会被替换，API Key 不受影响。继续吗？", "确认恢复本地数据", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
-        try { vm.RestoreLocalData(dialog.FileName); }
-        catch (Exception ex) { MessageBox.Show(this, "恢复失败：" + ex.Message, "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        if (ShowMaintenanceFileDialog(dialog) != true || DataContext is not HomeViewModel vm) return;
+        try
+        {
+            var modules = SelectMaintenanceModules(vm.Maintenance.PreviewRestore(dialog.FileName), true);
+            if (modules == DataModule.None || !TryResolveUnsavedAiChanges("退出并恢复数据")) return;
+            vm.RestoreLocalData(dialog.FileName, modules);
+        }
+        catch { MessageBox.Show(this, "备份未通过校验或无法排队。正式数据尚未替换，请检查备份格式、容量及权限。", "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
@@ -310,9 +290,24 @@ public partial class PetToolWindow : Window
     private void ResetCaches_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not HomeViewModel vm) return;
-        if (MessageBox.Show(this, "只清理可重建的索引、图标缓存和日志。下次搜索可能需要重新建立索引。继续吗？", "确认清理缓存", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+        if (MessageBox.Show(this, "将清理无引用图标并退出。重新启动后清理索引及日志，授权范围需要重建；正在引用的自定义图标保留。", "退出并重建缓存", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK || !TryResolveUnsavedAiChanges("退出并重建缓存")) return;
         try { vm.ResetLocalCaches(); }
         catch (Exception ex) { MessageBox.Show(this, "清理失败：" + ex.Message, "缓存清理", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private void ToggleSearchHistory_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel vm) return;
+        if (!vm.UseRecentSearchHistory && MessageBox.Show(this,"启用后在本机记录你打开的搜索结果路径和最近打开时间，用于排序。可随时停用或清除；记录不发送给 AI。", "最近使用排序",MessageBoxButton.OKCancel)!=MessageBoxResult.OK) return;
+        vm.ToggleSearchHistory();
+    }
+
+    private void ManageShortcuts_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel vm) return;
+        var previous = _suppressAutoHide; _suppressAutoHide = true;
+        try { vm.CreateShortcutManager(this)?.ShowDialog(); }
+        finally { _suppressAutoHide = previous; Activate(); }
     }
 
     private void Results_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -325,14 +320,11 @@ public partial class PetToolWindow : Window
     {
         if (e.ChangedButton == MouseButton.Left && sender is TabItem tab)
         {
-            if (ShellTabs.SelectedIndex == 3
-                && ShellTabs.Items.IndexOf(tab) != 3
-                && !TryResolveUnsavedAiChanges("切换页面"))
+            if (!TrySelectTab(ShellTabs.Items.IndexOf(tab)))
             {
                 e.Handled = true;
                 return;
             }
-            ShellTabs.SelectedItem = tab;
             tab.Focus();
         }
     }
@@ -368,7 +360,7 @@ public partial class PetToolWindow : Window
     private void SavedAiConfigurationSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressAiSelectionChange
-            || sender is not ComboBox { SelectedItem: AiConfigurationOption selected }
+            || sender is not ListBox { SelectedItem: AiConfigurationOption selected }
             || DataContext is not HomeViewModel vm
             || string.Equals(selected.Id, vm.SelectedAiConfigurationId, StringComparison.Ordinal))
             return;
@@ -376,7 +368,7 @@ public partial class PetToolWindow : Window
         if (!TryResolveUnsavedAiChanges("切换 AI 配置"))
         {
             _suppressAiSelectionChange = true;
-            try { ((ComboBox)sender).SelectedItem = vm.SelectedAiConfiguration; }
+            try { ((ListBox)sender).SelectedItem = vm.SelectedAiConfiguration; }
             finally { _suppressAiSelectionChange = false; }
             return;
         }
@@ -944,21 +936,16 @@ public partial class PetToolWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            if (_openComboBoxes.Count > 0)
-            {
-                foreach (var comboBox in _openComboBoxes.ToArray()) comboBox.IsDropDownOpen = false;
-                e.Handled = true;
-                return;
-            }
             if (TryResolveUnsavedAiChanges("收起工具窗口")) HideToTray();
             e.Handled = true;
         }
         else if (e.Key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
-            ShellTabs.SelectedIndex = ShellNavigation.NextTabIndex(
+            var next = ShellNavigation.NextTabIndex(
                 ShellTabs.SelectedIndex,
                 ShellTabs.Items.Count,
                 Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+            TrySelectTab(next);
             e.Handled = true;
         }
         else if (e.Key == Key.Enter && ShellTabs.SelectedIndex == 0

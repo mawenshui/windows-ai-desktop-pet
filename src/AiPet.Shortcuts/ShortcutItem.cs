@@ -23,9 +23,12 @@ public sealed class ShortcutItem
     [JsonPropertyName("description")]   public string? Description { get; set; }
     [JsonPropertyName("iconPath")]      public string? IconPath { get; set; }
     [JsonPropertyName("order")]         public int Order { get; set; }
+    [JsonPropertyName("group")]         public string Group { get; set; } = string.Empty;
+    [JsonPropertyName("pinned")]        public bool Pinned { get; set; }
     [JsonPropertyName("createdAt")]     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     [JsonPropertyName("updatedAt")]     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    [JsonIgnore]
     public bool ExistsNow
     {
         get
@@ -35,6 +38,7 @@ public sealed class ShortcutItem
             return File.Exists(TargetPath);
         }
     }
+    [JsonIgnore] public string OrganizationLabel => (Pinned ? "已固定 · " : string.Empty) + (string.IsNullOrEmpty(Group) ? "未分组" : Group);
 }
 
 public sealed class ShortcutsFile

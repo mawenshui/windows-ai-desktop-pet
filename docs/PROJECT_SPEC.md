@@ -2,17 +2,17 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 1.0 |
-| 软件基线版本 | 0.12.1 |
-| 状态 | 生效；技术栈章节待实现阶段冻结 |
+| 文档版本 | 1.2（2026-09-07 代码状态核对） |
+| 软件基线版本 | 0.13.0 |
+| 状态 | 生效；WPF/.NET 8 技术栈已落地，当前为未合并候选工作区 |
 | 适用范围 | 源码、测试、文档、构建、打包、版本、GitHub 与 AI 工具协作 |
-| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V1.7 |
+| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V2.0 |
 
 ## 1. 目的与适用原则
 
 本规范把 PRD 转换为可执行的项目级约束，供开发者、CI 和各类 AI 工具共同遵守。根目录 `AGENTS.md` 是统一操作入口，本文件提供更详细的工程约定。PRD 负责定义“做什么”，本规范负责定义“代码和资料放在哪里、如何验证、如何升级版本、如何打包和发布”。
 
-当前仓库已有 WPF/.NET 8 产品源码、CC0 RGS 桌宠与正式应用图标、173 项自动化测试，以及便携版和 Inno Setup 安装版构建适配器。0.12.1 保留全部 ComboBox 的 WPF 原生交互语义，并在下拉弹层展开期间暂停工具窗失焦自动收起，防止选择尚未提交就回到默认项；独立桌面 UI、真实环境矩阵、20,000 条匿名索引性能门禁及应用/安装器/卸载器签名链继续生效。签名是否完成取决于发布环境是否提供证书；Explorer 实际重启、物理多屏/缩放和休眠仍必须由系统 runner 如实报告。
+当前仓库已有 WPF/.NET 8 产品源码、CC0 RGS 桌宠、页内单选与四页工具窗、自动化测试，以及便携版和 Inno Setup 安装版。0.13.0 按 EXT-00～06 接入发布证据、重复/多次提醒、事务维护、AI 能力验证与迁移、搜索生命周期、快捷管理和持久提醒中心。EXT-07/08 只在 tests/prototypes 评估，产品不引用。当前测试与产物见 CURRENT_STATUS.md，真实输入、性能、签名和物理环境仍需独立证据。
 
 ## 2. 项目结构
 
@@ -31,9 +31,9 @@ windows-ai-desktop-pet/
 ├─ docs/
 │  ├─ Windows桌面宠物产品需求文档_PRD.md
 │  ├─ PROJECT_SPEC.md              # 本文
-│  ├─ TECHNICAL_DESIGN.md          # 实现前创建/冻结
-│  ├─ USER_MANUAL.md               # 首个可运行版本前完成
-│  ├─ TEST_PLAN.md                 # 实现阶段维护
+│  ├─ TECHNICAL_DESIGN.md          # 当前技术栈与实现基线
+│  ├─ USER_MANUAL.md               # 当前可操作能力与限制
+│  ├─ TEST_PLAN.md                 # 实际入口、覆盖与待验收项
 │  └─ RELEASE_NOTES_<version>.md   # 每次 Release 的 UTF-8 说明
 ├─ assets/
 │  ├─ README.md                    # 资产许可与归档要求
@@ -54,29 +54,13 @@ windows-ai-desktop-pet/
 
 本地 `res/` 仅可保存尚未取得再分发授权的视觉参考，默认不属于仓库结构、Git 提交或安装包输入。角色 IP、官方图片、同人素材及第三方字体在迁入 `assets/` 前，必须按照 `assets/README.md` 记录来源、权利范围和必要署名；“来源仓库采用开源许可证”不能替代对素材本身权利的确认。
 
-### 2.1 角色资产策略（2026-08-26 决策）
+### 2.1 角色资产策略
 
-桌宠视觉资源按以下顺序使用：
+发行默认资源为 `assets/pets/RGS_8Directional/`，manifest ID 为 `rgs-8dir`，默认 hero，含 base、skeleton、monster 四个预设。2026-09-06 本地核对为 247 帧 PNG 与 5 张整图；五个原绘方向可派生镜像，运行时前向偏置。资源清单、CC0-1.0 原文与引入记录见 `assets/README.md`、包内 `License.txt` 和 `SOURCE.txt`。
 
-| 优先级 | 资源 | 路径 | 授权 | 状态 |
-| :--- | :--- | :--- | :--- | :--- |
-| **首选** | RGS 8-Direction Characters（RGS_Dev） | `res/images/RGS_8Directional/` | **CC0 1.0** | **MVP 默认实现资源** |
-| 个人参考 | nailong（第七印象） | `res/images/nailong/` | 商业 IP（仅个人/学习） | **不进仓库、不进安装包、不进 Release** |
-| 后续扩展 | Styloo Chibi Characters（styloo） | 待评估 | **CC0 1.0** | **不在 MVP 范围**，F2+ 评估 3D 渲染与 WPF 兼容性后决定是否启用 |
+`res/` 继续只作为本地参考；nailong 等商业 IP 不得进入仓库、安装包和 Release。Styloo 3D 等历史候选不在当前实现或排期中，若重新提出须经过 RFC、许可及 WPF 常驻资源评估。
 
-**策略要点**：
-
-1. **MVP 默认使用 RGS 8-Direction**：`AiPet.Pet` 模块读取 `pet.json` 的 `id = rgs-8dir`；任何 PR 中包含 `pet.json` 的 `id = nailong` 都不允许合并到面向 Release 的分支。
-2. **RGS 资源实际结构（2026-08-26 实查，已写入 `pet.json`）**：
-   - 4 角色 × 60 帧 + 7 帧 death = 247 单帧 PNG；整图 5 张（`spritesheets/{base,hero,skeleton,monster}.png` + `death_fx.png`）。
-   - 原资源**只画了 5 方向**：`down` / `down_right` / `right` / `up_right` / `up`（右半圆）；左半圆 3 个方向（`left` / `up_left` / `down_left`）由 WPF 端 `ScaleTransform(-1, 1)` 水平镜像派生，**不**事先生成物理 PNG。
-   - 原资源**没有**单独的 walk 动画；`jump`（8 帧）兼作"运动中/拖动中"动画。
-   - `death` 是 7 帧无方向全局 FX，由 `frames/_global/death_NN.png` 提供。
-2. **RGS 资源已确认 CC0**：来源为 `https://rgsdev.itch.io/hand-drawn-square-characters-animated-8-directions-top-down-free-cc0`，协议允许商用、修改、再分发、署名非强制。本目录内 `SOURCE.txt` 永久留痕，迁移到 `assets/pets/RGS_8Directional/` 后保留。
-3. **nailong 资源维持本地参考**：与 PRD §1.4 第 8 项"宠物视觉素材待定"对应；`res/images/nailong/` 继续保留作为个人学习与对比素材，**绝不**提交到 Git、**绝不**打包进安装包。
-4. **Styloo 资源**：`https://styloo.itch.io/chibi` 同样是 CC0，但属 3D 模型（GLB/FBX），启用需 WPF 引入 3D 渲染（HelixToolkit 或自封装），与 MVP "WPF 轻量 2D 常驻"原则有冲突；列入 F2+ 候选，须先在 TECHNICAL_DESIGN §6.1 写 RFC 评估资源占用与 3D 叠加窗口兼容性。
-5. **任何角色素材的引入都必须满足**：① 协议文本留痕于 `SOURCE.txt` 或 `assets/README.md`；② `pet.json` 的 `source.license` 字段为合法 SPDX 标识；③ CI 包含 `assets/pets/*/pet.json` 的 `license` 与 `attributionRequired` 字段校验；④ 不可引入商业 IP、官方游戏立绘、同人雪碧图等"可浏览但不可再分发"的资源。
-6. **未来扩展**：可在 RGS_Dev、styloo、Crucible、Kenney、OpenGameArt 等渠道扩充更多 CC0/CC-BY 角色；任何新引入都需追加本表行 + 更新对应 `pet.json` 与 `SOURCE.txt`。
+新角色必须有合法 SPDX、许可原文、作者/官方来源、下载/核对日期、SHA-256 和必要署名；包内路径、帧数、尺寸和内存上限需验证。发行运行时仍只使用内置 RGS；隔离原型验证严格 2D 子集、许可、路径、帧数和解码预算，不等于任意资源包的完整 schema 或第三方权利已审核。新增发行资源仍需独立 RFC 和资产门禁。
 
 ## 3. 文档体系
 
@@ -88,13 +72,15 @@ windows-ai-desktop-pet/
 | `USER_MANUAL.md` | 用户可见操作和故障处理 | 可见行为、设置或安装方式变化 |
 | `TEST_PLAN.md` | 测试矩阵、环境、数据和覆盖关系 | 需求、架构或风险变化 |
 | `CHANGELOG.md` | 每个软件版本的用户可感知变更 | 每次版本升级 |
-| `RELEASE_NOTES_<version>.md` | 当次 Release 说明、升级注意、校验信息 | 每次发布 |
+| `RELEASE_NOTES_<version>.md` | 当次候选/Release 说明、升级注意、校验信息 | 每次发布或候选更新 |
+| `CURRENT_STATUS.md` | 代码证据、文档入口、验证边界 | 代码状态核对 |
+| `后续功能扩展计划.md` | 待立项能力、依赖、验收标准 | 范围评审或交付状态变化 |
 
 中文文档统一使用 UTF-8。Markdown 链接使用仓库相对路径。代码、配置键、文件名、Git 提交标题和 Release 标签使用英文，避免跨终端编码差异。
 
 ## 4. 技术与模块边界
 
-技术栈尚未冻结。首次实现前必须在 `TECHNICAL_DESIGN.md` 明确：
+技术栈已经落地为 WPF/.NET 8；当前模块、数据格式、线程模型和协议见 `TECHNICAL_DESIGN.md`。后续架构变更必须同步维护以下内容：
 
 1. GUI 框架与受支持的 Windows 版本/架构。
 2. 宠物窗口、工具窗口、托盘、设置、搜索、快捷项、AI 配置和通知调度的模块边界。
@@ -104,7 +90,7 @@ windows-ai-desktop-pet/
 6. 便携版与安装版构建工具、签名方式、安装/升级/卸载策略。
 7. 单元、集成和 Windows UI 自动化测试框架。
 
-在技术栈冻结前，可新增文档、原型和验证性代码，但不得把验证性代码当作生产基线，也不得发布安装包。
+现有可运行代码为实现基线；新增验证性代码不得直接视为已交付能力。`FeatureSettings` 中未接入的字段和 tests/prototypes 中的原型必须按实际入口区分完成度。预设导入及重复提醒现有产品入口，以技术设计说明为准。
 
 ## 5. 开发规范
 
@@ -124,7 +110,7 @@ windows-ai-desktop-pet/
 pwsh -NoProfile -File scripts/test.ps1 -CI
 ```
 
-流水线至少包含：
+完整发布要求应覆盖以下检查；这不是当前 `test.ps1 -CI` 已经串联的步骤清单：
 
 1. 项目结构、SemVer、UTF-8、AI 入口和必要文档校验。
 2. 格式检查、静态分析和依赖安全检查。
@@ -133,9 +119,9 @@ pwsh -NoProfile -File scripts/test.ps1 -CI
 5. Windows E2E，映射当前版本所有 P0 验收条件。
 6. 便携版和安装版烟雾测试。
 
-目标覆盖率应在技术栈确定后写入 `TEST_PLAN.md`，但关键安全、版本、配置迁移和时间规则不得只依赖总覆盖率。失败、跳过和不适用必须分别报告；任何失败都阻断版本升级和 Release。
+当前未配置覆盖率阈值；覆盖目标及增补策略应写入 `TEST_PLAN.md`，关键安全、版本、配置迁移和时间规则不得只依赖总覆盖率。失败、跳过和不适用必须分别报告；任何失败都阻断版本升级和 Release。
 
-当前初始化阶段 `scripts/test.ps1` 会执行结构与文档校验，并明确报告“尚无应用源码，运行时测试不适用”，不会把跳过伪装为产品测试通过。
+当前 scripts/test.ps1 -CI 执行结构/文档校验、发布证据反例、隔离 NuGet 还原、完整 solution Release 构建及 xUnit。独立 UI、系统、性能和打包/烟雾仍须另外执行；格式、覆盖率及漏洞扫描阈值尚未接入。collect-release-evidence.ps1 收集七组证据，verify-release.ps1 校验版本、提交、输入指纹、时间和资产。Release workflow 使用受保护自托管环境并强制消费七组报告；缺失或 FAIL/SKIP 不得发布。
 
 ## 7. SemVer 与变更分类
 
@@ -155,7 +141,7 @@ pwsh -NoProfile -File scripts/bump-version.ps1 -Part Patch -Summary "Describe th
 
 ## 8. 构建与分发
 
-真实构建适配器应实现：
+当前已有真实构建适配器：
 
 - `packaging/build-portable.ps1`：从干净构建生成自包含便携版目录并压缩。
 - `packaging/build-installer.ps1`：生成可双击安装、升级和卸载的 Windows 安装器。
@@ -202,4 +188,8 @@ dist/checksums/SHA256SUMS.txt
 
 ## 11. 基线状态与当前完成条件
 
-`0.1.0` 的治理初始化仅证明规范、兼容入口和目录骨架存在。`0.8.0` 完成待办、一次性提醒和确认后写入的 AI 草稿；`0.8.1` 固定当前 solution 测试入口；`0.9.0` 新增独立提醒项并修复共享下拉框；`0.10.0` 增加多 AI 配置、首次搜索授权、回滚安全索引与范围删除清理、AI 配置删除、托盘恢复代码和发布 staging 隔离，共 156 项自动化测试通过，并在用户明确授权后发布 `v0.10.0`。真实通知、Explorer 重启、漫游/多屏/缩放等交互验证和代码签名未完成，不得在后续文档中误报为已验证。
+2026-09-07 按用户要求顺序实施扩展并使用 bump-version.ps1 将 0.12.2 升为 MINOR 0.13.0。能力证据、最终测试和产物状态见 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
+
+本次版本号表示用户明确要求的功能候选升级，不表示验收通过或正式发布。历史记录不能替代当次证据；源代码提交/远端同步、真实桌面、物理矩阵、签名及远端资产必须分别验证。未满足完整门禁时，不创建正式标签或 GitHub Release。
+
+当前扩展计划唯一入口为 [后续功能扩展计划](后续功能扩展计划.md)，从源码和测试重新推导；旧清单是兼容链接，历史 RFC 不代表当前排期。实施结果见 [本次报告](release/0.13.0-test-report.md)。

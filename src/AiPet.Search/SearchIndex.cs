@@ -13,7 +13,7 @@ namespace AiPet.Search;
 /// schema (no FTS5 / no ORM) so the binary stays a self-contained ~5 MB
 /// Windows desktop app and the test surface is small and easy to mock.
 /// </summary>
-public sealed class SearchIndex : IDisposable
+public sealed partial class SearchIndex : IDisposable
 {
     private readonly SqliteConnection _conn;
 
@@ -65,6 +65,11 @@ public sealed class SearchIndex : IDisposable
             CREATE INDEX IF NOT EXISTS idx_items_name ON items(name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_items_range ON items(range_id);
             CREATE INDEX IF NOT EXISTS idx_staged_items_range ON staged_items(range_id);
+            CREATE TABLE IF NOT EXISTS search_preferences (
+                range_id TEXT NOT NULL, full_path TEXT NOT NULL COLLATE NOCASE,
+                pinned INTEGER NOT NULL DEFAULT 0, last_used TEXT,
+                PRIMARY KEY (range_id, full_path)
+            );
             """;
         cmd.ExecuteNonQuery();
     }
@@ -133,6 +138,7 @@ public sealed class SearchIndex : IDisposable
             delItems.CommandText = """
                 DELETE FROM items WHERE range_id = $id;
                 DELETE FROM staged_items WHERE range_id = $id;
+                DELETE FROM search_preferences WHERE range_id = $id;
                 """;
             delItems.Parameters.AddWithValue("$id", id.ToString("D"));
             delItems.ExecuteNonQuery();
@@ -223,18 +229,21 @@ public sealed class SearchIndex : IDisposable
     public void ClearItemsForRange(Guid rangeId)
         => DeleteRows("items", rangeId);
 
-    public void ReplacePath(Guid rangeId, string fullPath, SearchItemRow? replacement)
+    public void ReplacePath(Guid rangeId, string fullPath, SearchItemRow? replacement) => ReplaceSubtree(rangeId, fullPath, replacement is null ? Array.Empty<SearchItemRow>() : new[] { replacement });
+
+    public void ReplaceSubtree(Guid rangeId, string fullPath, IReadOnlyList<SearchItemRow> replacements)
     {
         using var tx = _conn.BeginTransaction();
         using (var delete = _conn.CreateCommand())
         {
             delete.Transaction = tx;
-            delete.CommandText = "DELETE FROM items WHERE range_id = $id AND full_path = $path";
+            delete.CommandText = "DELETE FROM items WHERE range_id = $id AND (full_path = $path COLLATE NOCASE OR full_path LIKE $prefix ESCAPE '\\')";
             delete.Parameters.AddWithValue("$id", rangeId.ToString("D"));
             delete.Parameters.AddWithValue("$path", fullPath);
+            delete.Parameters.AddWithValue("$prefix", EscapeLike(Path.TrimEndingDirectorySeparator(fullPath) + Path.DirectorySeparatorChar) + "%");
             delete.ExecuteNonQuery();
         }
-        if (replacement is not null)
+        foreach (var replacement in replacements)
         {
             using var insert = _conn.CreateCommand();
             insert.Transaction = tx;
@@ -270,11 +279,14 @@ public sealed class SearchIndex : IDisposable
     public IReadOnlyList<SearchItem> Search(
         string? query,
         SearchItemKind? kindFilter,
-        SearchQueryOptions options)
+        SearchQueryOptions options,
+        CancellationToken ct = default)
     {
         if (options.Limit is < 1 or > 1000) throw new ArgumentOutOfRangeException(nameof(options), "Limit 必须在 1 到 1000 之间。");
         if (options.Offset < 0) throw new ArgumentOutOfRangeException(nameof(options), "Offset 不能为负数。");
         var normalized = query?.Trim() ?? string.Empty;
+        if (!Enum.IsDefined(options.Field)) throw new ArgumentOutOfRangeException(nameof(options));
+        var field = options.Field == SearchField.Name ? "name" : "relative_path";
         var mode = GetMatchMode(normalized, options);
         Regex? regex = null;
         if (mode == SearchMatchMode.Regex)
@@ -296,13 +308,15 @@ public sealed class SearchIndex : IDisposable
 
         using var cmd = _conn.CreateCommand();
         var sql = """
-            SELECT id, range_id, name, full_path, relative_path, extension, kind, size_bytes, last_modified
+            SELECT id, range_id, name, full_path, relative_path, extension, kind, size_bytes, last_modified,
+              COALESCE((SELECT pinned FROM search_preferences p WHERE p.range_id=items.range_id AND p.full_path=items.full_path),0) AS is_pinned,
+              (SELECT last_used FROM search_preferences p WHERE p.range_id=items.range_id AND p.full_path=items.full_path) AS used_at
             FROM items
             WHERE 1 = 1
             """;
         if (mode is SearchMatchMode.Literal or SearchMatchMode.Wildcard && normalized.Length > 0)
         {
-            sql += " AND name LIKE $q ESCAPE '\\'";
+            sql += $" AND {field} LIKE $q ESCAPE '\\'";
             var pattern = mode == SearchMatchMode.Wildcard
                 ? WildcardToLike(normalized)
                 : "%" + EscapeLike(normalized) + "%";
@@ -326,6 +340,9 @@ public sealed class SearchIndex : IDisposable
             cmd.Parameters.AddWithValue("$contains", "%" + EscapeLike(normalized) + "%");
         }
         else sql += " ORDER BY last_modified DESC, name COLLATE NOCASE";
+        sql = sql.Replace("CASE WHEN name", $"CASE WHEN {field}").Replace("WHEN name LIKE", $"WHEN {field} LIKE");
+        sql = sql.Replace("ORDER BY ", options.UseRecentHistory ? "ORDER BY is_pinned DESC, used_at DESC, " : "ORDER BY is_pinned DESC, ");
+        sql += ", full_path COLLATE NOCASE, range_id, id";
         if (mode != SearchMatchMode.Regex)
         {
             sql += " LIMIT $lim OFFSET $off";
@@ -334,15 +351,17 @@ public sealed class SearchIndex : IDisposable
         }
         cmd.CommandText = sql;
 
+        ct.ThrowIfCancellationRequested();
         using var r = cmd.ExecuteReader();
         var list = new List<SearchItem>();
         var regexMatchesToSkip = mode == SearchMatchMode.Regex ? options.Offset : 0;
         while (r.Read())
         {
+            ct.ThrowIfCancellationRequested();
             if (regex is not null)
             {
                 bool matches;
-                try { matches = regex.IsMatch(r.GetString(2)); }
+                try { matches = regex.IsMatch(r.GetString(options.Field == SearchField.Name ? 2 : 4)); }
                 catch (RegexMatchTimeoutException ex)
                 {
                     throw new SearchQueryException("正则表达式执行超时，请缩小表达式范围。", ex);
@@ -352,7 +371,7 @@ public sealed class SearchIndex : IDisposable
             }
             var rid = Guid.Parse(r.GetString(1));
             var name = r.GetString(2);
-            var score = GetRelevanceScore(name, normalized, mode);
+            var score = GetRelevanceScore(r.GetString(options.Field == SearchField.Name ? 2 : 4), normalized, mode);
             list.Add(new SearchItem(
                 r.GetInt64(0),
                 name,
@@ -366,7 +385,8 @@ public sealed class SearchIndex : IDisposable
                 IsValid: true)
             {
                 RelevanceScore = score,
-                MatchReason = GetMatchReason(score),
+                MatchReason = options.Field == SearchField.Name ? GetMatchReason(score) : GetMatchReason(score).Replace("名称", "相对路径"),
+                IsPinned = r.GetInt32(9) != 0,
             });
             if (list.Count >= options.Limit) break;
         }

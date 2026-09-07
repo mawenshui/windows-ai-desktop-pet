@@ -111,7 +111,7 @@ Release 必须满足：工作区干净、完整测试通过、版本与标签一
 - 新增第三方依赖前检查许可证、维护状态和供应链风险，并锁定可复现版本。
 - 任何二进制或第三方资产必须可追溯到来源与许可。
 - 角色 IP、官方壁纸、同人雪碧图等素材即使可公开浏览，也不等于允许仓库或安装包再分发；未取得适用授权时只保留本地并排除提交。
-- 桌宠角色资源按 `docs/PROJECT_SPEC.md` §2.1 角色资产策略执行：**MVP 默认 RGS 8-Direction Characters**（CC0，位于 `res/images/RGS_8Directional/`），`nailong` 等商业 IP 仍只作个人参考、不进仓库、不进安装包；**Styloo Chibi Characters**（CC0 3D 模型）属后续扩展，需先经 RFC 评估再启用。任何新引入的角色必须满足：① SPDX 协议标识（CC0/CC-BY/CC-BY-SA/MIT/Apache-2.0 等可商用协议）；② `pet.json` 的 `source.license` 字段为合法 SPDX；③ `SOURCE.txt` 或 `assets/README.md` 留痕；④ 不得引入"可浏览但不可再分发"的商业 IP 与官方立绘。
+- 桌宠角色资源按 `docs/PROJECT_SPEC.md` §2.1 角色资产策略执行：**MVP 默认 RGS 8-Direction Characters**（CC0-1.0，发行输入位于 `assets/pets/RGS_8Directional/`），`nailong` 等商业 IP 仍只作个人参考、不进仓库、不进安装包；**Styloo Chibi Characters**（CC0 3D 模型）属后续扩展，需先经 RFC 评估再启用。任何新引入的角色必须满足：① SPDX 协议标识（CC0/CC-BY/CC-BY-SA/MIT/Apache-2.0 等可商用协议）；② `pet.json` 的 `source.license` 字段为合法 SPDX；③ `SOURCE.txt` 或 `assets/README.md` 留痕；④ 不得引入"可浏览但不可再分发"的商业 IP 与官方立绘。
 
 ## 10. 完成定义
 

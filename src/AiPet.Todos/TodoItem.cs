@@ -16,6 +16,7 @@ public enum ReminderState
     Snoozed = 3,
     Cancelled = 4,
     Failed = 5,
+    Queued = 6,
 }
 
 public enum RecurrenceKind
@@ -29,6 +30,8 @@ public enum RecurrenceKind
 
 public sealed record RecurrenceRule
 {
+    [JsonPropertyName("timeZoneId")]
+    public string TimeZoneId { get; init; } = string.Empty;
     [JsonPropertyName("kind")]
     public RecurrenceKind Kind { get; init; }
     [JsonPropertyName("interval")]
@@ -61,6 +64,11 @@ public sealed record TodoItem
 
     [JsonPropertyName("recurrence")]
     public RecurrenceRule Recurrence { get; init; } = new();
+
+    [JsonPropertyName("recurrenceAnchorAt")]
+    public DateTimeOffset? RecurrenceAnchorAt { get; init; }
+    [JsonPropertyName("queuedOccurrenceAt")]
+    public DateTimeOffset? QueuedOccurrenceAt { get; init; }
 
     [JsonPropertyName("status")]
     public TodoStatus Status { get; init; }
@@ -103,7 +111,7 @@ public sealed record TodoItem
 public sealed record TodoDocument
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; init; } = 2;
+    public int SchemaVersion { get; init; } = 3;
 
     [JsonPropertyName("items")]
     public List<TodoItem> Items { get; init; } = new();

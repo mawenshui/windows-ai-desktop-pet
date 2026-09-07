@@ -8,6 +8,7 @@ public enum SearchMatchMode
     Wildcard,
     Regex,
 }
+public enum SearchField { Name, RelativePath }
 
 /// <summary>Optional filename-query capabilities selected by the user.</summary>
 public sealed record SearchQueryOptions(
@@ -15,7 +16,9 @@ public sealed record SearchQueryOptions(
     bool EnableRegexSearch = false,
     Guid? RangeId = null,
     int Limit = 100,
-    int Offset = 0);
+    int Offset = 0,
+    SearchField Field = SearchField.Name,
+    bool UseRecentHistory = false);
 
 public sealed class SearchQueryException : Exception
 {

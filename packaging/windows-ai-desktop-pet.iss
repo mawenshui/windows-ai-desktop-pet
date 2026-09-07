@@ -56,3 +56,37 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 
 [Run]
 Filename: "{app}\WindowsAiDesktopPet.exe"; Description: "启动 Windows AI Desktop Pet"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  RunCommand: String;
+  InstalledCommand: String;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    InstalledCommand := '"' + ExpandConstant('{app}\WindowsAiDesktopPet.exe') + '" --tray';
+    if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'WindowsAiDesktopPet', RunCommand) then
+      if CompareText(RunCommand, InstalledCommand) = 0 then
+        RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'WindowsAiDesktopPet');
+  end;
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  ExitCode: Integer;
+begin
+  Result := True;
+  { Silent uninstall always preserves personal data. Interactive default is also Keep. }
+  if not UninstallSilent then
+  begin
+    if MsgBox('是否同时清理当前账户的设置、待办、提醒队列、快捷入口、索引、日志及已记录的 AI 凭据？此操作无法撤销。选择“否”保留数据。', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    begin
+      if (not Exec(ExpandConstant('{app}\WindowsAiDesktopPet.exe'), '--remove-local-data --confirmed-by-uninstaller', '', SW_HIDE, ewWaitUntilTerminated, ExitCode)) or (ExitCode <> 0) then
+      begin
+        MsgBox('数据未完整清理，卸载已停止。请先退出桌宠，检查文件权限与凭据后重试；也可重新卸载并选择保留数据。', mbError, MB_OK);
+        Result := False;
+      end;
+    end;
+  end;
+end;

@@ -24,7 +24,8 @@ public sealed record TodoRowViewModel(TodoItem Item)
     public bool IsCompleted => Item.Status == TodoStatus.Completed;
     public bool HasReminder => Item.ReminderAt is not null;
     public bool CanRestore => IsCompleted && !IsReminder;
-    public bool CanCancelReminder => HasReminder && !IsCompleted && !IsReminder;
+    public bool CanCancelReminder => HasReminder && !IsCompleted;
+    public bool CanSkipOccurrence => CanCancelReminder && (Item.Recurrence.Kind != RecurrenceKind.None || Item.AdditionalReminderTimes.Count > 0);
     public string DueText => Item.DueAt is { } due
         ? $"截止 {due.ToLocalTime():MM-dd HH:mm}"
         : "无截止时间";
@@ -34,6 +35,8 @@ public sealed record TodoRowViewModel(TodoItem Item)
         {
             ReminderState.Cancelled => "提醒已取消",
             ReminderState.Failed => "提醒投递失败",
+            ReminderState.Queued => "已进入提醒队列",
+            ReminderState.Delivered => "提醒已提交，展示未确认",
             _ => "无提醒",
         };
     public string StateText => Item.Status == TodoStatus.Completed ? "已完成" : "待处理";
@@ -47,12 +50,12 @@ public sealed record TodoRowViewModel(TodoItem Item)
             _ => "仅托盘提醒",
         }
         : "普通待办提醒";
-    public string RepeatText => "一次性";
+    public string RepeatText => RecurrenceCalculator.Describe(Item.Recurrence) + (Item.AdditionalReminderTimes.Count > 0 ? $" · 另有 {Item.AdditionalReminderTimes.Count} 次" : string.Empty);
     public string TargetChoiceText => $"{Title} · {DueText} · 创建于 {Item.CreatedAt.ToLocalTime():MM-dd HH:mm}";
     public override string ToString() => $"{Title} · {DueText}";
 }
 
-public sealed class TodoViewModel : INotifyPropertyChanged
+public sealed partial class TodoViewModel : INotifyPropertyChanged
 {
     private readonly Func<DateTimeOffset> _defaultNow = () => DateTimeOffset.Now;
     private TodoStore? _store;
@@ -94,6 +97,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
     };
 
     public bool HasItems => Items.Count > 0;
+    public int TotalPendingCount => _store?.Load().Count(item => item.Status == TodoStatus.Pending) ?? 0;
     public string EmptyMessage => SelectedFilterId switch
     {
         "completed" => "还没有已完成待办，完成事项后会保留在这里。",
@@ -216,6 +220,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
             if (_editorReminderDate == value) return;
             _editorReminderDate = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(EditorRecurrencePreview));
         }
     }
 
@@ -228,6 +233,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
             if (_editorReminderTime == value) return;
             _editorReminderTime = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(EditorRecurrencePreview));
         }
     }
 
@@ -349,7 +355,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
     }
     public bool NeedsAiClarification => !string.IsNullOrWhiteSpace(AiClarification);
     public bool HasAiDraft => _aiDraft is not null;
-    public bool NeedsAiTarget => AiTargetChoices.Count > 1 && _aiTarget is null;
+    public bool NeedsAiTarget => AiTargetChoices.Count > 1;
     public string AiOperationText => _aiDraft?.Operation switch
     {
         AiTodoOperation.Create => AiDraftCreatesReminder ? "创建提醒项" : "创建待办",
@@ -361,7 +367,9 @@ public sealed class TodoViewModel : INotifyPropertyChanged
     };
     public string AiDraftTitle => _aiDraft?.Title ?? _aiTarget?.Title ?? "未提供";
     public string AiDraftDueText => FormatAbsolute(_aiDraft?.DueAt, _aiDraft?.ClearDue == true ? "清除截止时间" : "不设置截止时间");
-    public string AiDraftReminderText => FormatAbsolute(_aiDraft?.ReminderAt, _aiDraft?.ClearReminder == true ? "取消提醒" : "不设置提醒");
+    public string AiDraftReminderText => FormatAbsolute(_aiDraft?.ReminderAt, _aiDraft?.ClearReminder == true ? "取消整个规则" : "不设置提醒")
+        + (_aiDraft?.Recurrence is { } rule ? $"\n{RecurrenceCalculator.Describe(rule)} · {rule.TimeZoneId} · 结束：{rule.EndsAt?.ToString("yyyy-MM-dd HH:mm zzz") ?? "不限"}" : string.Empty)
+        + (_aiDraft?.AdditionalReminderTimes is { Count: > 0 } times ? "\n额外：" + string.Join("、", times.Select(time => time.ToString("yyyy-MM-dd HH:mm zzz"))) : string.Empty);
     public string AiDraftNotes => string.IsNullOrWhiteSpace(_aiDraft?.Notes) ? "无备注" : _aiDraft!.Notes!;
     public string AiTimeZoneText => TimeZoneInfo.Local.DisplayName;
     public string AiChangeSummary => BuildAiChangeSummary();
@@ -474,6 +482,8 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         {
             var deleted = _store.Delete(id);
             if (deleted is null) return false;
+            _notifications?.HandleForTodo(id);
+            RefreshNotifications();
             if (_reminderAlertItem?.Id == id) DismissReminderAlert();
             Reload();
             Status = "待办已删除。";
@@ -496,7 +506,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         RestoreTodoCommand = new RelayCommand(parameter => Restore(Find(parameter)), parameter =>
             Find(parameter) is { Status: TodoStatus.Completed, IsReminder: false });
         CancelReminderCommand = new RelayCommand(parameter => CancelReminder(Find(parameter)), parameter =>
-            Find(parameter) is { Status: TodoStatus.Pending, IsReminder: false, ReminderAt: not null });
+            Find(parameter) is { Status: TodoStatus.Pending, ReminderAt: not null });
         SnoozeTodoCommand = new RelayCommand(parameter => Snooze(Find(parameter)), parameter => Find(parameter)?.Status == TodoStatus.Pending);
         ParseAiCommand = new RelayCommand(async _ => await RunParseAiAsync(), _ => CanParseAi());
         ConfirmAiCommand = new RelayCommand(_ => ConfirmAi(), _ => CanConfirmAi());
@@ -558,6 +568,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         EditorIsReminder = false;
         EditorReminderRoamEnabled = false;
         EditorReminderBubbleEnabled = true;
+        LoadRuleEditor(null);
         EditorError = string.Empty;
         IsEditorOpen = true;
         RaiseEditorStateChanged();
@@ -576,6 +587,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         EditorIsReminder = item.IsReminder;
         EditorReminderRoamEnabled = item.ReminderRoamEnabled;
         EditorReminderBubbleEnabled = item.IsReminder ? item.ReminderBubbleEnabled : true;
+        LoadRuleEditor(item);
         EditorError = string.Empty;
         IsEditorOpen = true;
         RaiseEditorStateChanged();
@@ -592,12 +604,15 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         if (_store is null) return;
         try
         {
-            var dueAt = CombineLocal(EditorDueDate, EditorDueTime, "截止时间");
-            var reminderAt = CombineLocal(EditorReminderDate, EditorReminderTime, "提醒时间");
-            var now = _now();
             var existing = _editingId is { } id
                 ? _store.Load().FirstOrDefault(item => item.Id == id)
                 : null;
+            var onlyThis = EditorOnlyThis && existing is not null;
+            var dueAt = onlyThis ? existing!.DueAt : CombineLocal(EditorDueDate, EditorDueTime, "截止时间");
+            var reminderAt = CombineReminder(EditorReminderDate, EditorReminderTime);
+            var recurrence = onlyThis ? existing!.Recurrence : ReadEditorRule();
+            var additional = onlyThis ? existing!.AdditionalReminderTimes : ReadAdditionalTimes();
+            var now = _now();
             if (dueAt is { } due
                 && due <= now
                 && (existing?.DueAt is null || existing.DueAt != dueAt))
@@ -615,6 +630,8 @@ public sealed class TodoViewModel : INotifyPropertyChanged
                     Notes = EditorNotes,
                     DueAt = dueAt,
                     ReminderAt = reminderAt,
+                    Recurrence = recurrence,
+                    AdditionalReminderTimes = additional,
                     Status = TodoStatus.Pending,
                     ReminderState = reminderAt is null ? ReminderState.None : ReminderState.Scheduled,
                     IsReminder = EditorIsReminder,
@@ -632,15 +649,18 @@ public sealed class TodoViewModel : INotifyPropertyChanged
                         : ReminderState.Scheduled;
                 _store.Update(existing with
                 {
-                    Title = EditorTitle,
-                    Notes = EditorNotes,
-                    DueAt = dueAt,
+                    Title = EditorOnlyThis ? existing.Title : EditorTitle,
+                    Notes = EditorOnlyThis ? existing.Notes : EditorNotes,
+                    DueAt = EditorOnlyThis ? existing.DueAt : dueAt,
                     ReminderAt = reminderAt,
+                    Recurrence = EditorOnlyThis ? existing.Recurrence : recurrence,
+                    RecurrenceAnchorAt = EditorOnlyThis ? existing.RecurrenceAnchorAt : reminderAt,
+                    AdditionalReminderTimes = EditorOnlyThis ? existing.AdditionalReminderTimes : additional,
                     ReminderState = reminderState,
                     ReminderFailureCode = reminderAt is null ? null : existing.ReminderFailureCode,
-                    IsReminder = EditorIsReminder,
-                    ReminderRoamEnabled = EditorIsReminder && EditorReminderRoamEnabled,
-                    ReminderBubbleEnabled = EditorIsReminder && EditorReminderBubbleEnabled,
+                    IsReminder = EditorOnlyThis ? existing.IsReminder : EditorIsReminder,
+                    ReminderRoamEnabled = EditorOnlyThis ? existing.ReminderRoamEnabled : EditorIsReminder && EditorReminderRoamEnabled,
+                    ReminderBubbleEnabled = EditorOnlyThis ? existing.ReminderBubbleEnabled : EditorIsReminder && EditorReminderBubbleEnabled,
                 });
                 Status = EditorIsReminder ? "提醒项已更新。" : "待办已更新。";
             }
@@ -696,7 +716,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
                 connection.Endpoint,
                 connection.Model,
                 connection.ApiKey,
-                new AiTodoParseRequest(AiInput, _now(), TimeZoneInfo.Local.DisplayName),
+                new AiTodoParseRequest(AiInput, _now(), TimeZoneInfo.Local.Id),
                 timeout.Token);
             switch (result.Status)
             {
@@ -710,7 +730,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
                     AiMessage = "解析失败，输入内容已保留。";
                     break;
                 case AiTodoParseStatus.DraftReady:
-                    PrepareAiDraft(result.Draft!);
+                    PreviewAiDraft(result.Draft!);
                     break;
             }
         }
@@ -735,8 +755,11 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         await Task.WhenAny(task, Task.Delay(timeout));
     }
 
-    private void PrepareAiDraft(AiTodoDraft draft)
+    public void PreviewAiDraft(AiTodoDraft draft)
     {
+        ArgumentNullException.ThrowIfNull(draft);
+        AiTargetChoices.Clear();
+        _aiTarget = null;
         _aiDraft = draft;
         if (draft.Operation == AiTodoOperation.Create)
         {
@@ -786,6 +809,8 @@ public sealed class TodoViewModel : INotifyPropertyChanged
                         Notes = _aiDraft.Notes ?? string.Empty,
                         DueAt = _aiDraft.DueAt,
                         ReminderAt = _aiDraft.ReminderAt,
+                        Recurrence = _aiDraft.Recurrence ?? new(),
+                        AdditionalReminderTimes = _aiDraft.AdditionalReminderTimes ?? Array.Empty<DateTimeOffset>(),
                         Status = TodoStatus.Pending,
                         ReminderState = _aiDraft.ReminderAt is null
                             ? ReminderState.None
@@ -813,6 +838,9 @@ public sealed class TodoViewModel : INotifyPropertyChanged
                         Notes = _aiDraft.Notes ?? target.Notes,
                         DueAt = _aiDraft.ClearDue ? null : _aiDraft.DueAt ?? target.DueAt,
                         ReminderAt = updatedReminder,
+                        Recurrence = _aiDraft.ClearReminder ? new() : _aiDraft.Recurrence ?? target.Recurrence,
+                        AdditionalReminderTimes = _aiDraft.ClearReminder ? Array.Empty<DateTimeOffset>() : _aiDraft.AdditionalReminderTimes ?? target.AdditionalReminderTimes,
+                        RecurrenceAnchorAt = _aiDraft.Recurrence is null ? target.RecurrenceAnchorAt : updatedReminder,
                         ReminderState = reminderState,
                     });
                     _undoRecord = new UndoRecord("修改待办", target.Id, target);
@@ -870,6 +898,7 @@ public sealed class TodoViewModel : INotifyPropertyChanged
             EditorNotes = _aiDraft.Notes ?? string.Empty;
             SetEditorDateTime(_aiDraft.DueAt, due: true);
             SetEditorDateTime(_aiDraft.ReminderAt, due: false);
+            LoadRuleEditor(new TodoItem { ReminderAt = _aiDraft.ReminderAt, Recurrence = _aiDraft.Recurrence ?? new(), AdditionalReminderTimes = _aiDraft.AdditionalReminderTimes ?? Array.Empty<DateTimeOffset>() });
             EditorIsReminder = AiDraftCreatesReminder;
             EditorReminderBubbleEnabled = EditorIsReminder;
         }
@@ -921,6 +950,8 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         try
         {
             _store.Complete(item.Id);
+            _notifications?.HandleForTodo(item.Id);
+            RefreshNotifications();
             if (_reminderAlertItem?.Id == item.Id) DismissReminderAlert();
             Status = "待办已完成；原提醒不会继续触发。";
             Reload();
@@ -946,8 +977,10 @@ public sealed class TodoViewModel : INotifyPropertyChanged
         try
         {
             _store.CancelReminder(item.Id);
+            _notifications?.HandleForTodo(item.Id);
+            RefreshNotifications();
             if (_reminderAlertItem?.Id == item.Id) DismissReminderAlert();
-            Status = "仅提醒已取消，待办仍保留。";
+            Status = item.IsReminder ? "整个提醒规则已取消。" : "整个提醒规则已取消，待办仍保留。";
             Reload();
         }
         catch { Status = "取消提醒失败，请重试。"; }

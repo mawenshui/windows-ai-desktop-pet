@@ -64,18 +64,50 @@ public sealed class HomePageLayoutTests
         Assert.True(ellipsisEnd > ellipsis);
         Assert.Contains("OpenShortcutMenu_Click", xaml[ellipsis..ellipsisEnd], StringComparison.Ordinal);
 
-        // Keep the platform ComboBox template so mouse, keyboard, screen-reader,
-        // and selected-value behavior remain owned by WPF rather than a custom overlay.
-        Assert.Contains("x:Key=\"BareComboBox\"", theme, StringComparison.Ordinal);
-        Assert.Contains("IsTextSearchEnabled", theme, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"DropDownToggle\"", theme, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"PART_Popup\"", theme, StringComparison.Ordinal);
+        // Every former dropdown is now a native single-selection ListBox in
+        // the window's own visual tree, so selection never crosses a Popup.
+        Assert.DoesNotContain("<ComboBox", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("BareComboBox", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"InlineChoiceList\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"InlineChoiceItem\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectionMark\"", theme, StringComparison.Ordinal);
+        Assert.Contains("KeyboardNavigation.DirectionalNavigation", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PART_SelectedContentHost\"", theme, StringComparison.Ordinal);
+        foreach (var selectorName in new[]
+                 {
+                     "SearchScopeSelector", "CategoryFilterSelector", "AiTargetSelector", "TodoFilterSelector",
+                     "ThemeSelector", "AiTemplateSelector", "SavedAiConfigurationSelector", "ProviderSelector",
+                 })
+            Assert.Contains($"<ListBox x:Name=\"{selectorName}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"AiTemplateSelector\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"从模板新建\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"从所选模板新建\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"PART_ContentHost\"", theme, StringComparison.Ordinal);
         Assert.Contains("BasedOn=\"{StaticResource CreamScrollBar}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"CreamScrollBarThumb\"", theme, StringComparison.Ordinal);
-        Assert.Contains("<Setter Property=\"Width\" Value=\"8\" />", theme, StringComparison.Ordinal);
+        Assert.Contains("<Setter Property=\"Width\" Value=\"10\" />", theme, StringComparison.Ordinal);
+        Assert.Contains("TargetType=\"{x:Type ScrollBar}\" BasedOn=\"{StaticResource CreamScrollBar}\"", theme, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Former_dropdowns_are_visible_single_selection_surfaces()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var theme = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "ToolWindowTheme.xaml"));
+
+        Assert.DoesNotContain("<ComboBox", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("PART_Popup", theme, StringComparison.Ordinal);
+        Assert.Contains("SelectionMode\" Value=\"Single", theme, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.HelpText", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectionMark\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SelectionBar\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"InlineSegmentGroup\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"InlineChoiceSurface\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"CompactInlineChoiceItem\"", theme, StringComparison.Ordinal);
+        Assert.Contains("Property=\"IsMouseCaptured\" Value=\"True\"", theme, StringComparison.Ordinal);
+        Assert.Contains("Property=\"IsDragging\" Value=\"True\"", theme, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource InlineSegmentGroup}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource InlineChoiceSurface}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemContainerStyle=\"{StaticResource CompactInlineChoiceItem}\"", xaml, StringComparison.Ordinal);
     }
 
     private static string ReadProjectFile(string relativePath)

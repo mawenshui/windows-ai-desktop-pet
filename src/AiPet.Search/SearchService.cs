@@ -12,7 +12,7 @@ namespace AiPet.Search;
 /// High-level facade. Owns the SQLite index and the indexing coroutine.
 /// UI talks to this class only; index internals stay private.
 /// </summary>
-public sealed class SearchService : IDisposable
+public sealed partial class SearchService : IDisposable
 {
     private readonly SearchIndex _index;
     private readonly object _indexGate = new();
@@ -28,6 +28,7 @@ public sealed class SearchService : IDisposable
         _index = new SearchIndex(dbPath);
         _scan = directoryScanner ?? DefaultDirectoryScanner;
         _appEntries = appProvider ?? DefaultApplicationProvider;
+        foreach (var range in _index.ListRanges()) EnsureWatcher(range);
     }
 
     public IReadOnlyList<SearchRange> ListRanges() { lock (_indexGate) return _index.ListRanges(); }
@@ -36,6 +37,7 @@ public sealed class SearchService : IDisposable
 
     public void AddRange(string path)
     {
+        path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         lock (_indexGate)
         {
             if (_index.ListRanges().Any(range =>
@@ -47,8 +49,10 @@ public sealed class SearchService : IDisposable
     {
         lock (_indexGate)
         {
+            if (_jobs.Remove(id, out var job)) job.Lifetime.Cancel();
             if (_watchers.Remove(id, out var watcher)) watcher.Dispose();
             _index.DeleteRange(id);
+            _revision++;
         }
     }
 
@@ -66,82 +70,8 @@ public sealed class SearchService : IDisposable
     /// <paramref name="progress"/> (called with a count after each batch).
     /// Cancellation throws <see cref="OperationCanceledException"/>.
     /// </summary>
-    public Task IndexRangeAsync(
-        Guid rangeId,
-        IProgress<int>? progress = null,
-        int batchSize = 500,
-        CancellationToken ct = default)
-        => Task.Run(() =>
-        {
-            SearchRange range;
-            lock (_indexGate) range = _index.GetRange(rangeId) ?? throw new InvalidOperationException("range missing");
-            MarkState(rangeId, SearchRangeState.Preparing, error: null);
-            try
-            {
-                if (!Directory.Exists(range.Path))
-                    throw new DirectoryNotFoundException();
-
-                var batch = new List<SearchItemRow>(batchSize);
-                var indexed = 0;
-                lock (_indexGate) _index.PrepareStagedItems(rangeId);
-                foreach (var row in _scan(range))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    batch.Add(row);
-                    if (batch.Count >= batchSize)
-                    {
-                        lock (_indexGate) _index.InsertStagedItems(batch);
-                        indexed += batch.Count;
-                        progress?.Report(indexed);
-                        batch.Clear();
-                    }
-                }
-                ct.ThrowIfCancellationRequested();
-                if (batch.Count > 0)
-                {
-                    lock (_indexGate) _index.InsertStagedItems(batch);
-                    indexed += batch.Count;
-                    progress?.Report(indexed);
-                }
-                lock (_indexGate)
-                {
-                    _index.CommitStagedItems(rangeId);
-                    _index.UpsertRange(range with
-                    {
-                        State = SearchRangeState.Ready,
-                        LastIndexedAt = DateTimeOffset.UtcNow,
-                        LastError = null,
-                    });
-                }
-                EnsureWatcher(range);
-            }
-            catch (OperationCanceledException)
-            {
-                lock (_indexGate)
-                {
-                    _index.DiscardStagedItems(rangeId);
-                    if (_index.GetRange(rangeId) is not null)
-                        _index.UpsertRange(range with { State = SearchRangeState.Cancelled, LastError = "cancelled" });
-                }
-                throw;
-            }
-            catch (Exception ex)
-            {
-                lock (_indexGate)
-                {
-                    _index.DiscardStagedItems(rangeId);
-                    if (_index.GetRange(rangeId) is not null)
-                        _index.UpsertRange(range with
-                        {
-                            State = ex is DirectoryNotFoundException
-                                ? SearchRangeState.PathUnavailable
-                                : SearchRangeState.Failed,
-                            LastError = GetStableIndexError(ex),
-                        });
-                }
-                throw;
-            }
-        });
+    public Task IndexRangeAsync(Guid rangeId, IProgress<int>? progress = null, int batchSize = 500, CancellationToken ct = default)
+        => RunManagedIndexAsync(rangeId, progress, batchSize, ct);
 
     public Task IndexApplicationsAsync(IProgress<int>? progress = null, CancellationToken ct = default)
         => Task.Run(() =>
@@ -172,8 +102,11 @@ public sealed class SearchService : IDisposable
             }
             lock (_indexGate)
             {
+                ct.ThrowIfCancellationRequested();
+                ObjectDisposedException.ThrowIf(_disposed, this);
                 _index.ClearItemsForRange(rangeId);
                 _index.InsertItems(rows);
+                _revision++;
             }
         }, ct);
 
@@ -194,17 +127,10 @@ public sealed class SearchService : IDisposable
     {
         lock (_indexGate)
         {
-            if (_watchers.ContainsKey(range.Id) || !Directory.Exists(range.Path)) return;
-            _watchers[range.Id] = new SearchIndexWatcher(range.Path, (paths, overflowed) =>
-            {
-                if (overflowed)
-                {
-                    _ = IndexRangeAsync(range.Id);
-                    return;
-                }
-                lock (_indexGate)
-                    foreach (var path in paths) _index.ReplacePath(range.Id, path, TryBuildRow(range, path));
-            });
+            if (_disposed || _index.GetRange(range.Id) is null || _watchers.ContainsKey(range.Id) || !Directory.Exists(range.Path)) return;
+            try { _watchers[range.Id] = new SearchIndexWatcher(range.Path, (paths, overflowed) => QueueChanges(range.Id, paths, overflowed)); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 
@@ -351,6 +277,10 @@ public sealed class SearchService : IDisposable
     {
         lock (_indexGate)
         {
+            if (_disposed) return;
+            _disposed = true;
+            foreach (var job in _jobs.Values) job.Lifetime.Cancel();
+            _jobs.Clear();
             foreach (var watcher in _watchers.Values) watcher.Dispose();
             _watchers.Clear();
             _index.Dispose();

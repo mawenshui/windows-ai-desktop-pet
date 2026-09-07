@@ -90,6 +90,16 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        // Acquire the account lock before any stores or maintenance can write.
+        _singleInstance = new SingleInstance(isPreview ? $"UITest_{Environment.ProcessId}" : null);
+        if (!_singleInstance.IsFirstInstance)
+        {
+            SingleInstance.SignalFirstInstance();
+            _singleInstance.Dispose();
+            Shutdown();
+            return;
+        }
+
         // --- 1. Locate assets / settings ---
         var petsRoot = AssetsResolver.FindPetsRoot();
         DebugLog($"[App] pet assets resolved={petsRoot is not null}");
@@ -137,6 +147,19 @@ public partial class App : System.Windows.Application
         }
 
         _settingsStore = new SettingsStore();
+        try
+        {
+            var maintenance = new DataMaintenanceService(_settingsStore.AppDataDir, Path.GetDirectoryName(ApplicationDataPaths.GetDiagnosticLogPath()));
+            var result = maintenance.ApplyPending();
+            if (result.Errors.Count > 0)
+                System.Windows.MessageBox.Show("恢复未成功，已回滚原数据。维护快照保留在本机数据目录。", "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch
+        {
+            System.Windows.MessageBox.Show("维护校验或回滚未完成，已停止启动以保护数据。请保留本机 .maintenance 目录并检查备份。", "本地数据", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
         var settingsV = _settingsStore.Load();
         var preferred = settingsV.Pet.PreferredCharacter;
         if (string.IsNullOrEmpty(preferred) || !manifest.FrameInventory?.Characters.Contains(preferred) == true)
@@ -150,7 +173,7 @@ public partial class App : System.Windows.Application
         _search = new SearchService(_settingsStore.IndexPath);
         _applicationIndexCts = new CancellationTokenSource();
         _applicationIndexTask = IndexApplicationsSafelyAsync(_search, _applicationIndexCts.Token);
-        _shortcuts = new ShortcutStore();
+        _shortcuts = new ShortcutStore(_settingsStore.AppDataDir);
         _ai = new OpenAiCompatibleClient();
         _todoAi = new OpenAiCompatibleTodoClient();
         _todoStore = new TodoStore(_settingsStore.AppDataDir);
@@ -220,6 +243,7 @@ public partial class App : System.Windows.Application
                 _pet?.ApplyAppearancePreferences(appearance);
             };
             _homeVm = fromXaml;
+            _homeVm.MaintenanceExitRequested += async (_, _) => await RequestShutdownAsync();
             DebugLog("[App] home vm attached from XAML resource");
         }
         else
@@ -251,46 +275,15 @@ public partial class App : System.Windows.Application
                 _tray.ShowBalloon("帮助暂不可用", result.Message ?? "找不到离线用户手册。", ToolTipIcon.Warning);
         };
         _tray.ExitClicked += async (_, _) => await RequestShutdownAsync();
-        _reminderScheduler = new ReminderScheduler(_todoStore);
-        _reminderScheduler.Delivered += notification => Dispatcher.Invoke(() =>
-        {
-            // The scheduler raises this only after persisting Delivered (or
-            // Completed for a reminder-only entry), so the list cannot race
-            // the state transition shown to the user.
-            _homeVm?.Todo.RefreshItems();
-        });
-        _reminderScheduler.Start(notification => Dispatcher.Invoke(() =>
-        {
-            if (_homeVm is null || _tray is null) return false;
-            _homeVm.Todo.ShowReminder(notification);
-            if (notification.Item.IsReminder && _pet is not null)
-            {
-                if (notification.Item.ReminderBubbleEnabled || notification.Item.ReminderRoamEnabled)
-                {
-                    if (!_pet.IsVisible) _pet.Show();
-                    _tray.SetPetVisible(true);
-                }
-                _pet.ShowReminderNotification(
-                    notification.Item.Title,
-                    notification.Item.ReminderBubbleEnabled,
-                    notification.Item.ReminderRoamEnabled);
-            }
-            _tray.ShowBalloon(
-                notification.IsRecovery
-                    ? (notification.Item.IsReminder ? "补发提醒项" : "补发待办提醒")
-                    : (notification.Item.IsReminder ? "提醒项" : "待办提醒"),
-                notification.Item.Title,
-                ToolTipIcon.Info);
-            if (!notification.Item.IsReminder)
-            {
-                var reminderId = notification.Item.Id;
-                _tray.ShowReminderActions(notification.Item.Title,
-                    () => { try { _todoStore?.Complete(reminderId); _homeVm?.Todo.RefreshItems(); } catch { } },
-                    () => { try { _todoStore?.Snooze(reminderId, DateTimeOffset.Now.AddMinutes(10)); _reminderScheduler?.Reschedule(); _homeVm?.Todo.RefreshItems(); } catch { } },
-                    () => { _tool?.SelectTodoTab(); ShowToolWindow(showSettings: false); });
-            }
-            return true;
-        }));
+        _notifications = new NotificationCenter(_settingsStore.AppDataDir);
+        _homeVm?.Todo.AttachNotificationCenter(_notifications);
+        _reminderScheduler = new ReminderScheduler(_todoStore, queuesNotifications: true);
+        _reminderScheduler.Delivered += _ => Dispatcher.Invoke(() => { _notificationStartupReconciled = false; _homeVm?.Todo.RefreshItems(); _homeVm?.Todo.RefreshNotifications(); });
+        _reminderScheduler.Start(notification => _notifications.Enqueue(notification));
+        _notificationTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _notificationTimer.Tick += (_, _) => ProcessNotifications();
+        _notificationTimer.Start();
+        ProcessNotifications();
         SystemEvents.TimeChanged += OnSystemTimeChanged;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
         // Patch: the "设置" item is now wired to open the home page
@@ -299,15 +292,6 @@ public partial class App : System.Windows.Application
         // if they fail we swallow so the user can still exit.
 
         // --- 5. Listen for second-instance wake events ---
-        _singleInstance = new SingleInstance(isPreview ? $"UITest_{Environment.ProcessId}" : null);
-        if (!_singleInstance.IsFirstInstance)
-        {
-            SingleInstance.SignalFirstInstance();
-            _singleInstance.Dispose();
-            Shutdown();
-            return;
-        }
-
         _wakeCts = new CancellationTokenSource();
         _wakeThread = new Thread(() => WakeLoop(_singleInstance.WakeEvent!, _wakeCts.Token))
         {
@@ -337,8 +321,12 @@ public partial class App : System.Windows.Application
                 ShowToolWindow(showSettings: false);
                 if (isUiE2e && _homeVm is not null)
                 {
-                    _homeVm.SelectedAiTemplate = AiProviders.FindById("qwen");
-                    _homeVm.NewAiConfigCommand.Execute(null);
+                    var fixturePath = Environment.GetEnvironmentVariable("AIPET_UI_E2E_DRAFT");
+                    if (!string.IsNullOrWhiteSpace(fixturePath) && File.Exists(fixturePath))
+                    {
+                        var draft = JsonSerializer.Deserialize<AiTodoDraft>(File.ReadAllText(fixturePath));
+                        if (draft is not null) _homeVm.Todo.PreviewAiDraft(draft);
+                    }
                     AttachUiE2eProbe(_homeVm);
                 }
                 DebugLog($"[App] preview shown; visible={_tool?.IsVisible} active={_tool?.IsActive}");
@@ -363,6 +351,8 @@ public partial class App : System.Windows.Application
                     viewModel.Category,
                     todoFilterId = viewModel.Todo.SelectedFilterId,
                     viewModel.ThemePreference,
+                    viewModel.SelectedAiConfigurationId,
+                    viewModel.Todo.SelectedAiTargetId,
                     aiTemplateId = viewModel.SelectedAiTemplate?.Id,
                     viewModel.Provider,
                     viewModel.Endpoint,
@@ -426,7 +416,7 @@ public partial class App : System.Windows.Application
     private void ShowTodoPage()
     {
         ShowPet();
-        ShowToolWindow(showSettings: false);
+        ShowToolWindow(showSettings: _homeVm?.HasUnsavedAiChanges == true);
         _tool?.SelectTodoTab();
     }
 
@@ -496,12 +486,14 @@ public partial class App : System.Windows.Application
         if (_tool is not null && !_tool.ConfirmApplicationClose()) return;
 
         _shutdownRequested = true;
+        _notificationTimer?.Stop();
         _homeVm?.CancelBackgroundWork();
         _applicationIndexCts?.Cancel();
         _wakeCts?.Cancel();
         try { _reminderScheduler?.Dispose(); } catch { }
 
         var pending = new List<Task>();
+        if (_reminderScheduler is not null) pending.Add(_reminderScheduler.WaitForIdleAsync());
         if (_homeVm is not null)
             pending.Add(_homeVm.WaitForBackgroundWorkAsync(TimeSpan.FromSeconds(4)));
         if (_applicationIndexTask is { IsCompleted: false } applicationIndexTask)

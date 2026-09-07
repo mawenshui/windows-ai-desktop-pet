@@ -1,3 +1,5 @@
+> 历史记录：正文保留当时版本、验证结果和提交状态。当前 0.13.0 范围与验收见 [CURRENT_STATUS.md](CURRENT_STATUS.md) 和 [本次报告](release/0.13.0-test-report.md)。
+
 # Windows AI Desktop Pet 0.9.0 发布说明
 
 - 发布日期：2026-08-29

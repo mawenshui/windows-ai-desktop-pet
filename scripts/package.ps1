@@ -10,6 +10,20 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $versionFile = [System.IO.File]::ReadAllText((Join-Path $projectRoot 'VERSION')).Trim()
 
+# Keep packaging independent from inaccessible or machine-specific user NuGet
+# configuration. The repository config remains the only package-source input.
+$isolatedDotnetRoot = Join-Path $projectRoot 'build\dotnet-package-user'
+$isolatedNugetRoot = Join-Path $isolatedDotnetRoot 'NuGet'
+$isolatedLocalData = Join-Path $isolatedDotnetRoot 'AppData\Local'
+[System.IO.Directory]::CreateDirectory($isolatedNugetRoot) | Out-Null
+[System.IO.Directory]::CreateDirectory($isolatedLocalData) | Out-Null
+[System.IO.File]::Copy(
+    (Join-Path $projectRoot 'NuGet.Config'),
+    (Join-Path $isolatedNugetRoot 'NuGet.Config'),
+    $true)
+$env:APPDATA = $isolatedDotnetRoot
+$env:LOCALAPPDATA = $isolatedLocalData
+
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = $versionFile
 }
@@ -99,12 +113,14 @@ Publish-FileAtomically -Source $candidateChecksum -Destination $checksumPath
 
 $provenancePath = Join-Path $projectRoot 'dist\checksums\RELEASE_PROVENANCE.json'
 $commit = (& git -C $projectRoot rev-parse HEAD 2>$null)
+$sourceTreeState = if (@(& git -C $projectRoot status --porcelain --untracked-files=no 2>$null).Count -eq 0) { 'clean' } else { 'dirty' }
 $signed = -not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)
 $provenance = [ordered]@{
     schemaVersion = 1
     product = 'Windows AI Desktop Pet'
     version = $Version
     sourceCommit = $commit
+    sourceTreeState = $sourceTreeState
     builtAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
     runtime = 'win-x64 self-contained'
     signed = $signed

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using System.Text.Json;
 
 namespace AiPet.Storage;
 
@@ -28,6 +29,11 @@ public static class RecoverableAtomicFile
                 ?? throw new IOException("配置文件缺少父目录。");
             Directory.CreateDirectory(parent);
             PreserveInvalidDirectory(fullPath);
+            if (File.Exists(fullPath) && Path.GetExtension(fullPath).Equals(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                try { using var existing = JsonDocument.Parse(File.ReadAllText(fullPath)); }
+                catch (JsonException ex) { throw new InvalidDataException("现有 JSON 无法读取，请先恢复备份；原文件保留。", ex); }
+            }
 
             var temporaryPath = fullPath + ".tmp-" + Guid.NewGuid().ToString("N");
             try
@@ -37,16 +43,18 @@ public static class RecoverableAtomicFile
                 {
                     try
                     {
-                        File.Replace(temporaryPath, fullPath, null);
+                        File.Replace(temporaryPath, fullPath, fullPath + ".previous");
                     }
                     catch (PlatformNotSupportedException)
                     {
+                        File.Copy(fullPath, fullPath + ".previous", true);
                         File.Move(temporaryPath, fullPath, overwrite: true);
                     }
                     catch (IOException)
                     {
                         // Some redirected/network-backed profile folders do not
                         // support ReplaceFile even though an overwrite move works.
+                        File.Copy(fullPath, fullPath + ".previous", true);
                         File.Move(temporaryPath, fullPath, overwrite: true);
                     }
                 }

@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.13.0] - 2026-09-07
+
+### Changed
+
+- 按 EXT-00～06 接入七组发布证据、日历重复/多次提醒、重启事务恢复、AI 验证与无 Key 迁移、搜索监听和偏好、快捷管理及持久提醒中心。
+- 统一未保存 AI 修改的鼠标/键盘/定向入口保护，修复提醒改期竞争、损坏数据覆盖、撤销索引任务和图标引用清理边界。
+- 增加模块预览、中断回滚、跨午夜静默、通知汇总/多档稍后、卸载数据选择与安装位置自启清理。
+- 在 tests/prototypes 单独评估受控 txt 索引和严格 2D 宠物包，不接入产品、不进入发行包；保留 RFC 和实机评估门禁。
+- 使用 VERSION 统一全部程序程序集版本；同步 PRD、工程/技术设计、手册、测试、计划、候选说明和验证报告。
+- 当前为 0.13.0 候选，真实 UI、签名及物理环境门禁未全部通过，不创建正式版本标签或 Release。
+
+## [0.12.2] - 2026-09-05
+
+### Documentation — 2026-09-06
+
+- 根据当前未合并工作区重核所有现行文档，独立重写后续功能扩展计划；明确已接入、部分实现与未验证边界，历史报告保留当时结论。软件版本继续沿用该候选的 0.12.2。
+
+### Changed
+
+- Replace all popup dropdowns with visible in-window single-selection controls and restore the selected tab content to the accessibility tree.
+- 统一页内选择器的分段底板、卡片层级、焦点和按压反馈，并将工具窗内生成的滚动条改为暖色窄轨道与清晰拖动状态。
+
+### Fixed
+
+- 将搜索范围、结果类别、AI 目标、待办筛选、主题、AI 模板、已保存配置和供应商八处弹出式下拉框改为页内单选按钮组或可见列表，点击后直接更新显示值与业务值。
+- 选中状态同时使用勾选或下划线、文字字重和颜色表达；保留方向键、Tab 焦点与原生 WPF 单选语义，不再依赖独立弹层焦点。
+- 恢复选中 Tab 内容的标准 `PART_SelectedContentHost`，使页面控件重新进入 UI Automation 与屏幕阅读器树。
+
 ## [0.12.1] - 2026-09-04
 
 ### Changed

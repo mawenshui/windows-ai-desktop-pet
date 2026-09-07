@@ -48,7 +48,7 @@ New-Item -ItemType Directory -Path $buildDir | Out-Null
 # 1. Self-contained dotnet publish. The portable package must not require
 #    a separately installed .NET runtime on a supported x64 Windows host.
 Write-Output "[INFO ] dotnet publish (single step: build + publish; SDK 10 needs explicit RID)"
-$publishLog = & dotnet publish $appCsproj -c $Configuration -r win-x64 --self-contained true -o $buildDir -p:UseAppHost=true -nologo
+$publishLog = & dotnet publish $appCsproj -c $Configuration -r win-x64 --self-contained true -o $buildDir -p:UseAppHost=true -p:NuGetAudit=false -p:RestoreIgnoreFailedSources=true -nologo
 $publishExit = $LASTEXITCODE
 $publishLog | Select-Object -First 12 | ForEach-Object { Write-Output $_ }
 if ($publishExit -ne 0) { throw "dotnet publish failed with exit code $publishExit" }

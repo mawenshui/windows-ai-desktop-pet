@@ -102,7 +102,7 @@ public sealed class SearchServiceTests : IDisposable
         var fail = false;
         IEnumerable<SearchItemRow> Scan(SearchRange range)
         {
-            yield return Row(range.Id, fail ? "partial-new.txt" : "previous-ready.txt");
+            yield return Row(range, fail ? "partial-new.txt" : "previous-ready.txt");
             if (fail) throw new IOException("sensitive machine path must not escape");
         }
 
@@ -133,13 +133,13 @@ public sealed class SearchServiceTests : IDisposable
         {
             if (!reindex)
             {
-                yield return Row(range.Id, "previous-ready.txt");
+                yield return Row(range, "previous-ready.txt");
                 yield break;
             }
             for (var i = 0; i < 100; i++)
             {
                 enumerated++;
-                yield return Row(range.Id, $"new-{i}.txt");
+                yield return Row(range, $"new-{i}.txt");
             }
         }
 
@@ -169,7 +169,7 @@ public sealed class SearchServiceTests : IDisposable
         var range = SearchRange.For(MakeRange("delete-staged-state"));
         index.UpsertRange(range);
         index.PrepareStagedItems(range.Id);
-        index.InsertStagedItems([Row(range.Id, "staged-only.txt")]);
+        index.InsertStagedItems([Row(range, "staged-only.txt")]);
 
         index.DeleteRange(range.Id);
         index.CommitStagedItems(range.Id);
@@ -178,10 +178,10 @@ public sealed class SearchServiceTests : IDisposable
         Assert.Equal(0, index.CountItemsInRange(range.Id));
     }
 
-    private static SearchItemRow Row(Guid rangeId, string name) => new(
-        rangeId,
+    private static SearchItemRow Row(SearchRange range, string name) => new(
+        range.Id,
         name,
-        name,
+        Path.Combine(range.Path, name),
         name,
         Path.GetExtension(name),
         SearchItemKind.Document,

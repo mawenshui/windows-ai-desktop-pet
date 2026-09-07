@@ -1,0 +1,19 @@
+<Window x:Class="AiPet.ToolWindow.ShortcutManagerWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="管理快捷入口" Width="620" Height="540" MinWidth="440" MinHeight="380" WindowStartupLocation="CenterOwner" FontFamily="Microsoft YaHei UI">
+    <Grid Margin="18">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="快捷入口" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Text="Ctrl / Shift 多选 · Alt + ↑ / ↓ 排序 · 拖动调整顺序" Margin="0,6,0,10" TextWrapping="Wrap"/>
+            <ListBox x:Name="Groups" SelectionChanged="Groups_SelectionChanged" MaxHeight="78" Style="{DynamicResource InlineChoiceList}" ItemContainerStyle="{DynamicResource SegmentInlineChoiceItem}"><ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
+        </StackPanel>
+        <ListBox x:Name="Entries" Grid.Row="1" Margin="0,10" SelectionMode="Extended" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" AllowDrop="True" PreviewMouseLeftButtonDown="Entries_PreviewMouseLeftButtonDown" PreviewMouseMove="Entries_PreviewMouseMove" Drop="Entries_Drop" PreviewKeyDown="Entries_PreviewKeyDown" AutomationProperties.Name="入口管理列表">
+            <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="6"><TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/><TextBlock Text="{Binding OrganizationLabel}" FontSize="11"/><TextBlock Text="{Binding TargetPath}" TextTrimming="CharacterEllipsis" FontSize="11"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel Grid.Row="2">
+            <WrapPanel><TextBox x:Name="GroupName" Width="150" MaxLength="40" Style="{DynamicResource Field}" AutomationProperties.Name="分组名称"/><Button Content="移入分组" Click="Group_Click" Style="{DynamicResource SecondaryButton}" Margin="6,0"/><Button Content="固定 / 取消固定" Click="Pin_Click" Style="{DynamicResource SecondaryButton}"/></WrapPanel>
+            <WrapPanel Margin="0,8,0,0"><Button Content="上移" Click="MoveUp_Click" Style="{DynamicResource SecondaryButton}"/><Button Content="下移" Click="MoveDown_Click" Style="{DynamicResource SecondaryButton}" Margin="6,0"/><Button Content="检查失效" Click="Scan_Click" Style="{DynamicResource SecondaryButton}"/><Button Content="取消检查" Click="CancelScan_Click" Style="{DynamicResource SecondaryButton}" Margin="6,0"/><Button Content="重新定位" Click="Relocate_Click" Style="{DynamicResource SecondaryButton}"/></WrapPanel>
+            <WrapPanel Margin="0,8,0,0"><Button Content="预览批量移除" Click="Remove_Click" Style="{DynamicResource SecondaryButton}"/><Button x:Name="UndoButton" Content="撤销移除" Click="Undo_Click" Style="{DynamicResource SecondaryButton}" Margin="6,0"/><Button Content="关闭" IsCancel="True" Click="Close_Click" Style="{DynamicResource PrimaryButton}"/></WrapPanel>
+        </StackPanel>
+        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,10,0,0" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+    </Grid>
+</Window>

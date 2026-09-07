@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "gate": "package-smoke",
+  "version": "0.13.0",
+  "sourceCommit": "e0a38ebf8be09fc39a7e581326ca35a20cc4097d",
+  "inputFingerprint": "d541dbd9352beb7cb3c651cb062e0d7694c49e0b2fb042c25507316c1aa1a6e6",
+  "status": "PASS",
+  "startedAtUtc": "2026-09-07T07:57:10.2960670+00:00",
+  "completedAtUtc": "2026-09-07T07:57:18.4537010+00:00",
+  "environment": {
+    "runtime": "10.0.11",
+    "interactive": true,
+    "os": "Microsoft Windows NT 10.0.26200.0"
+  },
+  "checks": [
+    {
+      "name": "portable",
+      "status": "PASS"
+    },
+    {
+      "name": "install",
+      "status": "PASS"
+    },
+    {
+      "name": "installed-start",
+      "status": "PASS"
+    },
+    {
+      "name": "uninstall",
+      "status": "PASS"
+    }
+  ],
+  "assets": [
+    {
+      "sha256": "4554bb6ab8c5b9783d98612e259f821581fb7c5f0ad5a7479d01ffddf0b993bf",
+      "name": "windows-ai-desktop-pet-v0.13.0-portable.zip"
+    },
+    {
+      "sha256": "a1e9eb3894064d67bcebe72a55c0ebb8f0337c821c6d627330cbdb656396be5e",
+      "name": "windows-ai-desktop-pet-v0.13.0-setup.exe"
+    }
+  ]
+}

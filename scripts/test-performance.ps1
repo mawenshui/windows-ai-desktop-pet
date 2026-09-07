@@ -9,13 +9,28 @@ $reportRoot = Join-Path $projectRoot 'build\reports\performance'
 [System.IO.Directory]::CreateDirectory($reportRoot) | Out-Null
 $searchReportPath = Join-Path $reportRoot 'search-performance.json'
 $reportPath = Join-Path $reportRoot 'performance-report.json'
+$performanceProject = Join-Path $projectRoot 'tests\performance\AiPet.Performance\AiPet.Performance.csproj'
+$isolatedDotnetRoot = Join-Path $projectRoot 'build\dotnet-performance-user'
+$isolatedNugetRoot = Join-Path $isolatedDotnetRoot 'NuGet'
+$isolatedLocalData = Join-Path $isolatedDotnetRoot 'AppData\Local'
+[System.IO.Directory]::CreateDirectory($isolatedNugetRoot) | Out-Null
+[System.IO.Directory]::CreateDirectory($isolatedLocalData) | Out-Null
+[System.IO.File]::Copy(
+    (Join-Path $projectRoot 'NuGet.Config'),
+    (Join-Path $isolatedNugetRoot 'NuGet.Config'),
+    $true)
+$env:APPDATA = $isolatedDotnetRoot
+$env:LOCALAPPDATA = $isolatedLocalData
+
+& dotnet restore $performanceProject --configfile (Join-Path $projectRoot 'NuGet.Config') --ignore-failed-sources --nologo -p:NuGetAudit=false
+if ($LASTEXITCODE -ne 0) { throw 'Performance probe restore failed.' }
 
 if (-not $NoBuild) {
     & dotnet build (Join-Path $projectRoot 'src\AiPet.sln') -c Release --no-restore --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
 }
 
-& dotnet run --project (Join-Path $projectRoot 'tests\performance\AiPet.Performance\AiPet.Performance.csproj') -c Release -- $searchReportPath $budgets.datasetItems
+& dotnet run --project $performanceProject -c Release --no-restore -- $searchReportPath $budgets.datasetItems
 if ($LASTEXITCODE -ne 0) { throw 'Search performance probe failed.' }
 $search = Get-Content -LiteralPath $searchReportPath -Raw | ConvertFrom-Json
 
