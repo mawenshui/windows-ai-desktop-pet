@@ -36,6 +36,6 @@ test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构�
 
 [PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.13.0 候选说明](docs/RELEASE_NOTES_0.13.0.md) · [验证报告](docs/release/0.13.0-test-report.md) · [隔离原型评估](docs/EXTENSION_PROTOTYPE_REPORT.md)
 
-标准资产：dist/portable/windows-ai-desktop-pet-v0.13.0-portable.zip、dist/installer/windows-ai-desktop-pet-v0.13.0-setup.exe、dist/checksums/SHA256SUMS.txt。来源见 RELEASE_PROVENANCE.json，存在资产不等于正式发布。旧报告仅表示当次历史结果。
+候选下载：[便携版 ZIP](dist/portable/windows-ai-desktop-pet-v0.13.0-portable.zip)、[安装器 EXE](dist/installer/windows-ai-desktop-pet-v0.13.0-setup.exe)、[SHA-256 清单](dist/checksums/SHA256SUMS.txt)。来源见 RELEASE_PROVENANCE.json，存在资产不等于正式发布。旧报告仅表示当次历史结果。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

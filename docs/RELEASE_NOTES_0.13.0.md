@@ -18,6 +18,6 @@
 
 ## 验证与资产
 
-结果、哈希及当前未完成 gate 见[验证报告](release/0.13.0-test-report.md)，使用说明见[手册](USER_MANUAL.md)。标准文件为 windows-ai-desktop-pet-v0.13.0-portable.zip、windows-ai-desktop-pet-v0.13.0-setup.exe、SHA256SUMS.txt；产物存在不代表签名或正式发布完成。
+完整自动化 231/231 PASS，打包、正常账户烟雾、系统合同、远端实现提交 CI 及候选下载 SHA-256 均通过。结果、哈希及当前未完成 gate 见[验证报告](release/0.13.0-test-report.md)，使用说明见[手册](USER_MANUAL.md)。标准文件为 windows-ai-desktop-pet-v0.13.0-portable.zip、windows-ai-desktop-pet-v0.13.0-setup.exe、SHA256SUMS.txt；产物存在不代表签名或正式发布完成。
 
 已知独立 UI 无法前台激活，物理矩阵和签名缺口仍阻断正式 Release。不会用旧 0.12.2 包或历史报告代替本次产物证据。
