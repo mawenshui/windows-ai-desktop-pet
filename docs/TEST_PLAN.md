@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.13.0，2026-09-07；测试结果以[本次报告](release/0.13.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
+基线：0.14.0，2026-09-08；测试结果以[本次报告](release/0.14.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -30,6 +30,8 @@
 | EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离 |
 | AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留 |
 | DATA-01/02 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile；路径/容量/schema/hash、中途失败/中断回滚、真实模块/图标/队列成组恢复、损坏后写保护、卸载只删已知应用引用 |
+| HOTKEY-01/02 / EXT-09 | EssentialFeature、PetToolWindowLifecycle、HomePageLayout；组合键规范化/拒绝/去重、设置持久化、快速待办定向及标题焦点、托盘等价入口；真实跨程序按键与占用释放单列实测 |
+| DATA-03 / EXT-10 | EssentialFeature、SettingsStore、FutureFeature；24 小时节流、1～30 份保留、模块包含/排除、损坏输入失败保留、schema 4 与 `.pre-v4.bak` |
 | EXT-00 | test-release-evidence.ps1；缺失、过期、未来时间、版本/提交/输入不符、FAIL/SKIP、缺检查及资产错误必须失败 |
 | EXT-07/08 | PrototypeTests；正文单独同意、大小/编码/取消/撤销；包路径/缺帧/超大/未知字段/许可/重复/损坏回退 |
 | AUTO/TRAY/HELP | 自启、托盘重建合同、帮助路径与 smoke；真实重登录/Explorer 单列 |
@@ -40,6 +42,6 @@
 
 七组 gate：automated、ui、system、performance、package-smoke、signatures、hardware。输入指纹覆盖源码/测试/脚本/资源/配置/离线手册及版本构建元数据，报告必须来自当前提交且不超过 72 小时。缺少必需检查、FAIL/SKIP、错资产或 dirty 都拒绝。
 
-系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
+系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.14.0 还需在解锁的同桌面会话验证两个默认全局组合、改键、占用冲突、停用和退出释放，并观察启动自动备份不会重复。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
 
 NotifyIcon/桌宠提交无法证明展示，需实测专注助手、隐藏桌宠、动画关闭和中心处理。UI 无法获取前台或运行失败不应降低测试条件、替换为属性赋值并声称真实输入 PASS。完整门禁不齐只保留候选，不创建正式 Release。

@@ -16,13 +16,14 @@ public sealed class FutureFeatureTests : IDisposable
     public FutureFeatureTests() => Directory.CreateDirectory(_root);
 
     [Fact]
-    public void Settings_schema_migration_preserves_pre_v3_backup()
+    public void Settings_schema_migration_preserves_pre_v3_and_pre_v4_backups()
     {
         File.WriteAllText(Path.Combine(_root, "settings.json"), "{\"schemaVersion\":2,\"appearance\":{\"theme\":\"unknown\"}}");
         var loaded = new SettingsStore(_root).Load();
-        Assert.Equal(3, loaded.SchemaVersion);
+        Assert.Equal(4, loaded.SchemaVersion);
         Assert.Equal("system", loaded.Appearance.Theme);
         Assert.True(File.Exists(Path.Combine(_root, "settings.json.pre-v3.bak")));
+        Assert.True(File.Exists(Path.Combine(_root, "settings.json.pre-v4.bak")));
     }
 
     [Fact]

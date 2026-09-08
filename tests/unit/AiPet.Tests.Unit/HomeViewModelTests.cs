@@ -49,6 +49,27 @@ public sealed class HomeViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Disabling_global_hotkeys_does_not_require_repairing_inactive_gestures()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "disabled-hotkeys-settings"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "disabled-hotkeys-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings)
+        {
+            GlobalHotkeysEnabled = false,
+            SearchHotkeyGesture = "invalid",
+            QuickTodoHotkeyGesture = "also-invalid",
+        };
+
+        vm.SaveGlobalHotkeysCommand.Execute(null);
+
+        Assert.False(settings.Load().Hotkeys.Enabled);
+        Assert.Contains("已保存", vm.GlobalHotkeyStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Built_in_provider_selection_replaces_endpoint_and_model_with_preset()
     {
         var vm = CreateViewModel();

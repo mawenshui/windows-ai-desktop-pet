@@ -8,7 +8,7 @@ namespace AiPet.Storage;
 public sealed class AppSettings
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 3;
+    public int SchemaVersion { get; set; } = 4;
 
     [JsonPropertyName("pet")]
     public PetSettings Pet { get; set; } = new();
@@ -30,6 +30,33 @@ public sealed class AppSettings
 
     [JsonPropertyName("features")]
     public FeatureSettings Features { get; set; } = new();
+
+    [JsonPropertyName("hotkeys")]
+    public HotkeySettings Hotkeys { get; set; } = new();
+
+    [JsonPropertyName("backup")]
+    public BackupSettings Backup { get; set; } = new();
+}
+
+public sealed class HotkeySettings
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    [JsonPropertyName("searchGesture")]
+    public string SearchGesture { get; set; } = "Ctrl+Alt+Space";
+
+    [JsonPropertyName("quickTodoGesture")]
+    public string QuickTodoGesture { get; set; } = "Ctrl+Alt+T";
+}
+
+public sealed class BackupSettings
+{
+    [JsonPropertyName("automaticEnabled")]
+    public bool AutomaticEnabled { get; set; } = true;
+
+    [JsonPropertyName("retentionCount")]
+    public int RetentionCount { get; set; } = AutomaticBackupService.DefaultRetentionCount;
 }
 
 public sealed class AppearanceSettings
@@ -195,9 +222,11 @@ public sealed class SettingsStore
             var text = File.ReadAllText(SettingsPath);
             var s = JsonSerializer.Deserialize<AppSettings>(text, Options);
             if (s is null) return Defaults();
-            if (s.SchemaVersion < 3)
+            if (s.SchemaVersion < 4)
             {
-                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v3.bak", text);
+                if (s.SchemaVersion < 3)
+                    RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v3.bak", text);
+                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v4.bak", text);
                 s = Normalize(s);
                 Save(s);
             }
@@ -243,12 +272,17 @@ public sealed class SettingsStore
 
     private static AppSettings Normalize(AppSettings settings)
     {
-        settings.SchemaVersion = 3;
+        settings.SchemaVersion = 4;
         settings.Pet ??= new PetSettings();
         settings.ToolWindow ??= new ToolWindowSettings();
         settings.Autostart ??= new AutostartSettings();
         settings.Appearance ??= new AppearanceSettings();
         settings.Features ??= new FeatureSettings();
+        settings.Hotkeys ??= new HotkeySettings();
+        settings.Backup ??= new BackupSettings();
+        settings.Hotkeys.SearchGesture = NormalizeGestureText(settings.Hotkeys.SearchGesture, "Ctrl+Alt+Space");
+        settings.Hotkeys.QuickTodoGesture = NormalizeGestureText(settings.Hotkeys.QuickTodoGesture, "Ctrl+Alt+T");
+        settings.Backup.RetentionCount = Math.Clamp(settings.Backup.RetentionCount, 1, 30);
         if (settings.Appearance.Theme is not ("system" or "light" or "dark" or "high-contrast"))
             settings.Appearance.Theme = "system";
         settings.Search ??= new SearchSettings();
@@ -290,6 +324,12 @@ public sealed class SettingsStore
         if (active is not null) CopyProfileToActiveSettings(active, settings.Ai);
 
         return settings;
+    }
+
+    private static string NormalizeGestureText(string? value, string fallback)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) || normalized.Length > 80 ? fallback : normalized;
     }
 
     private static void CopyProfileToActiveSettings(AiConfigurationProfile profile, AiSettings settings)

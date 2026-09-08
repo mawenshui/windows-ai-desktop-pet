@@ -37,6 +37,7 @@ public partial class App : System.Windows.Application
     private CancellationTokenSource? _wakeCts;
     private CancellationTokenSource? _applicationIndexCts;
     private Task? _applicationIndexTask;
+    private Task? _automaticBackupTask;
     private bool _shutdownRequested;
 
     private SearchService? _search;
@@ -45,6 +46,7 @@ public partial class App : System.Windows.Application
     private OpenAiCompatibleTodoClient? _todoAi;
     private TodoStore? _todoStore;
     private ReminderScheduler? _reminderScheduler;
+    private GlobalHotkeyService? _globalHotkeys;
     private SettingsStore? _settingsStore;
     private HomeViewModel? _homeVm;
 
@@ -266,6 +268,8 @@ public partial class App : System.Windows.Application
         _tray.PetVisibilityClicked += (_, _) => TogglePetVisibility();
         _tray.ShowPetRequested += (_, _) => ShowPet();
         _tray.ToolWindowClicked += (_, _) => ToggleToolWindow();
+        _tray.SearchRequested += (_, _) => ShowSearch();
+        _tray.QuickTodoRequested += (_, _) => ShowQuickTodo();
         _tray.SettingsClicked += (_, _) => ShowSettings();
         _tray.AutostartClicked += (_, _) => ToggleAutostartFromTray();
         _tray.HelpClicked += (_, _) =>
@@ -286,6 +290,32 @@ public partial class App : System.Windows.Application
         ProcessNotifications();
         SystemEvents.TimeChanged += OnSystemTimeChanged;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
+
+        if (isPreview)
+        {
+            _homeVm?.SetGlobalHotkeyRuntimeStatus(new(false, "预览模式不注册系统级快捷键。"));
+            _homeVm?.SetAutomaticBackupStatus(new(
+                AutomaticBackupOutcome.Skipped,
+                "预览模式不创建自动备份。",
+                new AutomaticBackupService(_settingsStore.AppDataDir).BackupDirectory));
+        }
+        else
+        {
+            try
+            {
+                _globalHotkeys = new GlobalHotkeyService();
+                if (_homeVm is not null)
+                    _homeVm.GlobalHotkeysChanged += (_, _) => ApplyGlobalHotkeys(notifyFailure: true);
+                ApplyGlobalHotkeys(notifyFailure: false);
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[App] global hotkey initialization failed: {ex.GetType().Name}");
+                _homeVm?.SetGlobalHotkeyRuntimeStatus(new(false, "系统未能初始化全局快捷键；仍可通过桌宠或托盘打开功能。"));
+            }
+
+            _automaticBackupTask = RunAutomaticBackupAsync();
+        }
         // Patch: the "设置" item is now wired to open the home page
         // (the integrated ToolWindow already shows settings as a tab).
         // The "开机自启" item toggles AutoStart. Both are best-effort;
@@ -413,6 +443,62 @@ public partial class App : System.Windows.Application
         ShowToolWindow(showSettings: true);
     }
 
+    private void ShowSearch()
+    {
+        ShowPet();
+        ShowToolWindow(showSettings: false);
+    }
+
+    private void ShowQuickTodo()
+    {
+        ShowPet();
+        ShowToolWindow(showSettings: _homeVm?.HasUnsavedAiChanges == true);
+        _tool?.StartQuickTodo();
+    }
+
+    private void ApplyGlobalHotkeys(bool notifyFailure)
+    {
+        if (_globalHotkeys is null || _settingsStore is null) return;
+        GlobalHotkeyApplyResult result;
+        var settings = _settingsStore.Load().Hotkeys;
+        if (!settings.Enabled)
+        {
+            result = _globalHotkeys.Apply(Array.Empty<GlobalHotkeyDefinition>());
+        }
+        else if (!GlobalHotkeyGesture.TryParsePair(settings.SearchGesture, settings.QuickTodoGesture,
+                     out var searchGesture, out var todoGesture, out var error))
+        {
+            _globalHotkeys.Apply(Array.Empty<GlobalHotkeyDefinition>());
+            result = new(false, error + " 已保持全部全局快捷键停用。");
+        }
+        else
+        {
+            result = _globalHotkeys.Apply(new[]
+            {
+                new GlobalHotkeyDefinition(0xA101, searchGesture!, ShowSearch),
+                new GlobalHotkeyDefinition(0xA102, todoGesture!, ShowQuickTodo),
+            });
+        }
+
+        _homeVm?.SetGlobalHotkeyRuntimeStatus(result);
+        if (notifyFailure && !result.Success)
+            _tray?.ShowBalloon("快捷键未启用", result.Message, ToolTipIcon.Warning);
+    }
+
+    private async Task RunAutomaticBackupAsync()
+    {
+        if (_settingsStore is null) return;
+        var settings = _settingsStore.Load().Backup;
+        var root = _settingsStore.AppDataDir;
+        var logDirectory = Path.GetDirectoryName(ApplicationDataPaths.GetDiagnosticLogPath());
+        var result = await Task.Run(() =>
+            new AutomaticBackupService(root, logDirectory)
+                .Run(settings.AutomaticEnabled, settings.RetentionCount));
+        _homeVm?.SetAutomaticBackupStatus(result);
+        if (result.Outcome == AutomaticBackupOutcome.Failed)
+            _tray?.ShowBalloon("自动备份未完成", result.Message, ToolTipIcon.Warning);
+    }
+
     private void ShowTodoPage()
     {
         ShowPet();
@@ -498,6 +584,8 @@ public partial class App : System.Windows.Application
             pending.Add(_homeVm.WaitForBackgroundWorkAsync(TimeSpan.FromSeconds(4)));
         if (_applicationIndexTask is { IsCompleted: false } applicationIndexTask)
             pending.Add(applicationIndexTask);
+        if (_automaticBackupTask is { IsCompleted: false } automaticBackupTask)
+            pending.Add(automaticBackupTask);
         if (_wakeThread is { IsAlive: true } wakeThread)
             pending.Add(Task.Run(() => wakeThread.Join(TimeSpan.FromSeconds(4))));
 
@@ -545,6 +633,7 @@ public partial class App : System.Windows.Application
         try { _applicationIndexCts?.Cancel(); } catch { }
         try { _wakeCts?.Cancel(); } catch { }
         try { _reminderScheduler?.Dispose(); } catch { }
+        try { _globalHotkeys?.Dispose(); } catch { }
         try { _tray?.Dispose(); } catch { }
         try { _singleInstance?.Dispose(); } catch { }
         try { _search?.Dispose(); } catch { }

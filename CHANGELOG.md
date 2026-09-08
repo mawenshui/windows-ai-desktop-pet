@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.14.0] - 2026-09-08
+
+### Changed
+
+- 新增可配置的全局快捷键：默认 `Ctrl+Alt+Space` 打开搜索、`Ctrl+Alt+T` 快速新建待办，并在托盘提供等价入口。
+- 快捷键使用 `RegisterHotKey`，不安装键盘钩子；保存前校验格式与重复项，注册冲突时原子回滚并给出可恢复提示。
+- 新增每日本地自动备份，默认启用、24 小时最多一次、保留 7 份且可配置 1～30 份；支持立即创建和打开备份目录。
+- 自动备份复用维护包校验与 SHA-256 清单，包含设置、位置、待办/提醒、快捷入口/图标和 Provider 预设，排除 Key、索引及日志；失败保留已有备份。
+- 设置升级到 schema 4，并保留 `.pre-v4.bak`；同步 PRD、工程/技术设计、手册、测试计划和后续扩展计划。
+- 当前为 0.14.0 候选；真实全局按键、独立桌面 UI、签名和物理环境门禁未全部通过，不创建正式标签或 Release。
+
 ## [0.13.0] - 2026-09-07
 
 ### Changed

@@ -759,7 +759,7 @@ public sealed class PetToolWindowLifecycleTests
             {
                 window.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>
                 {
-                    var dialog=Assert.Single(window.OwnedWindows.Cast<Window>().Where(owned=>owned.Title=="AI 配置尚未保存"));
+                    var dialog=Assert.Single(window.OwnedWindows.Cast<Window>(), owned=>owned.Title=="AI 配置尚未保存");
                     dialog.DialogResult=false;
                 }));
                 Assert.False(window.TrySelectTab(index));
@@ -767,6 +767,26 @@ public sealed class PetToolWindowLifecycleTests
                 Assert.Equal("anonymous-edited-model",vm.Model);
             }
             window.AllowClose(); window.Close();
+        });
+    }
+
+    [Fact]
+    public void Quick_todo_opens_the_editor_and_focuses_the_title()
+    {
+        RunSta(() =>
+        {
+            var window = new PetToolWindow { AutoHideOnDeactivate = false };
+            window.ShowNear(new Rect(900, 800, 176, 148), new Rect(0, 0, 1920, 1040));
+
+            window.StartQuickTodo();
+            PumpDispatcher();
+
+            var vm = Assert.IsType<HomeViewModel>(window.DataContext);
+            Assert.Equal(1, FindElement<TabControl>(window, "ShellTabs")!.SelectedIndex);
+            Assert.True(vm.Todo.IsEditorOpen);
+            Assert.True(FindElement<TextBox>(window, "TodoTitleBox")!.IsKeyboardFocusWithin);
+            window.AllowClose();
+            window.Close();
         });
     }
 

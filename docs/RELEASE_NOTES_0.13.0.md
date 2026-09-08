@@ -1,3 +1,5 @@
+> 历史记录：正文保留 0.13.0 当时结果。当前范围与验收见 [CURRENT_STATUS.md](CURRENT_STATUS.md) 和 [0.14.0 报告](release/0.14.0-test-report.md)。
+
 # Windows AI Desktop Pet 0.13.0 候选说明
 
 日期：2026-09-07。0.12.2 → 0.13.0 为向后兼容的功能扩展 MINOR；当前候选，完整发布门禁尚未通过，没有创建正式 0.13.0 标签或 GitHub Release。

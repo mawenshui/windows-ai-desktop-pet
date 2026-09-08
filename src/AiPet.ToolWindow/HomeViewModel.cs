@@ -71,6 +71,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         _selectedSearchScopeId = loaded.Search.LastScopeId;
         _searchOnboardingCompleted = loaded.Search.OnboardingCompleted;
         _searchOnboardingCandidateSource = searchOnboardingCandidates;
+        LoadEssentialSettings(loaded);
 
         InitializeCommands();
         InitializeSearchOnboardingCandidates();
@@ -479,6 +480,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             _ => DeferSearchOnboarding(),
             _ => _settings is not null && ShowSearchOnboarding);
         OpenHelpCommand = new RelayCommand(_ => OpenHelp());
+        InitializeEssentialCommands();
     }
 
     private void RaiseCommandStates()
@@ -491,6 +493,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             SaveAiConfigCommand, NewAiConfigCommand, ToggleAutostartCommand, AddRangeCommand,
             RemoveRangeCommand, RetryRangeCommand, CancelRangeCommand, RefreshRangesCommand,
             ConfirmSearchOnboardingCommand, DeferSearchOnboardingCommand, OpenHelpCommand,
+            SaveGlobalHotkeysCommand, SaveAutomaticBackupSettingsCommand,
+            CreateAutomaticBackupNowCommand, OpenAutomaticBackupDirectoryCommand,
         })
         {
             (command as RelayCommand)?.RaiseCanExecuteChanged();
@@ -1732,6 +1736,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         LoadCustomProviderPresets();
         _secretStore = secretStore ?? new WindowsAiSecretStore();
         var loaded = settings.Load();
+        LoadEssentialSettings(loaded);
         _selectedCharacter = loaded.Pet.PreferredCharacter;
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;

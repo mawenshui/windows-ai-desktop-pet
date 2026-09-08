@@ -1,6 +1,6 @@
 # 应用图标来源与生成
 
-2026-09-07 按 0.13.0 代码核对。`windows-ai-desktop-pet.ico` 与同名 PNG 由 `scripts/build-app-icon.ps1` 生成，基础帧为 `assets/pets/RGS_8Directional/frames/hero/idle_down_01.png`。
+2026-09-08 按 0.14.0 代码核对；本轮图标内容未变。`windows-ai-desktop-pet.ico` 与同名 PNG 由 `scripts/build-app-icon.ps1` 生成，基础帧为 `assets/pets/RGS_8Directional/frames/hero/idle_down_01.png`。
 
 - 作者素材：RGS_Dev 的 RGS 8-Direction Characters，许可记录 CC0-1.0。
 - 处理：暖橙圆角底板、透明边距、最近邻缩放及多尺寸 ICO。

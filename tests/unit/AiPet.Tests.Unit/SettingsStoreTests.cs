@@ -31,6 +31,12 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal(536, loaded.ToolWindow.Height);
         Assert.False(loaded.ToolWindow.StayOpen);
         Assert.True(loaded.ToolWindow.AlwaysOnTop);
+        Assert.Equal(4, loaded.SchemaVersion);
+        Assert.True(loaded.Hotkeys.Enabled);
+        Assert.Equal("Ctrl+Alt+Space", loaded.Hotkeys.SearchGesture);
+        Assert.Equal("Ctrl+Alt+T", loaded.Hotkeys.QuickTodoGesture);
+        Assert.True(loaded.Backup.AutomaticEnabled);
+        Assert.Equal(7, loaded.Backup.RetentionCount);
     }
 
     [Fact]
@@ -53,6 +59,13 @@ public class SettingsStoreTests : IDisposable
                 EnableRegexSearch = true,
                 LastScopeId = "apps",
             },
+            Hotkeys = new HotkeySettings
+            {
+                Enabled = false,
+                SearchGesture = "Ctrl+Shift+F12",
+                QuickTodoGesture = "Win+Alt+T",
+            },
+            Backup = new BackupSettings { AutomaticEnabled = false, RetentionCount = 12 },
         };
         s.Save(saved);
         var loaded = s.Load();
@@ -64,6 +77,11 @@ public class SettingsStoreTests : IDisposable
         Assert.True(loaded.Search.EnableWildcardSearch);
         Assert.True(loaded.Search.EnableRegexSearch);
         Assert.Equal("apps", loaded.Search.LastScopeId);
+        Assert.False(loaded.Hotkeys.Enabled);
+        Assert.Equal("Ctrl+Shift+F12", loaded.Hotkeys.SearchGesture);
+        Assert.Equal("Win+Alt+T", loaded.Hotkeys.QuickTodoGesture);
+        Assert.False(loaded.Backup.AutomaticEnabled);
+        Assert.Equal(12, loaded.Backup.RetentionCount);
     }
 
     [Fact]
@@ -107,7 +125,36 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("qwen", profile.ProviderId);
         Assert.Equal("qwen-plus", profile.Model);
         Assert.Equal("legacy", loaded.Ai.ActiveProfileId);
-        Assert.Equal(3, loaded.SchemaVersion);
+        Assert.Equal(4, loaded.SchemaVersion);
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
+    }
+
+    [Fact]
+    public void Schema_v3_upgrades_to_v4_with_new_defaults_and_one_migration_backup()
+    {
+        var store = new SettingsStore(_root);
+        File.WriteAllText(store.SettingsPath, "{\"schemaVersion\":3,\"pet\":{\"preferredCharacter\":\"base\"}}");
+
+        var loaded = store.Load();
+
+        Assert.Equal(4, loaded.SchemaVersion);
+        Assert.Equal("base", loaded.Pet.PreferredCharacter);
+        Assert.True(loaded.Hotkeys.Enabled);
+        Assert.True(loaded.Backup.AutomaticEnabled);
+        Assert.Equal(7, loaded.Backup.RetentionCount);
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
+        Assert.False(File.Exists(store.SettingsPath + ".pre-v3.bak"));
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(31, 30)]
+    public void Backup_retention_is_normalized_to_supported_bounds(int input, int expected)
+    {
+        var store = new SettingsStore(_root);
+        store.Save(new AppSettings { Backup = new BackupSettings { RetentionCount = input } });
+
+        Assert.Equal(expected, store.Load().Backup.RetentionCount);
     }
 
     [Fact]

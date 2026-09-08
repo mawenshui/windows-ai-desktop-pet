@@ -389,7 +389,7 @@
                                     <StackPanel>
                                         <TextBlock Text="{Binding EditorHeading}" FontSize="15" FontWeight="SemiBold" />
                                         <TextBlock Text="标题" Style="{StaticResource SectionLabel}" Margin="0,10,0,7" />
-                                        <TextBox Style="{StaticResource Field}" Text="{Binding EditorTitle, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办标题" />
+                                        <TextBox x:Name="TodoTitleBox" Style="{StaticResource Field}" Text="{Binding EditorTitle, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办标题" />
                                         <TextBlock Text="备注（可选）" Style="{StaticResource SectionLabel}" Margin="0,10,0,7" />
                                         <TextBox Style="{StaticResource Field}" MinHeight="58" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
                                                  Text="{Binding EditorNotes, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办备注" />
@@ -511,7 +511,26 @@
                             <StackPanel Margin="0,8,9,4">
                                 <TextBlock Text="本地数据与诊断" FontSize="20" FontWeight="SemiBold" />
                                 <TextBlock Text="所有操作均在本机完成；备份与诊断不会导出 API Key。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,14" />
-                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="备份与恢复" Style="{StaticResource SectionLabel}" /><TextBlock Text="备份设置、窗口位置、待办、快捷入口、索引与缓存。恢复前会明确确认，不会操作快捷项指向的原文件。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><WrapPanel><Button Content="导出备份" Style="{StaticResource PrimaryButton}" Click="BackupData_Click" Margin="0,0,8,8" /><Button Content="选择备份恢复" Style="{StaticResource SecondaryButton}" Click="RestoreData_Click" Margin="0,0,0,8" /></WrapPanel></StackPanel></Border>
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="备份与恢复" Style="{StaticResource SectionLabel}" /><TextBlock Text="可选择设置、窗口位置、待办/提醒、快捷入口/图标、Provider 预设与诊断日志；不含 API Key 和可重建索引。恢复前会明确确认，不会操作快捷项指向的原文件。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><WrapPanel><Button Content="导出备份" Style="{StaticResource PrimaryButton}" Click="BackupData_Click" Margin="0,0,8,8" /><Button Content="选择备份恢复" Style="{StaticResource SecondaryButton}" Click="RestoreData_Click" Margin="0,0,0,8" /></WrapPanel></StackPanel></Border>
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="每日自动备份" Style="{StaticResource SectionLabel}" />
+                                        <TextBlock Text="每天最多创建一次本地备份；包含设置、窗口位置、待办、提醒和快捷入口，不含 API Key、搜索索引或日志。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                        <CheckBox Content="启用每日自动备份" IsChecked="{Binding AutomaticBackupEnabled, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="启用每日自动备份" />
+                                        <Grid Margin="0,4,0,8">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="保留份数" VerticalAlignment="Center" Margin="0,0,9,0" />
+                                            <TextBox Grid.Column="1" Style="{StaticResource Field}" Height="40" MaxLength="2" Text="{Binding AutomaticBackupRetentionText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="自动备份保留份数" />
+                                            <TextBlock Grid.Column="2" Text="1–30" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        </Grid>
+                                        <WrapPanel>
+                                            <Button Content="保存设置" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAutomaticBackupSettingsCommand}" Margin="0,0,8,8" />
+                                            <Button Content="立即创建" Style="{StaticResource SecondaryButton}" Command="{Binding CreateAutomaticBackupNowCommand}" Margin="0,0,8,8" />
+                                            <Button Content="打开备份文件夹" Style="{StaticResource SecondaryButton}" Command="{Binding OpenAutomaticBackupDirectoryCommand}" Margin="0,0,0,8" />
+                                        </WrapPanel>
+                                        <TextBlock Text="{Binding AutomaticBackupStatus}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                    </StackPanel>
+                                </Border>
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="隐私安全诊断" Style="{StaticResource SectionLabel}" /><TextBlock Text="只包含版本、系统、主题、模块数量、Provider 标识、连接状态和稳定错误代码。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><Button Content="导出诊断 JSON" Style="{StaticResource SecondaryButton}" Click="ExportDiagnostics_Click" HorizontalAlignment="Left" /></StackPanel></Border>
                                 <Border Style="{StaticResource SectionCard}"><StackPanel><TextBlock Text="缓存清理" Style="{StaticResource SectionLabel}" /><TextBlock Text="清理可重建的搜索索引、无引用图标缓存与诊断日志；设置、待办、快捷入口和凭据不受影响。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><Button Content="清理可重建数据" Style="{StaticResource SecondaryButton}" Foreground="{StaticResource Error}" Click="ResetCaches_Click" HorizontalAlignment="Left" /></StackPanel></Border>
                             </StackPanel>
@@ -539,6 +558,20 @@
                                         <CheckBox Content="允许提醒气泡动画" IsChecked="{Binding EnableBubbleAnimation, Mode=TwoWay}" MinHeight="36" />
                                         <CheckBox Content="允许朝向跟随鼠标" IsChecked="{Binding EnableFollowMotion, Mode=TwoWay}" MinHeight="36" />
                                         <TextBlock Text="系统关闭动画或启用高对比度时，应用会自动采用更克制的反馈。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="快捷唤出" Style="{StaticResource SectionLabel}" />
+                                        <TextBlock Text="在其他窗口中直接打开搜索或新建待办。应用只注册这两个组合键，不监听其他按键。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                        <CheckBox Content="启用全局快捷键" IsChecked="{Binding GlobalHotkeysEnabled, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="启用全局快捷键" />
+                                        <TextBlock Text="打开搜索" Style="{StaticResource SectionLabel}" Margin="0,6,0,7" />
+                                        <TextBox Style="{StaticResource Field}" Height="40" MaxLength="80" Text="{Binding SearchHotkeyGesture, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 Ctrl+Alt+Space" AutomationProperties.Name="打开搜索快捷键" />
+                                        <TextBlock Text="快速记待办" Style="{StaticResource SectionLabel}" Margin="0,10,0,7" />
+                                        <TextBox Style="{StaticResource Field}" Height="40" MaxLength="80" Text="{Binding QuickTodoHotkeyGesture, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 Ctrl+Alt+T" AutomationProperties.Name="快速记待办快捷键" />
+                                        <Button Content="保存并应用" Style="{StaticResource PrimaryButton}" Command="{Binding SaveGlobalHotkeysCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
+                                        <TextBlock Text="{Binding GlobalHotkeyStatus}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,7,0,0" AutomationProperties.LiveSetting="Polite" />
                                     </StackPanel>
                                 </Border>
 

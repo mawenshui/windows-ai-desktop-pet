@@ -110,6 +110,23 @@ public sealed class HomePageLayoutTests
         Assert.Contains("ItemContainerStyle=\"{StaticResource CompactInlineChoiceItem}\"", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Essential_hotkey_and_backup_controls_are_keyboard_accessible_and_report_status()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+
+        Assert.Contains("Content=\"启用全局快捷键\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"打开搜索快捷键\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"快速记待办快捷键\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding SaveGlobalHotkeysCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"启用每日自动备份\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"自动备份保留份数\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding CreateAutomaticBackupNowCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding GlobalHotkeyStatus}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding AutomaticBackupStatus}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TodoTitleBox\"", xaml, StringComparison.Ordinal);
+    }
+
     private static string ReadProjectFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

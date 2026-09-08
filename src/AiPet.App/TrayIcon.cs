@@ -32,6 +32,8 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler? PetVisibilityClicked;
     public event EventHandler? ShowPetRequested;
     public event EventHandler? ToolWindowClicked;
+    public event EventHandler? SearchRequested;
+    public event EventHandler? QuickTodoRequested;
     public event EventHandler? SettingsClicked;
     public event EventHandler? AutostartClicked;
     public event EventHandler? HelpClicked;
@@ -52,6 +54,14 @@ public sealed class TrayIcon : IDisposable
         _toolWindowItem = new ToolStripMenuItem("显示工具窗口") { CheckOnClick = false, Image = CreateMenuGlyph("window") };
         _toolWindowItem.Click += (_, _) => ToolWindowClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(_toolWindowItem);
+
+        var search = new ToolStripMenuItem("立即搜索") { Image = CreateMenuGlyph("search") };
+        search.Click += (_, _) => SearchRequested?.Invoke(this, EventArgs.Empty);
+        _menu.Items.Add(search);
+
+        var quickTodo = new ToolStripMenuItem("快速记待办") { Image = CreateMenuGlyph("todo") };
+        quickTodo.Click += (_, _) => QuickTodoRequested?.Invoke(this, EventArgs.Empty);
+        _menu.Items.Add(quickTodo);
         _menu.Items.Add(new ToolStripSeparator());
 
         var settings = new ToolStripMenuItem("设置") { Image = CreateMenuGlyph("settings") };
@@ -193,6 +203,8 @@ public sealed class TrayIcon : IDisposable
                 graphics.FillEllipse(Brushes.White, 9, 7, 2, 2);
                 break;
             case "window": graphics.DrawRectangle(pen, 2, 3, 12, 10); graphics.DrawLine(pen, 2, 6, 14, 6); break;
+            case "search": graphics.DrawEllipse(pen, 2, 2, 8, 8); graphics.DrawLine(pen, 9, 9, 14, 14); break;
+            case "todo": graphics.DrawLine(pen, 2, 4, 5, 7); graphics.DrawLine(pen, 5, 7, 9, 2); graphics.DrawLine(pen, 10, 5, 14, 5); graphics.DrawLine(pen, 10, 10, 14, 10); break;
             case "settings": graphics.DrawEllipse(pen, 3, 3, 10, 10); graphics.FillEllipse(accent, 6, 6, 4, 4); break;
             case "startup": graphics.DrawArc(pen, 2, 2, 12, 12, 35, 290); graphics.DrawLine(pen, 11, 2, 14, 3); break;
             case "help": graphics.DrawEllipse(pen, 2, 2, 12, 12); graphics.DrawString("?", new Font("Segoe UI", 9, FontStyle.Bold), accent, 4, 0); break;

@@ -1,6 +1,6 @@
 # 待办与提醒设计
 
-软件：0.13.0；日期：2026-09-07。对应 TODO-01～09、EXT-01、EXT-06。
+软件：0.14.0；复核日期：2026-09-08。对应 TODO-01～09、EXT-01、EXT-06；本次功能未改变提醒时间语义。
 
 ## 1. 模型和时间
 
@@ -44,4 +44,4 @@ App 的 DispatcherTimer 每 5 秒处理一次，合并所有排队事项，至�
 
 待办和通知成组备份/恢复；旧备份无队列时重置陈旧中心，含 Queued 待办却缺记录的备份拒绝。恢复发生在调度器启动前。损坏 JSON 保留，后续写入拒绝覆盖；诊断不输出标题、备注或内容。
 
-ReminderRuleTests、NotificationCenterTests、TodoStoreTests、TodoViewModelTests、ReminderSchedulerTests、MaintenanceTransactionTests、AiTodoClientTests、PetToolWindowLifecycleTests 覆盖最早时刻、停机、跨月/闰年、DST、取消、同时到期、去重、跨午夜静默、重启、清历史、稍后和并发改期。物理休眠/时间调整、Windows 通知抑制、真实鼠标与键盘仍依赖独立环境验证。结果见[当前报告](release/0.13.0-test-report.md)。
+ReminderRuleTests、NotificationCenterTests、TodoStoreTests、TodoViewModelTests、ReminderSchedulerTests、MaintenanceTransactionTests、AiTodoClientTests、PetToolWindowLifecycleTests 覆盖最早时刻、停机、跨月/闰年、DST、取消、同时到期、去重、跨午夜静默、重启、清历史、稍后和并发改期。物理休眠/时间调整、Windows 通知抑制、真实鼠标与键盘仍依赖独立环境验证。结果见[当前报告](release/0.14.0-test-report.md)。

@@ -52,11 +52,17 @@ public sealed partial class DataMaintenanceService
         }
         if(name=="settings.json")
         {
-            foreach(var module in new[] {"pet","search","toolWindow","ai","appearance","features","autostart"})
+            foreach(var module in new[] {"pet","search","toolWindow","ai","appearance","features","autostart","hotkeys","backup"})
                 if(root.TryGetProperty(module,out var value)) Require(value.ValueKind==JsonValueKind.Object);
             if(root.TryGetProperty("search",out var search) && search.TryGetProperty("ranges",out var ranges)) Require(ranges.ValueKind==JsonValueKind.Array && ranges.GetArrayLength()<=1000 && ranges.EnumerateArray().All(range=>range.ValueKind==JsonValueKind.String && !string.IsNullOrWhiteSpace(range.GetString())));
             if(root.TryGetProperty("ai",out var ai) && ai.TryGetProperty("profiles",out var profiles))
                 Require(profiles.ValueKind==JsonValueKind.Array && profiles.GetArrayLength()<=100 && profiles.EnumerateArray().All(profile=>profile.ValueKind==JsonValueKind.Object && Text(profile,"id",100,true) && Text(profile,"displayName",100,true) && Text(profile,"endpoint",2048,true) && Text(profile,"model",200,true)));
+            if(root.TryGetProperty("hotkeys",out var hotkeys)) Require(Boolean(hotkeys,"enabled") && Text(hotkeys,"searchGesture",80,true) && Text(hotkeys,"quickTodoGesture",80,true));
+            if(root.TryGetProperty("backup",out var backup))
+            {
+                Require(Boolean(backup,"automaticEnabled"));
+                if(backup.TryGetProperty("retentionCount",out var retention)) Require(retention.TryGetInt32(out var count) && count is >=1 and <=30);
+            }
         }
         if(name=="provider-presets.json") Require(root.TryGetProperty("providers",out var providers) && providers.ValueKind==JsonValueKind.Array && providers.GetArrayLength()<=32 && providers.EnumerateArray().All(provider=>provider.ValueKind==JsonValueKind.Object));
         if(name=="layout.json") foreach(var property in root.EnumerateObject()) Require(property.Value.ValueKind is JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False or JsonValueKind.Null);

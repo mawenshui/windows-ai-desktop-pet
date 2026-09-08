@@ -82,9 +82,10 @@ public sealed partial class DataMaintenanceService
                         throw new InvalidDataException("备份超过容量或文件数量上限。");
                     var name = Directory.Exists(Target(pair.Key)) ? pair.Value + "/" + Path.GetRelativePath(Target(pair.Key), file).Replace('\\','/') : pair.Value;
                     if (Path.GetFullPath(file).Equals(destination, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("备份不能写入所选模块内部。");
-                    var entry = archive.CreateEntry(name, CompressionLevel.Optimal);
                     var bytes = File.ReadAllBytes(file);
                     if (bytes.LongLength > MaximumEntryBytes) throw new InvalidDataException("备份过程中模块容量已变化。");
+                    if (name.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && !name.Contains('/')) ValidateJson(name, bytes);
+                    var entry = archive.CreateEntry(name, CompressionLevel.Optimal);
                     using (var output = entry.Open()) output.Write(bytes);
                     hashes[name] = Convert.ToHexString(SHA256.HashData(bytes));
                 }
@@ -148,7 +149,7 @@ public sealed partial class DataMaintenanceService
         if (json.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("模块必须是 JSON 对象。");
         if (name != "layout.json")
         {
-            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" ? 1 : 3;
+            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" ? 1 : name == "settings.json" ? 4 : 3;
             if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || schema.GetInt32() < 1 || schema.GetInt32() > max) throw new InvalidDataException("模块 schema 不受支持。");
             if (name is "todos.json" or "shortcuts.json" && (!json.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array))
                 throw new InvalidDataException("事项列表无效。");

@@ -157,6 +157,17 @@ public partial class PetToolWindow : Window
         TrySelectTab(1);
     }
 
+    public void StartQuickTodo()
+    {
+        if (!TrySelectTab(1) || DataContext is not HomeViewModel vm) return;
+        if (vm.Todo.NewTodoCommand.CanExecute(null)) vm.Todo.NewTodoCommand.Execute(null);
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            TodoTitleBox.Focus();
+            Keyboard.Focus(TodoTitleBox);
+        }));
+    }
+
     public bool TrySelectTab(int index)
     {
         if(index<0 || index>=ShellTabs.Items.Count) throw new ArgumentOutOfRangeException(nameof(index));

@@ -239,7 +239,7 @@ try {
     $probePath = Join-Path $isolatedData 'ui-probe.json'
     [System.IO.Directory]::CreateDirectory($isolatedData) | Out-Null
     $profiles=@(foreach($id in @('fixture-a','fixture-b')) { @{id=$id;displayName=$id;providerId='deepseek';endpoint='https://example.invalid';model='fixture';secretTargetName="WindowsAiDesktopPet:AI:$id";lastStatus='Untested'} })
-    @{schemaVersion=3;search=@{onboardingCompleted=$true};ai=@{activeProfileId='fixture-a';profiles=$profiles}} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $isolatedData 'settings.json') -Encoding utf8NoBOM
+    @{schemaVersion=4;search=@{onboardingCompleted=$true};ai=@{activeProfileId='fixture-a';profiles=$profiles};hotkeys=@{enabled=$false;searchGesture='Ctrl+Alt+Space';quickTodoGesture='Ctrl+Alt+T'};backup=@{automaticEnabled=$false;retentionCount=7}} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $isolatedData 'settings.json') -Encoding utf8NoBOM
     $todoFixtures=@(foreach($minute in @(1,2)) { @{id=[Guid]::NewGuid().ToString();title='UI fixture';notes='anonymous fixture';createdAt=([DateTimeOffset]'2026-09-01T10:00:00+08:00').AddMinutes($minute).ToString('O');status='Pending'} })
     @{schemaVersion=3;items=$todoFixtures} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $isolatedData 'todos.json') -Encoding utf8NoBOM
     $draftPath=Join-Path $isolatedData 'draft-fixture.json'

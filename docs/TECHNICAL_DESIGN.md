@@ -1,6 +1,6 @@
 # 技术设计与实现基线
 
-日期：2026-09-07；软件：0.13.0 候选工作区。本文以当前代码为准；[实施追踪](后续功能扩展计划.md)、[验证报告](release/0.13.0-test-report.md)分别说明范围与验收状态。
+日期：2026-09-08；软件：0.14.0 候选工作区。本文以当前代码为准；[实施追踪](后续功能扩展计划.md)、[验证报告](release/0.14.0-test-report.md)分别说明范围与验收状态。
 
 ## 1. 技术与模块
 
@@ -8,15 +8,15 @@ WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.10、System.Text.Js
 
 | 模块 | 当前职责 |
 | :--- | :--- |
-| App | STA、单实例、启动维护、服务装配、托盘、提醒提交和退出 |
+| App | STA、单实例、启动维护、服务装配、托盘、全局快捷键、自动备份、提醒提交和退出 |
 | Pet / Common | RGS 帧缓存、手势、漫游、工作区定位、manifest 与方向映射 |
 | ToolWindow | 四页、主题、Home/Todo ViewModel、AI/维护对话框、快捷管理窗、提醒中心 |
 | Search | SQLite、授权、目录扫描、watcher、范围任务串行化、排序和分页 |
 | Shortcuts | JSON、引用/图标、分组固定、批量预览/撤销、失效扫描 |
 | Todos | schema 3、日历规则、最近到期调度、持久化通知记录 |
 | AI | 模型验证、最小生成验证、草稿协议、配置交换、预设加载 |
-| Storage / Secrets | 设置/位置、原子写入、维护事务、白名单诊断、Windows 凭据 |
-| SystemIntegration | HKCU 自启、离线帮助 |
+| Storage / Secrets | 设置/位置、原子写入、维护事务、每日备份、白名单诊断、Windows 凭据 |
+| SystemIntegration | HKCU 自启、离线帮助、RegisterHotKey / WM_HOTKEY |
 | tests/prototypes | 独立内容索引和严格 2D 子集原型，应用不引用、不打包 |
 
 ## 2. 启动、窗口与退出
@@ -27,7 +27,7 @@ WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.10、System.Text.Js
 
 查询在后台执行并保存代次及索引 Revision，分页遇到变更重新查询。提醒调度使用一次性 Timer，空队列无限等待；TodoStore.Changed、TimeChanged、Resume 重新安排唤醒。SemaphoreSlim 防重入，退出取消任务并有限等待调度完成。通知 UI 每 5 秒处理，避免在每条调度回调中竞争气泡。
 
-preview / ui-e2e 使用可自动化的非透明宿主及匿名草稿探针。探针不替代真实鼠标键盘输入；正式透明窗、多屏和托盘必须独立验收。
+preview / ui-e2e 使用可自动化的非透明宿主及匿名草稿探针，明确跳过全局快捷键注册和自动备份写入。探针不替代真实鼠标键盘输入；正式透明窗、多屏、系统级快捷键和托盘必须独立验收。
 
 ## 3. 搜索与索引
 
@@ -63,7 +63,7 @@ AI 只接收当前一句话、时间及时区。草稿支持重复和额外时�
 
 ## 7. 维护与恢复
 
-备份格式 v2 保存文件 SHA-256，兼容 v1 读取。容量 512 MiB、单项 64 MiB、10,000 文件；拒绝路径越界/ADS/链接/未知模块、异常 JSON/schema、凭据字段。SQLite 是派生数据，不复制活跃数据库。模块包括设置、位置、待办/通知、快捷项/图标、预设及实际 LocalAppData 日志。
+备份格式 v2 保存文件 SHA-256，兼容 v1 读取。容量 512 MiB、单项 64 MiB、10,000 文件；拒绝路径越界/ADS/链接/未知模块、异常 JSON/schema、凭据字段。SQLite 是派生数据，不复制活跃数据库。模块包括设置、位置、待办/通知、快捷项/图标、预设及实际 LocalAppData 日志。设置 schema 4 增加 hotkeys 与 backup，并在迁移前写入 `.pre-v4.bak`。
 
 QueueRestore 校验并复制待恢复包、记录哈希。用户确认退出，下次启动校验全部输入后保留每个模块 before 快照和 journal，再切换。失败整体 rollback；发现 applying 日志则启动恢复快照。恢复快捷项重写图标为当前根路径；恢复设置清除旧授权索引。旧待办备份不含通知时创建空队列，排队待办缺配套队列时拒绝。
 
@@ -71,7 +71,15 @@ QueueRestore 校验并复制待恢复包、记录哈希。用户确认退出，�
 
 交互卸载默认保留，明确清理才通过离线应用入口删除已知模块、维护快照和设置中记录的本应用凭据；静默保留。损坏/丢失配置中未记录的凭据或未知文件不擅自扩大清理范围。
 
-## 8. 发布证据
+## 8. 快捷唤出与每日备份
+
+GlobalHotkeyGesture 只接受至少一个 Ctrl/Alt/Shift/Win 修饰键与一个受控普通键，规范化显示并拒绝重复组合。GlobalHotkeyService 创建消息窗口，通过 RegisterHotKey 接收 WM_HOTKEY；不使用低级键盘钩子。每次应用设置先释放原注册，任一新组合失败则释放本轮全部注册。应用退出统一 Dispose；桌宠和托盘入口不依赖全局注册。
+
+默认组合为 `Ctrl+Alt+Space` 搜索和 `Ctrl+Alt+T` 快速待办。搜索入口显示宠物并按既有规则聚焦主页；快速待办选择待办页、执行新建命令并聚焦标题。两者继续调用 TrySelectTab，AI 设置存在未保存修改时仍走已有保留/放弃/取消流程。
+
+AutomaticBackupService 复用 DataMaintenanceService 的模块依赖、JSON/路径/凭据校验和备份格式 v2。正常启动读取设置后在后台执行；文件名保存 UTC 毫秒时间，24 小时内最多一次，成功后才按 1～30 份上限删除旧包。范围固定为设置、位置、待办/通知、快捷项/图标及 Provider 预设，排除凭据、搜索索引和日志。校验、写入或保留清理失败时返回失败状态并保留旧包；卸载明确清理个人数据时删除 automatic-backups。
+
+## 9. 发布证据
 
 collect-release-evidence 收集七组独立报告。release-evidence 绑定版本、提交、输入指纹、时间、环境以及烟雾/签名/硬件资产哈希；verify-release 拒绝 dirty、缺失/过期、FAIL/SKIP、缺项、错资产和错 SHA256SUMS。输入包含源码、测试、脚本、配置、素材、workflow、VERSION、Directory.Build.props 和离线手册。
 
