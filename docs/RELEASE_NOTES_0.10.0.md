@@ -1,4 +1,4 @@
-> 历史记录：正文保留当时版本、验证结果和提交状态。当前 0.14.0 范围与验收见 [CURRENT_STATUS.md](CURRENT_STATUS.md) 和 [本次报告](release/0.14.0-test-report.md)。
+> 历史记录：正文保留当时版本、验证结果和提交状态。当前 0.15.0 范围与验收见 [CURRENT_STATUS.md](CURRENT_STATUS.md) 和 [本次报告](release/0.15.0-test-report.md)。
 
 # Windows AI Desktop Pet 0.10.0 发布说明
 
@@ -41,7 +41,7 @@
 ## 已知限制
 
 - 安装程序和应用可执行文件尚未接入可信代码签名，Windows 可能显示 SmartScreen 提示。
-- Explorer 实际重启、系统通知抑制、休眠恢复、多显示器和缩放矩阵不记为已通过；后续工作见 `docs/后续可扩展功能项清单.md`。
+- Explorer 实际重启、系统通知抑制、休眠恢复、多显示器和缩放矩阵不记为已通过；当前后续工作见 `docs/0.15.0－功能扩展计划.md`。
 - 本次 Release 不改变搜索只读取文件名元数据、AI 写入必须确认及 Key 只进入 Windows Credential Manager 的隐私边界。
 
 ## 发布产物

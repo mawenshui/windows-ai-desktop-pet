@@ -1,4 +1,4 @@
-> 历史记录：正文保留 0.13.0 当时结果。当前范围与验收见 [CURRENT_STATUS.md](CURRENT_STATUS.md) 和 [0.14.0 报告](release/0.14.0-test-report.md)。
+> 历史记录：正文保留 0.13.0 当时结果。当前范围与验收见 [CURRENT_STATUS.md](CURRENT_STATUS.md) 和 [0.15.0 报告](release/0.15.0-test-report.md)。
 
 # Windows AI Desktop Pet 0.13.0 候选说明
 

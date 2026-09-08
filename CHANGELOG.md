@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.15.0] - 2026-09-08
+
+### Changed
+
+- 新增带口令加密的完整 AI 配置包，迁移全部配置、活动项、自定义 Provider 预设和 API Key，导入后立即可用。
+- 使用 PBKDF2-HMAC-SHA256 与 AES-256-GCM 加密并认证 `.aipet-ai-config`；错误口令、篡改、超限和无效字段在写入前拒绝。
+- 完整导入先显示非敏感摘要，再以新凭据目标整体替换 AI 配置；凭据或预设写入失败时清理本次数据并保留原配置。
+- 保留无 Key JSON 兼容迁移；扩展计划文件统一命名为 `<版本号>－功能扩展计划.md`，删除两个不符合命名规范的旧计划文件。
+- 以好用和必要为原则规划今日安排、已选内容提炼、提醒冲突检查和脱敏诊断，不加入商业化功能。
+
 ## [0.14.0] - 2026-09-08
 
 ### Changed

@@ -2,6 +2,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AiPet.AI;
 using AiPet.Storage;
 using Xunit;
@@ -88,6 +89,62 @@ public sealed class AiCapabilityTests
             Assert.Null(emptyStore.Load().Ai.ActiveProfileId);
         }
         finally { Directory.Delete(root,true); }
+    }
+
+    [Fact]
+    public void Complete_ai_bundle_encrypts_every_field_and_round_trips()
+    {
+        const string password = "correct horse battery staple";
+        const string secret = "bundle-secret-key-123";
+        var document = new CompleteAiConfigurationDocument(
+            1,
+            "0.15.0",
+            new DateTimeOffset(2026, 9, 8, 4, 5, 6, TimeSpan.Zero),
+            false,
+            true,
+            "work",
+            [new CompleteAiConfiguration("work", "工作 AI", "custom-provider", "https://ai.example.test/v1", "work-model", secret, "Connected", new DateTimeOffset(2026, 9, 8, 3, 0, 0, TimeSpan.Zero))],
+            [new AiProviderDescriptor("custom-provider", "自定义服务", "https://example.test/help", "https://ai.example.test/v1", "work-model", "测试预设")]);
+
+        var encrypted = EncryptedAiConfigurationBundle.Encrypt(document, password);
+
+        Assert.DoesNotContain(secret, encrypted, StringComparison.Ordinal);
+        Assert.DoesNotContain("ai.example.test", encrypted, StringComparison.Ordinal);
+        var restored = EncryptedAiConfigurationBundle.Decrypt(encrypted, password);
+        Assert.Equal(document.SchemaVersion, restored.SchemaVersion);
+        Assert.Equal(document.AppVersion, restored.AppVersion);
+        Assert.Equal(document.ExportedAtUtc, restored.ExportedAtUtc);
+        Assert.Equal(document.RequireExplicitActivation, restored.RequireExplicitActivation);
+        Assert.Equal(document.EnableCustomProviderPresets, restored.EnableCustomProviderPresets);
+        Assert.Equal(document.ActiveConfigurationId, restored.ActiveConfigurationId);
+        Assert.Equal(document.Configurations.ToArray(), restored.Configurations.ToArray());
+        Assert.Equal(document.CustomProviders.ToArray(), restored.CustomProviders.ToArray());
+        var preview = EncryptedAiConfigurationBundle.Preview(restored);
+        Assert.Equal(1, preview.ConfigurationWithKeyCount);
+        Assert.Equal("工作 AI", preview.ActiveConfigurationName);
+        Assert.Equal(1, preview.CustomProviderCount);
+    }
+
+    [Fact]
+    public void Complete_ai_bundle_rejects_wrong_password_and_tampering()
+    {
+        var document = new CompleteAiConfigurationDocument(
+            1,
+            "0.15.0",
+            DateTimeOffset.UtcNow,
+            false,
+            false,
+            "one",
+            [new CompleteAiConfiguration("one", "测试", "custom", "https://example.test/v1", "model", "secret", "Untested", null)],
+            []);
+        var encrypted = EncryptedAiConfigurationBundle.Encrypt(document, "migration-password");
+
+        Assert.Throws<InvalidDataException>(() => EncryptedAiConfigurationBundle.Decrypt(encrypted, "different-password"));
+
+        var json = JsonNode.Parse(encrypted)!.AsObject();
+        var ciphertext = json["ciphertext"]!.GetValue<string>();
+        json["ciphertext"] = (ciphertext[0] == 'A' ? "B" : "A") + ciphertext[1..];
+        Assert.Throws<InvalidDataException>(() => EncryptedAiConfigurationBundle.Decrypt(json.ToJsonString(), "migration-password"));
     }
     private sealed class Handler(Func<HttpRequestMessage,CancellationToken,Task<HttpResponseMessage>> response) : HttpMessageHandler
     { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken cancellationToken)=>response(request,cancellationToken); }

@@ -468,6 +468,114 @@ public sealed class HomeViewModelTests : IDisposable
         Assert.Equal("confirmed-only.txt", Assert.Single(search.Search("confirmed-only", null)).Name);
     }
 
+    [Fact]
+    public void Complete_ai_configuration_import_replaces_ai_state_and_is_immediately_active()
+    {
+        var sourceStore = new SettingsStore(Path.Combine(_root, "complete-export-source"));
+        var sourceSettings = sourceStore.Load();
+        sourceSettings.Ai.Profiles =
+        [
+            new AiConfigurationProfile { Id = "work", DisplayName = "工作 AI", ProviderId = "deepseek", Endpoint = "https://api.deepseek.com", Model = "deepseek-chat", SecretTargetName = "source-work", LastStatus = "Connected" },
+            new AiConfigurationProfile { Id = "personal", DisplayName = "个人 AI", ProviderId = "qwen", Endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1", Model = "qwen-plus", SecretTargetName = "source-personal", LastStatus = "Connected" },
+        ];
+        sourceSettings.Ai.ActiveProfileId = "personal";
+        sourceSettings.Features.EnableCustomProviderPresets = true;
+        sourceStore.Save(sourceSettings);
+        var sourceSecrets = new FakeAiSecretStore();
+        sourceSecrets.Save("source-work", "work-key");
+        sourceSecrets.Save("source-personal", "personal-key");
+        var sourceVm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "complete-export-shortcuts")),
+            new OpenAiCompatibleClient(),
+            sourceStore,
+            sourceSecrets);
+        var customPresetFile = Path.Combine(_root, "complete-custom-provider.json");
+        AiProviderPresetStore.Save(customPresetFile,
+        [
+            new AiProviderDescriptor("local-service", "本地服务", "https://example.test/help", "http://127.0.0.1:11434/v1", "local-model", "本机服务"),
+        ]);
+        sourceVm.ImportProviderPresets(customPresetFile);
+        var bundleFile = Path.Combine(_root, "complete.aipet-ai-config");
+        sourceVm.ExportCompleteAiConfigurations(bundleFile, "portable-secret-password");
+        Assert.DoesNotContain("work-key", File.ReadAllText(bundleFile), StringComparison.Ordinal);
+        Assert.DoesNotContain("personal-key", File.ReadAllText(bundleFile), StringComparison.Ordinal);
+
+        var targetStore = new SettingsStore(Path.Combine(_root, "complete-import-target"));
+        var targetSettings = targetStore.Load();
+        targetSettings.Ai.Profiles =
+        [
+            new AiConfigurationProfile { Id = "old", DisplayName = "旧配置", ProviderId = "custom", Endpoint = "https://old.example.test/v1", Model = "old-model", SecretTargetName = "old-target" },
+        ];
+        targetSettings.Ai.ActiveProfileId = "old";
+        targetStore.Save(targetSettings);
+        var targetSecrets = new FakeAiSecretStore();
+        targetSecrets.Save("old-target", "old-key");
+        var targetVm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "complete-import-shortcuts")),
+            new OpenAiCompatibleClient(),
+            targetStore,
+            targetSecrets);
+
+        var document = targetVm.ReadCompleteAiConfigurations(bundleFile, "portable-secret-password");
+        var result = targetVm.ImportCompleteAiConfigurations(document);
+
+        var imported = targetStore.Load();
+        Assert.Equal(2, imported.Ai.Profiles.Count);
+        var active = Assert.Single(imported.Ai.Profiles, profile => profile.Id == imported.Ai.ActiveProfileId);
+        Assert.Equal("个人 AI", active.DisplayName);
+        Assert.Equal("personal-key", targetSecrets.Load(active.SecretTargetName));
+        Assert.All(imported.Ai.Profiles, profile => Assert.False(string.IsNullOrEmpty(targetSecrets.Load(profile.SecretTargetName))));
+        Assert.Null(targetSecrets.Load("old-target"));
+        Assert.Equal("personal-key", targetVm.ApiKey);
+        Assert.Equal("个人 AI", targetVm.AiConfigurationName);
+        Assert.True(imported.Features.EnableCustomProviderPresets);
+        Assert.Equal("local-service", Assert.Single(AiProviderPresetStore.Load(Path.Combine(targetStore.AppDataDir, "provider-presets.json"))).Id);
+        Assert.Equal(2, result.ConfigurationWithKeyCount);
+        Assert.False(result.OldCredentialCleanupIncomplete);
+    }
+
+    [Fact]
+    public void Complete_ai_configuration_import_rolls_back_when_a_credential_write_fails()
+    {
+        var store = new SettingsStore(Path.Combine(_root, "complete-import-rollback"));
+        var original = store.Load();
+        original.Ai.Profiles =
+        [
+            new AiConfigurationProfile { Id = "old", DisplayName = "原配置", ProviderId = "custom", Endpoint = "https://old.example.test/v1", Model = "old-model", SecretTargetName = "old-target" },
+        ];
+        original.Ai.ActiveProfileId = "old";
+        store.Save(original);
+        var secrets = new FailingSecondWriteAiSecretStore("old-target", "old-key");
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "complete-rollback-shortcuts")),
+            new OpenAiCompatibleClient(),
+            store,
+            secrets);
+        var document = new CompleteAiConfigurationDocument(
+            1,
+            "0.15.0",
+            DateTimeOffset.UtcNow,
+            false,
+            false,
+            "first",
+            [
+                new CompleteAiConfiguration("first", "第一组", "custom", "https://first.example.test/v1", "model-1", "key-1", "Connected", null),
+                new CompleteAiConfiguration("second", "第二组", "custom", "https://second.example.test/v1", "model-2", "key-2", "Connected", null),
+            ],
+            []);
+
+        Assert.Throws<InvalidOperationException>(() => vm.ImportCompleteAiConfigurations(document));
+
+        var after = store.Load();
+        Assert.Equal("old", Assert.Single(after.Ai.Profiles).Id);
+        Assert.Equal("old", after.Ai.ActiveProfileId);
+        Assert.Equal("old-key", secrets.Load("old-target"));
+        Assert.Equal(1, secrets.Count);
+    }
+
     private HomeViewModel CreateViewModel(
         IAiClient? ai = null,
         IAiSecretStore? secretStore = null) => new(
@@ -511,6 +619,22 @@ public sealed class HomeViewModelTests : IDisposable
 
         public void Save(string targetName, string secret) => _values[targetName] = secret;
 
+        public void Delete(string targetName) => _values.Remove(targetName);
+    }
+
+    private sealed class FailingSecondWriteAiSecretStore : IAiSecretStore
+    {
+        private readonly Dictionary<string, string> _values = new();
+        private int _writes;
+
+        public FailingSecondWriteAiSecretStore(string targetName, string secret) => _values[targetName] = secret;
+        public int Count => _values.Count;
+        public string? Load(string targetName) => _values.TryGetValue(targetName, out var value) ? value : null;
+        public void Save(string targetName, string secret)
+        {
+            if (++_writes == 2) throw new IOException("credential write failed");
+            _values[targetName] = secret;
+        }
         public void Delete(string targetName) => _values.Remove(targetName);
     }
 }

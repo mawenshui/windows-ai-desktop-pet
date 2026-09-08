@@ -1,4 +1,4 @@
-> 历史评估：EXT-07/08 仍未接入 0.14.0 产品。当前计划与状态见 [后续功能扩展计划](后续功能扩展计划.md) 和 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
+> 历史评估：EXT-07/08 仍未接入 0.15.0 产品。当前计划与状态见 [0.15.0－功能扩展计划](0.15.0－功能扩展计划.md) 和 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
 
 # EXT-07 / EXT-08 隔离原型评估
 

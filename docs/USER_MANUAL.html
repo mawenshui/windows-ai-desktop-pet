@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.14.0 用户手册</title><style>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.15.0 用户手册</title><style>
     :root { color-scheme: light; font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; color: #241f1c; background: #f7f4f1; }
     body { margin: 0; line-height: 1.7; }
     main { width: min(760px, calc(100% - 40px)); margin: 32px auto; padding: 32px; background: #fffdfc; border: 1px solid #ded7d2; border-radius: 20px; box-shadow: 0 16px 42px rgb(36 31 28 / .10), 0 3px 10px rgb(36 31 28 / .06); }
@@ -12,9 +12,9 @@
     th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ded7d2; }
     @media(max-width:600px) { main { box-sizing: border-box; padding: 20px; } h1 { font-size: 24px; } }
 </style></head><body><main><h1>Windows AI Desktop Pet 用户手册</h1>
-<p>适用版本：<strong>0.14.0</strong>；修订：2026-09-08。候选版，真实桌面输入、签名和物理设备验收尚未全部通过。</p>
+<p>适用版本：<strong>0.15.0</strong>；修订：2026-09-08。候选版，真实桌面输入、签名和物理设备验收尚未全部通过。</p>
 <h2>1. 安装与退出</h2>
-<p>完整解压 windows-ai-desktop-pet-v0.14.0-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.14.0-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
+<p>完整解压 windows-ai-desktop-pet-v0.15.0-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.15.0-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
 <p>关闭工具窗只是收起。托盘“退出”才结束应用，自启默认关闭，可在设置或托盘启用。便携目录移动后重新检查自启。便携版和安装版默认共用当前 Windows 账户数据。</p>
 <p>交互卸载会询问是否清理个人数据，默认“否”。选择“是”删除已识别的设置、待办、提醒队列、快捷引用、索引、日志、维护快照和设置中记录的本应用 AI 凭据；目标原文件及未知文件保留。先退出桌宠；清理失败会停止卸载并提示。丢失设置中未记录的旧凭据需自行在 Windows 凭据管理器处理。静默卸载始终保留个人数据。卸载移除指向本次安装位置的自启项；指向其他便携位置的配置不受影响。</p>
 <h2>2. 桌宠与工具窗</h2>
@@ -44,10 +44,13 @@
 <h2>7. AI 配置与草稿</h2>
 <p>设置 → AI 接入：模板新建，填写名称、供应商、地址、模型和 Key。“测试连接”验证端点响应、JSON 模型列表和所选模型存在性；HTTP 200 但格式错误或没有模型仍不通过。可取消；鉴权、权限、限流、端点、模型、响应、网络和超时分别提示。</p>
 <p>“验证草稿生成”需主动确认可能消耗服务额度，发送固定测试文本并验证最小结构化草稿，测试结果不写入待办。列表验证通过不等于生成权限通过；生成验证也不承诺服务后续稳定。编辑字段会使旧测试失效，只有当前字段成功验证才可保存。Key 仅存 Windows 账户安全存储，自动化测试使用 fake HTTP。</p>
-<p>“配置迁移（不含 Key）”导出名称、供应商、地址和模型；导入先预览，重名可跳过或重命名。新配置重新生成独立 ID/凭据引用，需补充 Key 和验证；导入不替换活动配置、不发送请求。最多 100 组配置，文件上限 1 MB。自定义预设导入最多 32 个，不能覆盖内置 ID；模板地址是随代码提供的默认值，可编辑。</p>
+<p>展开“AI 配置迁移”可选择完整迁移。“导出完整配置”创建 <code>.aipet-ai-config</code> 文件，并要求输入至少 10 个字符的迁移口令和二次确认。完整包包含全部已保存配置、当前配置、连接状态、自定义 Provider 预设和 API Key，内容经口令加密，不保存原设备的 Windows 凭据目标名。</p>
+<p>目标设备选择“导入完整配置”并输入相同口令。预览会显示来源版本、导出时间、配置数、含 Key 数、自定义 Provider 数和即将启用的配置，不显示 Key。确认后替换目标设备当前的全部 AI 配置和自定义 Provider 预设，其他设置不变；Key 写入目标 Windows 账户凭据库，原当前配置立即加载。</p>
+<p>口令不会保存，遗失后无法恢复。配置文件包含可解密的 Key，应与口令分开并通过可信渠道保存，不再需要时安全删除。错误口令、篡改、无效端点或中途凭据写入失败会停止整个导入并保留原配置。完整包最大 4 MB、最多 100 组配置和 32 个自定义 Provider。</p>
+<p>“兼容迁移（不含 Key）”继续导出名称、供应商、地址和模型；导入重名可跳过或重命名，新配置需补充 Key 和验证，且不替换活动配置。无 Key JSON 最大 1 MB。单独导入自定义预设仍不能覆盖内置 ID。</p>
 <p>待办页输入一句话后生成草稿，发送的只有本次文字、当前时间和时区提示，不发送已有列表、搜索索引或文件路径。可表达创建、修改、完成、删除、稍后、重复和多个时间。核对时间、规则和目标，重名可重新选择；确认后才写入。取消、转手动、单次撤销保留，撤销和对话不会跨重启保存。</p>
 <h2>8. 维护与隐私</h2>
-<p>备份先选模块并查看大小。可包括设置、位置、待办与提醒队列、快捷入口与图标、AI 预设和实际 LocalAppData 日志。索引是可重建数据，不复制正在使用的 SQLite；备份不含 Key，但包含个人正文和路径，请妥善保存。</p>
+<p>备份先选模块并查看大小。可包括设置、位置、待办与提醒队列、快捷入口与图标、AI 预设和实际 LocalAppData 日志。索引是可重建数据，不复制正在使用的 SQLite；普通维护备份始终不含 Key，与设置页中用户主动创建的加密完整 AI 配置包不同。备份包含个人正文和路径，请妥善保存。</p>
 <p>每日自动备份默认开启，应用正常启动时检查，距最近一次不足 24 小时则不重复创建。默认保留 7 份，可在维护页设置为 1～30 份；也可“立即创建”或打开备份文件夹。自动包位于 <code>%APPDATA%/WindowsAiDesktopPet/automatic-backups</code>，包含设置、窗口位置、待办/提醒、快捷入口/图标和 Provider 预设，不含 API Key、搜索索引或诊断日志。只有新包校验并写入成功后才清理超出上限的旧包；失败时原数据和旧备份保留。</p>
 <p>恢复先验证清单、哈希、schema、容量及路径，再显示模块当前/传入大小。快捷项与图标、待办与提醒队列成组处理。确认后退出应用；下次启动在后台服务建立前执行切换，保留恢复前快照，失败或中断可回滚。旧备份没有队列时清除陈旧队列；含排队状态却缺队列的备份会拒绝。跨设备文件路径仍需重新定位，凭据不随备份迁移。</p>
 <p>恢复上限 512 MB、单项 64 MB、10,000 个数据文件，拒绝越界/链接、未知模块、无效 JSON 和凭据字段。不要手工修改备份 ZIP。恢复回滚失败会停止启动保护原数据，保留 .maintenance 供排查。</p>
