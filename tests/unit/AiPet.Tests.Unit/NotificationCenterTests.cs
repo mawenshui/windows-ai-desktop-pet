@@ -80,13 +80,21 @@ public sealed class NotificationCenterTests : IDisposable
     public async Task Idle_scheduler_does_not_spin_and_wakes_for_new_items()
     {
         var reads=0;
+        var started=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var store=new TodoStore(_root);
-        using var scheduler=new ReminderScheduler(store,()=> { Interlocked.Increment(ref reads); return DateTimeOffset.Now; });
+        using var scheduler=new ReminderScheduler(store,()=>
+        {
+            Interlocked.Increment(ref reads);
+            started.TrySetResult();
+            return DateTimeOffset.Now;
+        });
         var delivered=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         scheduler.Delivered += _ => delivered.TrySetResult();
         scheduler.Start(_=>true);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var readsAfterStart=Volatile.Read(ref reads);
         await Task.Delay(150);
-        Assert.InRange(Volatile.Read(ref reads),1,5);
+        Assert.Equal(readsAfterStart,Volatile.Read(ref reads));
         store.Create(new TodoItem {Title="fixture",ReminderAt=DateTimeOffset.Now.AddMilliseconds(200)});
         await delivered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         scheduler.Dispose(); await scheduler.WaitForIdleAsync();
