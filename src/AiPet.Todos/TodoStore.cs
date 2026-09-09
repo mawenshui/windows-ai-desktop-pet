@@ -98,11 +98,11 @@ public sealed class TodoStore
     /// written.
     /// </summary>
     public IReadOnlyList<TodoItem> UpdateBatch(IReadOnlyList<TodoBatchUpdate> requests) =>
-        ApplyBatch(requests, validateScheduledTime: true);
+        ApplyBatch(requests, validateScheduledTime: true, "待办已在草稿生成后被修改，请重新生成安排。");
 
     /// <summary>Restores a previously confirmed batch while retaining stale-write protection.</summary>
     public IReadOnlyList<TodoItem> RestoreBatch(IReadOnlyList<TodoBatchUpdate> requests) =>
-        ApplyBatch(requests, validateScheduledTime: false);
+        ApplyBatch(requests, validateScheduledTime: false, "待办已在安排应用后再次修改，不能撤销旧安排。");
 
     public TodoItem UpsertSnapshot(TodoItem snapshot)
     {
@@ -323,7 +323,8 @@ public sealed class TodoStore
 
     private IReadOnlyList<TodoItem> ApplyBatch(
         IReadOnlyList<TodoBatchUpdate> requests,
-        bool validateScheduledTime)
+        bool validateScheduledTime,
+        string staleMessage)
     {
         ArgumentNullException.ThrowIfNull(requests);
         if (requests.Count == 0) throw new TodoValidationException("没有可保存的待办变更。");
@@ -341,7 +342,7 @@ public sealed class TodoStore
                 if (index < 0) throw new TodoValidationException("待办不存在或已被删除。");
                 var existing = document.Items[index];
                 if (existing.UpdatedAt != request.ExpectedUpdatedAt)
-                    throw new TodoValidationException("待办已在草稿生成后被修改，请重新生成安排。");
+                    throw new TodoValidationException(staleMessage);
                 var updated = Normalize(request.Item with
                 {
                     CreatedAt = existing.CreatedAt,

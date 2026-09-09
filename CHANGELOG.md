@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.16.1] - 2026-09-09
+
+### Changed
+
+- 今日安排将未选中事项的既有计划合并为匿名占用时间；AI 与本地草稿均避让冲突，不发送其标识或正文。
+- 本地安排从精确的下一刻钟开始，空闲不足时保持不写入；草稿显示避让数量。
+- 批量应用和撤销继续使用原子写入与 `UpdatedAt` 保护，并分别提示草稿过期和旧撤销不能覆盖新编辑。
+- GitHub 更新只使用已安全保存的凭据；未保存令牌不参与请求，临时检查失败保留已发现版本。
+
 ## [0.16.0] - 2026-09-09
 
 ### Changed

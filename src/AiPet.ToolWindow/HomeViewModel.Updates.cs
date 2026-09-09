@@ -205,7 +205,8 @@ public sealed partial class HomeViewModel
                 UpdateAccelerationTemplate,
                 GetUpdateAccessToken(),
                 _updateLifetimeCts.Token);
-            _availableUpdate = result.Update;
+            if (result.State != UpdateCheckState.Failed)
+                _availableUpdate = result.Update;
             UpdateStatus = result.Message;
         }
         catch (OperationCanceledException)
@@ -262,9 +263,6 @@ public sealed partial class HomeViewModel
 
     private string? GetUpdateAccessToken()
     {
-        if (GitHubReleaseUpdateClient.TryNormalizeAccessToken(UpdateAccessTokenInput, out var inputToken)
-            && inputToken is not null)
-            return inputToken;
         try { return _secretStore.Load(GitHubUpdateCredentialTarget); }
         catch { return null; }
     }

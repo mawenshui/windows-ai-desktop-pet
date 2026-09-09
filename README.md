@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.16.0**，于 **2026-09-09** 增加隐私受控的今日安排、已逾期和未安排筛选。当前为候选版本，独立桌面输入、硬件和签名门禁尚未全部通过。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.16.1**，于 **2026-09-09** 精进今日安排的冲突避让、原子恢复提示和在线更新的凭据及失败恢复。当前为候选工作区，最终发布门禁结果以本轮验证报告为准。
 
 ## 当前能力
 
@@ -14,10 +14,10 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **
 - 维护模块及大小预览、恢复前校验/快照、重启切换/中断回滚、图标依赖恢复、双数据根日志处理和白名单诊断。
 - 默认 `Ctrl+Alt+Space` 唤出搜索、`Ctrl+Alt+T` 快速新建待办；可改键或停用，冲突时整组停用并保留托盘入口。
 - 每天最多一次的本地自动备份，默认保留 7 份且可设为 1～30；不包含 API Key、搜索索引或日志。
-- 每次正式启动检查一次 GitHub Release；可选 1～168 小时周期检查、系统代理和用户信任的 HTTPS 加速模板。私有仓库令牌只保存在 Windows 凭据管理器，下载完成须通过 Release SHA-256 清单并由用户确认安装。
-- 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，逐项确认、整批原子写入并撤销最近一批。
+- 每次正式启动检查一次 GitHub Release；可选 1～168 小时周期检查、系统代理和用户信任的 HTTPS 加速模板。私有仓库令牌仅在安全保存到 Windows 凭据管理器后使用；临时检查失败保留已发现版本，下载完成须通过 Release SHA-256 清单并由用户确认安装。
+- 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，自动避让未选事项的既有安排，再逐项确认、整批原子写入并撤销最近一批。
 
-内容检索、外部 2D 角色包导入仅有隔离试验工程，未接入应用或发行包；未新增云同步、通用聊天、OCR、3D 或商城。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.16.0－功能扩展计划.md)。
+内容检索、外部 2D 角色包导入仅有隔离试验工程，未接入应用或发行包；未新增云同步、通用聊天、OCR、3D 或商城。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.16.1－功能扩展计划.md)。
 
 ## 使用与开发
 
@@ -34,14 +34,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.16.0 完整自动化 278/278 PASS，系统 smoke、当前显示环境检查及便携/安装/启动/卸载 PASS/SKIP；独立 UI 和窗口性能因应用无法置前而 FAIL，脚本未发送输入。逐项证据见[0.16.0 验证报告](docs/release/0.16.0-test-report.md)。
+0.16.1 完整自动化 **283/283 PASS**，Release 构建 0 警告、0 错误；独立 UI、性能、系统、打包、签名和硬件门禁继续按本轮代码执行，逐项证据写入[0.16.1 验证报告](docs/release/0.16.1-test-report.md)。
 
-正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；当前没有创建 0.16.0 标签或 GitHub Release。
+正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；门禁未齐时不创建 0.16.1 标签或 GitHub Release。
 
 ## 文档与候选产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.0 候选说明](docs/RELEASE_NOTES_0.16.0.md) · [验证报告](docs/release/0.16.0-test-report.md) · [扩展计划](docs/0.16.0－功能扩展计划.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.1 候选说明](docs/RELEASE_NOTES_0.16.1.md) · [验证报告](docs/release/0.16.1-test-report.md) · [扩展计划](docs/0.16.1－功能扩展计划.md)
 
-0.16.0 候选资产已从源提交 `99d58d191101cc4d0ba802a08dba092993367b51` 的干净输入生成：便携包 SHA-256 为 `3defc7d0d00eac961b22fab21dda3037aae9509ba2272c2ce4d6acc5e1a253ba`，安装器为 `5fd8ba72586c7efd78dacfaceeade73bd4c767439a0ff2fe4c6c3ce0edb78330`。来源见 RELEASE_PROVENANCE.json；资产未签名且完整门禁未通过，仍不是正式 Release。
+0.16.1 资产与 SHA-256 将在完整自动化通过并提交干净源代码后重新生成；当前 0.16.0 资产不会冒充 0.16.1 交付物。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

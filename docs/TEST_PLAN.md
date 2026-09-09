@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.16.0，2026-09-09；测试结果以[本次报告](release/0.16.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
+基线：0.16.1，2026-09-09；测试结果以[本次报告](release/0.16.1-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -27,14 +27,14 @@
 | SRCH-01～06 / EXT-04 | SearchService、SearchIndex、SearchLifecycle；授权撤销竞争、重启监听、目录改名、相对路径、稳定分页和固定/清历史 |
 | QCK-01～06 / EXT-05 | ShortcutStore、ShortcutOrganization；重复 ID、100 项排序/分组、批量预览过期、撤销图标、扫描取消 |
 | TODO-01～09 / EXT-01 | TodoStore、TodoViewModel、ReminderRule、ReminderScheduler；跨月闰年/DST/规则时区、最早额外时刻、停机跳过、整条取消和仅此次保存 |
-| TODAY-01～05 | TodayPlan、TodoStore、TodoViewModel、HomePageLayout；六种筛选、只发送选中项、结构化 ID/时间/重叠校验、本地无网络安排、过期快照整批拒绝、schema 4 迁移和整批撤销 |
+| TODAY-01～05 | TodayPlan、TodoStore、TodoViewModel、HomePageLayout；六种筛选、只发送选中项正文、未选项匿名占用时间、AI/本地冲突避让、精确刻钟边界、过期应用/撤销整批拒绝及分离提示、schema 4 迁移和整批撤销 |
 | EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离 |
 | AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留 |
 | AI-06 / EXT-11 | EncryptedAiConfigurationBundle、HomeViewModel；全字段加密往返、密文无 Key/端点、错误口令/篡改拒绝、跨数据目录导入后即用、自定义 Provider 迁移、凭据中途失败回滚 |
 | DATA-01/02 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile；路径/容量/schema/hash、中途失败/中断回滚、真实模块/图标/队列成组恢复、损坏后写保护、卸载只删已知应用引用 |
 | HOTKEY-01/02 / EXT-09 | EssentialFeature、PetToolWindowLifecycle、HomePageLayout；组合键规范化/拒绝/去重、设置持久化、快速待办定向及标题焦点、托盘等价入口；真实跨程序按键与占用释放单列实测 |
 | DATA-03 / EXT-10 | EssentialFeature、SettingsStore、FutureFeature；24 小时节流、1～30 份保留、模块包含/排除、损坏输入失败保留、schema 4 与 `.pre-v4.bak` |
-| UPDATE-01～03 | GitHubReleaseUpdate、SettingsStore、HomeViewModel；稳定版本比较、精确资产、加速回退、带令牌禁用加速、Authorization、HTTPS/大小/校验和、临时文件清理、启动一次、周期设置、schema 5 与 `.pre-v5.bak` |
+| UPDATE-01～03 | GitHubReleaseUpdate、SettingsStore、HomeViewModel；稳定版本比较、精确资产、加速回退、仅使用已保存令牌、带令牌禁用加速、失败保留已发现版本、Authorization、HTTPS/大小/校验和、临时文件清理、启动一次、周期设置、schema 5 与 `.pre-v5.bak` |
 | EXT-00 | test-release-evidence.ps1；缺失、过期、未来时间、版本/提交/输入不符、FAIL/SKIP、缺检查及资产错误必须失败 |
 | EXT-07/08 | PrototypeTests；正文单独同意、大小/编码/取消/撤销；包路径/缺帧/超大/未知字段/许可/重复/损坏回退 |
 | AUTO/TRAY/HELP | 自启、托盘重建合同、帮助路径与 smoke；真实重登录/Explorer 单列 |
@@ -45,6 +45,6 @@
 
 七组 gate：automated、ui、system、performance、package-smoke、signatures、hardware。输入指纹覆盖源码/测试/脚本/资源/配置/离线手册及版本构建元数据，报告必须来自当前提交且不超过 72 小时。缺少必需检查、FAIL/SKIP、错资产或 dirty 都拒绝。
 
-系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.16.0 还需在解锁的同桌面会话验证六种筛选、候选勾选、AI/本地草稿、逐项排除、确认和批量撤销；同时保留两个默认全局组合、自动备份及完整 AI 配置迁移的回归。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
+系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.16.1 还需在解锁的同桌面会话验证六种筛选、候选勾选、冲突避让提示、AI/本地草稿、逐项排除、确认和批量撤销；同时保留两个默认全局组合、自动备份及完整 AI 配置迁移的回归。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
 
 NotifyIcon/桌宠提交无法证明展示，需实测专注助手、隐藏桌宠、动画关闭和中心处理。UI 无法获取前台或运行失败不应降低测试条件、替换为属性赋值并声称真实输入 PASS。完整门禁不齐只保留候选，不创建正式 Release。

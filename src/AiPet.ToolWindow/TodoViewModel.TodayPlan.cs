@@ -234,9 +234,11 @@ public sealed partial class TodoViewModel
                     block,
                     OnTodayPlanInclusionChanged));
             }
+            var avoided = request.OccupiedBlocks?.Count ?? 0;
+            var avoidanceText = avoided > 0 ? $"已避让 {avoided} 个既有时间段。" : string.Empty;
             TodayPlanMessage = useAi
-                ? "AI 安排草稿已生成。逐项核对并勾选后再确认应用。"
-                : "本地安排草稿已生成。逐项核对并勾选后再确认应用。";
+                ? $"AI 安排草稿已生成。{avoidanceText}逐项核对并勾选后再确认应用。"
+                : $"本地安排草稿已生成。{avoidanceText}逐项核对并勾选后再确认应用。";
         }
         catch (OperationCanceledException)
         {
@@ -253,6 +255,7 @@ public sealed partial class TodoViewModel
 
     private TodayPlanRequest CreateTodayPlanRequest()
     {
+        var localNow = _now().ToLocalTime();
         var items = TodayPlanCandidates
             .Where(candidate => candidate.IsSelected)
             .Select(candidate => new TodayPlanItemInput(
@@ -262,7 +265,35 @@ public sealed partial class TodoViewModel
                 candidate.Item.DueAt,
                 candidate.Item.UpdatedAt))
             .ToArray();
-        return new TodayPlanRequest(items, _now().ToLocalTime(), TimeZoneInfo.Local.Id);
+        var occupied = MergeOccupiedBlocks(TodayPlanCandidates
+            .Where(candidate => !candidate.IsSelected
+                && candidate.Item.PlannedStartAt is not null
+                && candidate.Item.DueAt is not null)
+            .Select(candidate => new TodayPlanOccupiedBlock(
+                candidate.Item.PlannedStartAt!.Value.ToLocalTime(),
+                candidate.Item.DueAt!.Value.ToLocalTime()))
+            .Where(block => block.StartAt.Date == localNow.Date
+                && block.EndAt.Date == localNow.Date
+                && block.EndAt > localNow
+                && block.EndAt > block.StartAt));
+        return new TodayPlanRequest(items, localNow, TimeZoneInfo.Local.Id, OccupiedBlocks: occupied);
+    }
+
+    private static IReadOnlyList<TodayPlanOccupiedBlock> MergeOccupiedBlocks(
+        IEnumerable<TodayPlanOccupiedBlock> blocks)
+    {
+        var ordered = blocks.OrderBy(block => block.StartAt).ThenBy(block => block.EndAt).ToArray();
+        if (ordered.Length == 0) return Array.Empty<TodayPlanOccupiedBlock>();
+        var merged = new List<TodayPlanOccupiedBlock> { ordered[0] };
+        foreach (var block in ordered.Skip(1))
+        {
+            var last = merged[^1];
+            if (block.StartAt <= last.EndAt)
+                merged[^1] = last with { EndAt = block.EndAt > last.EndAt ? block.EndAt : last.EndAt };
+            else
+                merged.Add(block);
+        }
+        return merged;
     }
 
     private void ApplyTodayPlan()

@@ -190,6 +190,44 @@ public sealed class GitHubReleaseUpdateTests : IDisposable
         Assert.DoesNotContain("github_pat", File.ReadAllText(settings.SettingsPath), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task View_model_uses_only_saved_token_and_keeps_available_update_after_failed_check()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "recovery-vm"));
+        settings.Save(new AppSettings());
+        using var search = new SearchService(settings.IndexPath, appProvider: () => []);
+        var secrets = new InMemorySecretStore();
+        var vm = new HomeViewModel(
+            search,
+            new ShortcutStore(settings.AppDataDir),
+            new OpenAiCompatibleClient(),
+            settings,
+            secrets);
+        var fake = new FakeUpdateClient();
+        fake.Results.Enqueue(new UpdateCheckResult(
+            UpdateCheckState.UpdateAvailable, BuildUpdate("0.16.1"), "发现新版本。"));
+        fake.Results.Enqueue(new UpdateCheckResult(
+            UpdateCheckState.Failed, null, "网络暂时不可用。"));
+        fake.Results.Enqueue(new UpdateCheckResult(
+            UpdateCheckState.UpToDate, null, "当前已是最新版本。"));
+        vm.SetUpdateClient(fake);
+        vm.UpdateAccessTokenInput = "github_pat_unsaved_example_123456";
+
+        await vm.CheckForUpdatesAsync(automatic: false);
+        Assert.Null(fake.AccessTokens[0]);
+        Assert.True(vm.HasAvailableUpdate);
+
+        await vm.CheckForUpdatesAsync(automatic: false);
+        Assert.Null(fake.AccessTokens[1]);
+        Assert.True(vm.HasAvailableUpdate);
+
+        vm.SaveUpdateAccessTokenCommand.Execute(null);
+        await vm.CheckForUpdatesAsync(automatic: false);
+        Assert.Equal("github_pat_unsaved_example_123456", fake.AccessTokens[2]);
+        Assert.False(vm.HasAvailableUpdate);
+        vm.CancelBackgroundWork();
+    }
+
     private static ReleaseUpdate BuildUpdate(string version)
     {
         var parsed = Version.Parse(version);
@@ -259,6 +297,8 @@ public sealed class GitHubReleaseUpdateTests : IDisposable
     {
         public int CheckCount;
         public TaskCompletionSource Checked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Queue<UpdateCheckResult> Results { get; } = new();
+        public List<string?> AccessTokens { get; } = new();
 
         public Task<UpdateCheckResult> CheckAsync(
             string currentVersion,
@@ -267,9 +307,11 @@ public sealed class GitHubReleaseUpdateTests : IDisposable
             CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref CheckCount);
+            AccessTokens.Add(accessToken);
             Checked.TrySetResult();
-            return Task.FromResult(new UpdateCheckResult(
-                UpdateCheckState.UpToDate, null, "当前已是最新版本。"));
+            return Task.FromResult(Results.Count > 0
+                ? Results.Dequeue()
+                : new UpdateCheckResult(UpdateCheckState.UpToDate, null, "当前已是最新版本。"));
         }
 
         public Task<UpdateDownloadResult> DownloadInstallerAsync(

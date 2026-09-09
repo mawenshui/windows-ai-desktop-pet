@@ -391,7 +391,7 @@
                                             <TextBlock DockPanel.Dock="Right" Text="{Binding TodayPlanSelectedCount, StringFormat=已选 {0}/12}" Foreground="{StaticResource AccentPressed}" FontSize="11" VerticalAlignment="Center" />
                                             <TextBlock Text="今日安排" FontSize="15" FontWeight="SemiBold" />
                                         </DockPanel>
-                                        <TextBlock Text="只会把你勾选的标题、备注和时间发送给当前 AI 配置；本地安排不访问网络。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,8" />
+                                        <TextBlock Text="只会把你勾选的标题、备注和时间发送给当前 AI 配置；未勾选事项仅提供匿名占用时间用于避让，本地安排不访问网络。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,8" />
                                         <Border Style="{StaticResource InlineChoiceSurface}" MaxHeight="190" Visibility="{Binding HasTodayPlanCandidates, Converter={StaticResource BoolToVisibility}}">
                                             <ListBox x:Name="TodayPlanCandidateSelector" ItemsSource="{Binding TodayPlanCandidates}" Background="Transparent" BorderThickness="0" SelectionMode="Multiple"
                                                       ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -665,7 +665,7 @@
                                                 <TextBlock Text="需要加速时，填写你信任的 HTTPS 模板并保留 {url} 占位符。应用先尝试该入口，再回退 GitHub 官方地址；安装器仍须通过 Release 校验清单。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7" />
                                                 <TextBox Style="{StaticResource Field}" Height="40" MaxLength="500" Text="{Binding UpdateAccelerationTemplate, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 https://你信任的服务/{url}" AutomationProperties.Name="GitHub 更新加速地址模板" />
                                                 <TextBlock Text="私有仓库访问" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" />
-                                                <TextBlock Text="可保存仅具备仓库只读权限的 GitHub 令牌。令牌只进入 Windows 凭据管理器；启用后不会发送给自定义加速服务。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7" />
+                                                <TextBlock Text="可保存仅具备仓库只读权限的 GitHub 令牌。只有安全保存后才会用于检查；令牌只进入 Windows 凭据管理器，启用后不会发送给自定义加速服务。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7" />
                                                 <Border Style="{StaticResource FieldChrome}">
                                                     <PasswordBox x:Name="GitHubUpdateTokenBox" Style="{StaticResource BarePasswordBox}" MaxLength="512" PasswordChanged="GitHubUpdateTokenBox_PasswordChanged" AutomationProperties.Name="GitHub 更新访问令牌" />
                                                 </Border>

@@ -1,6 +1,6 @@
 # 待办与提醒设计
 
-软件：0.16.0；复核日期：2026-09-09。对应 TODO-01～09、TODAY-01～05、EXT-01、EXT-06；今日安排不改变提醒调度语义。
+软件：0.16.1；复核日期：2026-09-09。对应 TODO-01～09、TODAY-01～05、EXT-01、EXT-06；今日安排不改变提醒调度语义。
 
 ## 1. 模型和时间
 
@@ -16,7 +16,7 @@ todos.json schema 4，在 schema 3 上新增可空 PlannedStartAt，升级保存
 
 AI 草稿新增 Recurrence 和 AdditionalReminderTimes，和手动入口共用校验。只发送本次输入、当前时间及时区，不发送既有列表。预览不写数据；本地匹配重名目标后明确选择，可更改所选目标。确认后执行创建/修改/完成/删除/稍后；一次撤销在内存中，重启不保留。
 
-今日安排单独列出待处理事项，用户勾选 1～12 项后才构造请求；只发送选中项的 ID、标题、备注、截止时间与当前时间/时区。AI 结果必须完整覆盖这些 ID，使用当前偏移下今天未来且互不重叠的时间块。本地降级不访问网络，从下一刻钟按截止优先分配 30 分钟。两种结果都先逐项预览；确认项以一次原子写入保存 PlannedStartAt 和作为块结束的 DueAt，`UpdatedAt` 变化使旧草稿整批拒绝，最近一批可整体撤销。
+今日安排单独列出待处理事项，用户勾选 1～12 项后才构造请求；发送选中项的 ID、标题、备注、截止时间与当前时间/时区。未选中事项的今天计划会合并为匿名开始/结束时间段，用于避让，不发送其标识或正文。AI 结果必须完整覆盖选中 ID，使用当前偏移下今天未来、互不重叠且不占用既有时间的时间块。本地降级不访问网络，从精确的下一刻钟按截止优先分配 30 分钟并跳过占用段。两种结果都先逐项预览；确认项以一次原子写入保存 PlannedStartAt 和作为块结束的 DueAt，`UpdatedAt` 变化使旧草稿整批拒绝，最近一批可整体撤销，撤销也不会覆盖后续编辑。
 
 ## 3. 状态与事务
 
@@ -46,4 +46,4 @@ App 的 DispatcherTimer 每 5 秒处理一次，合并所有排队事项，至�
 
 待办和通知成组备份/恢复；旧备份无队列时重置陈旧中心，含 Queued 待办却缺记录的备份拒绝。恢复发生在调度器启动前。损坏 JSON 保留，后续写入拒绝覆盖；诊断不输出标题、备注或内容。
 
-ReminderRuleTests、NotificationCenterTests、TodoStoreTests、TodoViewModelTests、TodayPlanTests、ReminderSchedulerTests、MaintenanceTransactionTests、AiTodoClientTests、PetToolWindowLifecycleTests 覆盖最早时刻、停机、跨月/闰年、DST、取消、同时到期、去重、跨午夜静默、重启、清历史、稍后、并发改期和批量安排。物理休眠/时间调整、Windows 通知抑制、真实鼠标与键盘仍依赖独立环境验证。结果见[当前报告](release/0.16.0-test-report.md)。
+ReminderRuleTests、NotificationCenterTests、TodoStoreTests、TodoViewModelTests、TodayPlanTests、ReminderSchedulerTests、MaintenanceTransactionTests、AiTodoClientTests、PetToolWindowLifecycleTests 覆盖最早时刻、停机、跨月/闰年、DST、取消、同时到期、去重、跨午夜静默、重启、清历史、稍后、并发改期、匿名冲突避让和批量安排。物理休眠/时间调整、Windows 通知抑制、真实鼠标与键盘仍依赖独立环境验证。结果见[当前报告](release/0.16.1-test-report.md)。

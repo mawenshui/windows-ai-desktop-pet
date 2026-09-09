@@ -1,5 +1,9 @@
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using AiPet.AI;
 using AiPet.Todos;
 using AiPet.ToolWindow;
@@ -80,6 +84,75 @@ public sealed class TodayPlanTests : IDisposable
     }
 
     [Fact]
+    public void Local_plan_uses_exact_quarter_boundary_and_skips_existing_blocks()
+    {
+        var now = new DateTimeOffset(2026, 9, 9, 9, 2, 37, 123, TimeSpan.FromHours(8)).AddTicks(4567);
+        var item = new TodayPlanItemInput(Guid.NewGuid(), "focus", string.Empty, null, now);
+        var occupied = new TodayPlanOccupiedBlock(
+            new DateTimeOffset(2026, 9, 9, 9, 15, 0, TimeSpan.FromHours(8)),
+            new DateTimeOffset(2026, 9, 9, 9, 45, 0, TimeSpan.FromHours(8)));
+
+        var result = OpenAiCompatibleTodoClient.CreateLocalTodayPlan(
+            new TodayPlanRequest([item], now, "China Standard Time", OccupiedBlocks: [occupied]));
+
+        var block = Assert.Single(result.Blocks);
+        Assert.Equal(new DateTimeOffset(2026, 9, 9, 9, 45, 0, TimeSpan.FromHours(8)), block.StartAt);
+        Assert.Equal(0, block.StartAt.Ticks % TimeSpan.TicksPerMinute);
+    }
+
+    [Fact]
+    public void Structured_plan_rejects_a_block_that_overlaps_existing_schedule()
+    {
+        var item = Input("focus");
+        var occupied = new TodayPlanOccupiedBlock(_now.AddHours(1), _now.AddHours(2));
+        var json = $$"""
+        {"blocks":[
+          {"id":"{{item.Id}}","startAt":"2026-09-09T10:30:00+08:00","endAt":"2026-09-09T11:30:00+08:00","reason":"overlap"}
+        ]}
+        """;
+
+        var result = OpenAiCompatibleTodoClient.ParseTodayPlanJson(
+            json,
+            new TodayPlanRequest([item], _now, "China Standard Time", OccupiedBlocks: [occupied]));
+
+        Assert.Equal(TodayPlanStatus.Failed, result.Status);
+        Assert.Contains("既有安排重叠", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Ai_payload_sends_unselected_schedule_only_as_anonymous_time_range()
+    {
+        var item = Input("selected-private-title");
+        var occupied = new TodayPlanOccupiedBlock(_now.AddHours(2), _now.AddHours(3));
+        var planJson = $$"""
+        {"blocks":[{"id":"{{item.Id}}","startAt":"2026-09-09T10:00:00+08:00","endAt":"2026-09-09T10:30:00+08:00","reason":"safe"}]}
+        """;
+        var response = JsonSerializer.Serialize(new
+        {
+            choices = new[] { new { message = new { content = planJson } } },
+        });
+        var handler = new CapturingHandler(response);
+        var client = new OpenAiCompatibleTodoClient(new HttpClient(handler));
+
+        var result = await client.PlanTodayAsync(
+            "https://example.test/v1",
+            "fixture",
+            "fixture-secret",
+            new TodayPlanRequest([item], _now, "China Standard Time", OccupiedBlocks: [occupied]),
+            CancellationToken.None);
+
+        Assert.Equal(TodayPlanStatus.DraftReady, result.Status);
+        using var outer = JsonDocument.Parse(handler.Body!);
+        var content = outer.RootElement.GetProperty("messages")[1].GetProperty("content").GetString();
+        using var userPayload = JsonDocument.Parse(content!);
+        var busy = Assert.Single(userPayload.RootElement.GetProperty("occupiedBlocks").EnumerateArray());
+        Assert.Equal(2, busy.EnumerateObject().Count());
+        Assert.True(busy.TryGetProperty("startAt", out _));
+        Assert.True(busy.TryGetProperty("endAt", out _));
+        Assert.DoesNotContain("unselected-private", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Batch_update_is_atomic_on_stale_input_and_can_be_undone_as_one_write()
     {
         var clock = _now;
@@ -114,11 +187,43 @@ public sealed class TodayPlanTests : IDisposable
     }
 
     [Fact]
+    public void Stale_undo_uses_recovery_specific_message_and_restores_nothing()
+    {
+        var clock = _now;
+        var store = new TodoStore(_root, () => clock);
+        var before = new[]
+        {
+            store.Create(new TodoItem { Title = "first" }),
+            store.Create(new TodoItem { Title = "second" }),
+        };
+        clock = clock.AddSeconds(1);
+        var updated = store.UpdateBatch(before.Select((item, index) => new TodoBatchUpdate(item with
+        {
+            PlannedStartAt = _now.AddHours(index + 1),
+            DueAt = _now.AddHours(index + 2),
+        }, item.UpdatedAt)).ToArray());
+        clock = clock.AddSeconds(1);
+        store.Update(updated[0] with { Notes = "changed after apply" });
+
+        var exception = Assert.Throws<TodoValidationException>(() => store.RestoreBatch(
+            before.Zip(updated, (snapshot, changed) => new TodoBatchUpdate(snapshot, changed.UpdatedAt)).ToArray()));
+
+        Assert.Contains("不能撤销旧安排", exception.Message);
+        Assert.NotNull(store.Load().Single(item => item.Id == before[1].Id).PlannedStartAt);
+    }
+
+    [Fact]
     public async Task View_model_sends_only_selected_items_then_applies_and_undoes_local_plan()
     {
         var store = new TodoStore(_root, () => _now);
         var selected = store.Create(new TodoItem { Title = "selected", Notes = "private selected note" });
-        store.Create(new TodoItem { Title = "not-selected", Notes = "must stay local" });
+        store.Create(new TodoItem
+        {
+            Title = "not-selected",
+            Notes = "must stay local",
+            PlannedStartAt = _now.AddMinutes(13),
+            DueAt = _now.AddMinutes(43),
+        });
         var fake = new CapturingTodayPlanClient();
         var vm = new TodoViewModel(store, fake, Connection, () => _now);
         vm.TodayPlanCandidates.Single(item => item.Id == selected.Id).IsSelected = true;
@@ -128,7 +233,12 @@ public sealed class TodayPlanTests : IDisposable
         var sent = Assert.Single(fake.LastRequest!.Items);
         Assert.Equal("selected", sent.Title);
         Assert.DoesNotContain(fake.LastRequest.Items, item => item.Title == "not-selected");
+        var busy = Assert.Single(fake.LastRequest.OccupiedBlocks!);
+        Assert.Equal(_now.AddMinutes(13), busy.StartAt);
+        Assert.Equal(_now.AddMinutes(43), busy.EndAt);
         Assert.True(vm.HasTodayPlanDraft);
+        Assert.Equal(_now.AddMinutes(43), Assert.Single(vm.TodayPlanDraft).Block.StartAt);
+        Assert.Contains("已避让 1 个既有时间段", vm.TodayPlanMessage);
 
         vm.ApplyTodayPlanCommand.Execute(null);
         var applied = store.Load().Single(item => item.Id == selected.Id);
@@ -201,6 +311,22 @@ public sealed class TodayPlanTests : IDisposable
         {
             LastRequest = request;
             return Task.FromResult(OpenAiCompatibleTodoClient.CreateLocalTodayPlan(request));
+        }
+    }
+
+    private sealed class CapturingHandler(string responseBody) : HttpMessageHandler
+    {
+        public string? Body { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+            };
         }
     }
 }

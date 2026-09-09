@@ -22,11 +22,16 @@ public sealed record TodayPlanItemInput(
     DateTimeOffset? DueAt,
     DateTimeOffset UpdatedAt);
 
+public sealed record TodayPlanOccupiedBlock(
+    DateTimeOffset StartAt,
+    DateTimeOffset EndAt);
+
 public sealed record TodayPlanRequest(
     IReadOnlyList<TodayPlanItemInput> Items,
     DateTimeOffset LocalNow,
     string TimeZoneDisplayName,
-    int MaxOutputTokens = 2048);
+    int MaxOutputTokens = 2048,
+    IReadOnlyList<TodayPlanOccupiedBlock>? OccupiedBlocks = null);
 
 public sealed record TodayPlanBlock(
     Guid Id,
@@ -84,6 +89,9 @@ public sealed partial class OpenAiCompatibleTodoClient : ITodayPlanAiClient
             notes = item.Notes,
             dueAt = item.DueAt,
         }).ToArray();
+        var occupiedBlocks = (request.OccupiedBlocks ?? Array.Empty<TodayPlanOccupiedBlock>())
+            .Select(block => new { startAt = block.StartAt, endAt = block.EndAt })
+            .ToArray();
         var payload = new
         {
             model,
@@ -92,7 +100,7 @@ public sealed partial class OpenAiCompatibleTodoClient : ITodayPlanAiClient
             messages = new object[]
             {
                 new { role = "system", content = BuildTodayPlanPrompt(request.LocalNow, request.TimeZoneDisplayName) },
-                new { role = "user", content = JsonSerializer.Serialize(new { selectedItems }) },
+                new { role = "user", content = JsonSerializer.Serialize(new { selectedItems, occupiedBlocks }) },
             },
         };
 
@@ -136,9 +144,10 @@ public sealed partial class OpenAiCompatibleTodoClient : ITodayPlanAiClient
         if (requestError is not null) return requestError;
 
         var localDate = request.LocalNow.Date;
-        var minute = request.LocalNow.Minute;
-        var addMinutes = minute % 15 == 0 ? 15 : 15 - minute % 15;
-        var cursor = request.LocalNow.AddMinutes(addMinutes).AddSeconds(-request.LocalNow.Second).AddMilliseconds(-request.LocalNow.Millisecond);
+        var cursor = RoundUpToQuarterHour(request.LocalNow, strictlyAfter: true);
+        var occupied = (request.OccupiedBlocks ?? Array.Empty<TodayPlanOccupiedBlock>())
+            .OrderBy(block => block.StartAt)
+            .ToArray();
         var ordered = request.Items
             .OrderBy(item => item.DueAt?.ToOffset(request.LocalNow.Offset).Date == localDate ? 0 : item.DueAt is null ? 2 : 1)
             .ThenBy(item => item.DueAt ?? DateTimeOffset.MaxValue)
@@ -147,10 +156,17 @@ public sealed partial class OpenAiCompatibleTodoClient : ITodayPlanAiClient
         var blocks = new List<TodayPlanBlock>(ordered.Length);
         foreach (var item in ordered)
         {
-            var end = cursor.AddMinutes(30);
+            DateTimeOffset end;
+            while (true)
+            {
+                end = cursor.AddMinutes(30);
+                var conflict = occupied.FirstOrDefault(block => BlocksOverlap(cursor, end, block.StartAt, block.EndAt));
+                if (conflict is null) break;
+                cursor = RoundUpToQuarterHour(conflict.EndAt, strictlyAfter: false);
+            }
             if (end.Date != localDate)
-                return TodayPlanResult.Failed(AiErrorCategory.InvalidResponse, "今天剩余时间不足以安排全部选中事项。", "请减少选中项，或明天再安排剩余事项。");
-            blocks.Add(new TodayPlanBlock(item.Id, cursor, end, "本地按截止时间排序，并预留 30 分钟专注时间。"));
+                return TodayPlanResult.Failed(AiErrorCategory.InvalidResponse, "今天剩余空闲时间不足以安排全部选中事项。", "请减少选中项、调整既有安排，或明天再安排剩余事项。");
+            blocks.Add(new TodayPlanBlock(item.Id, cursor, end, "本地按截止时间排序，避让既有安排并预留 30 分钟专注时间。"));
             cursor = end;
         }
         return TodayPlanResult.DraftReady(blocks);
@@ -205,6 +221,10 @@ public sealed partial class OpenAiCompatibleTodoClient : ITodayPlanAiClient
         for (var index = 1; index < ordered.Length; index++)
             if (ordered[index].StartAt < ordered[index - 1].EndAt)
                 return TodayPlanResult.Failed(AiErrorCategory.InvalidResponse, "AI 返回的时间块互相重叠。", "数据未改变，请重新生成安排。");
+        var occupied = request.OccupiedBlocks ?? Array.Empty<TodayPlanOccupiedBlock>();
+        if (ordered.Any(block => occupied.Any(existing =>
+                BlocksOverlap(block.StartAt, block.EndAt, existing.StartAt, existing.EndAt))))
+            return TodayPlanResult.Failed(AiErrorCategory.InvalidResponse, "AI 返回的时间块与既有安排重叠。", "数据未改变，请重新生成安排。");
         return TodayPlanResult.DraftReady(ordered);
     }
 
@@ -215,7 +235,30 @@ public sealed partial class OpenAiCompatibleTodoClient : ITodayPlanAiClient
         if (request.Items.Any(item => item.Id == Guid.Empty || string.IsNullOrWhiteSpace(item.Title))
             || request.Items.Select(item => item.Id).Distinct().Count() != request.Items.Count)
             return TodayPlanResult.Failed(AiErrorCategory.InvalidResponse, "选中事项包含无效或重复标识。", "请刷新待办后重新选择。");
+        if (request.OccupiedBlocks?.Any(block =>
+                block.StartAt.Offset != request.LocalNow.Offset
+                || block.EndAt.Offset != request.LocalNow.Offset
+                || block.StartAt.Date != request.LocalNow.Date
+                || block.EndAt.Date != request.LocalNow.Date
+                || block.EndAt <= block.StartAt) == true)
+            return TodayPlanResult.Failed(AiErrorCategory.InvalidResponse, "既有安排包含无效时间块。", "请刷新待办后重新生成安排。");
         return null;
+    }
+
+    private static bool BlocksOverlap(
+        DateTimeOffset firstStart,
+        DateTimeOffset firstEnd,
+        DateTimeOffset secondStart,
+        DateTimeOffset secondEnd) => firstStart < secondEnd && firstEnd > secondStart;
+
+    private static DateTimeOffset RoundUpToQuarterHour(DateTimeOffset value, bool strictlyAfter)
+    {
+        var minute = new DateTimeOffset(
+            value.Year, value.Month, value.Day, value.Hour, value.Minute, 0, value.Offset);
+        var isExactBoundary = value == minute && value.Minute % 15 == 0;
+        if (isExactBoundary && !strictlyAfter) return minute;
+        var minutes = value.Minute % 15 == 0 ? 15 : 15 - value.Minute % 15;
+        return minute.AddMinutes(minutes);
     }
 
     private static bool TryParseAbsolute(string? value, out DateTimeOffset result)
@@ -229,8 +272,9 @@ public sealed partial class OpenAiCompatibleTodoClient : ITodayPlanAiClient
     private static string BuildTodayPlanPrompt(DateTimeOffset localNow, string timeZoneDisplayName) =>
         $$"""
         你是本地待办的今日安排器。当前本地绝对时间：{{localNow:yyyy-MM-dd'T'HH:mm:sszzz}}；时区：{{timeZoneDisplayName}}。
-        用户消息是他明确勾选的待办 JSON。必须为每个输入 id 返回且只返回一个时间块，不得添加、删除、修改或猜测 id。
-        所有时间块必须位于今天且晚于当前时间，使用当前 UTC 偏移，不得重叠；单项 15 分钟至 4 小时。
+        用户消息包含他明确勾选的待办 selectedItems，以及不含待办正文或标识的匿名 occupiedBlocks。
+        必须为每个输入 id 返回且只返回一个时间块，不得添加、删除、修改或猜测 id。
+        所有时间块必须位于今天且晚于当前时间，使用当前 UTC 偏移，不得互相重叠，也不得与 occupiedBlocks 重叠；单项 15 分钟至 4 小时。
         只返回 JSON，不要 Markdown：
         { "blocks": [{ "id": "原 id", "startAt": "ISO 8601 绝对时间", "endAt": "ISO 8601 绝对时间", "reason": "不超过 160 字的简短安排理由" }] }
         不要声称已经写入待办。最终写入仍由用户逐项勾选并确认。
