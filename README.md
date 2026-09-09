@@ -34,7 +34,7 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.16.0 完整自动化 278/278 PASS，系统 smoke 与当前显示环境检查 PASS/SKIP；独立 UI 和窗口性能因应用无法置前而 FAIL，脚本未发送输入。候选产物将在干净实现提交后重建，逐项证据见[0.16.0 验证报告](docs/release/0.16.0-test-report.md)。
+0.16.0 完整自动化 278/278 PASS，系统 smoke、当前显示环境检查及便携/安装/启动/卸载 PASS/SKIP；独立 UI 和窗口性能因应用无法置前而 FAIL，脚本未发送输入。逐项证据见[0.16.0 验证报告](docs/release/0.16.0-test-report.md)。
 
 正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；当前没有创建 0.16.0 标签或 GitHub Release。
 
@@ -42,6 +42,6 @@ test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构�
 
 [PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.0 候选说明](docs/RELEASE_NOTES_0.16.0.md) · [验证报告](docs/release/0.16.0-test-report.md) · [扩展计划](docs/0.16.0－功能扩展计划.md)
 
-0.16.0 候选资产将在实现提交后重新生成；完成前不得把 `dist` 中的 0.15.0 历史候选描述为当前版本。来源见 RELEASE_PROVENANCE.json，存在资产不等于正式发布。旧报告仅表示当次历史结果。
+0.16.0 候选资产已从源提交 `99d58d191101cc4d0ba802a08dba092993367b51` 的干净输入生成：便携包 SHA-256 为 `3defc7d0d00eac961b22fab21dda3037aae9509ba2272c2ce4d6acc5e1a253ba`，安装器为 `5fd8ba72586c7efd78dacfaceeade73bd4c767439a0ff2fe4c6c3ce0edb78330`。来源见 RELEASE_PROVENANCE.json；资产未签名且完整门禁未通过，仍不是正式 Release。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。
