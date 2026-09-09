@@ -9,6 +9,8 @@ public sealed class TodoValidationException : Exception
     public TodoValidationException(string message) : base(message) { }
 }
 
+public sealed record TodoBatchUpdate(TodoItem Item, DateTimeOffset ExpectedUpdatedAt);
+
 public sealed class TodoStore
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -89,6 +91,18 @@ public sealed class TodoStore
             return Clone(updated);
         }
     }
+
+    /// <summary>
+    /// Validates every requested change and writes the document once. If any
+    /// item changed after the preview or any candidate is invalid, nothing is
+    /// written.
+    /// </summary>
+    public IReadOnlyList<TodoItem> UpdateBatch(IReadOnlyList<TodoBatchUpdate> requests) =>
+        ApplyBatch(requests, validateScheduledTime: true);
+
+    /// <summary>Restores a previously confirmed batch while retaining stale-write protection.</summary>
+    public IReadOnlyList<TodoItem> RestoreBatch(IReadOnlyList<TodoBatchUpdate> requests) =>
+        ApplyBatch(requests, validateScheduledTime: false);
 
     public TodoItem UpsertSnapshot(TodoItem snapshot)
     {
@@ -307,6 +321,44 @@ public sealed class TodoStore
         }
     }
 
+    private IReadOnlyList<TodoItem> ApplyBatch(
+        IReadOnlyList<TodoBatchUpdate> requests,
+        bool validateScheduledTime)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        if (requests.Count == 0) throw new TodoValidationException("没有可保存的待办变更。");
+        if (requests.Select(request => request.Item.Id).Distinct().Count() != requests.Count)
+            throw new TodoValidationException("批量变更包含重复待办。");
+
+        lock (_gate)
+        {
+            var document = ReadDocument();
+            var now = _now();
+            var prepared = new List<(int Index, TodoItem Item)>(requests.Count);
+            foreach (var request in requests)
+            {
+                var index = document.Items.FindIndex(item => item.Id == request.Item.Id);
+                if (index < 0) throw new TodoValidationException("待办不存在或已被删除。");
+                var existing = document.Items[index];
+                if (existing.UpdatedAt != request.ExpectedUpdatedAt)
+                    throw new TodoValidationException("待办已在草稿生成后被修改，请重新生成安排。");
+                var updated = Normalize(request.Item with
+                {
+                    CreatedAt = existing.CreatedAt,
+                    UpdatedAt = now,
+                    CompletedAt = request.Item.Status == TodoStatus.Completed
+                        ? request.Item.CompletedAt ?? now
+                        : null,
+                }, validateScheduledTime);
+                prepared.Add((index, updated));
+            }
+
+            foreach (var change in prepared) document.Items[change.Index] = change.Item;
+            WriteDocument(document);
+            return prepared.Select(change => Clone(change.Item)).ToArray();
+        }
+    }
+
     private TodoItem Normalize(TodoItem item, bool validateScheduledTime)
     {
         var title = (item.Title ?? string.Empty).Trim();
@@ -315,6 +367,10 @@ public sealed class TodoStore
         if (title.Length == 0) throw new TodoValidationException("标题不能为空。");
         if (title.Length > 200) throw new TodoValidationException("标题不能超过 200 个字符。");
         if (notes.Length > 4000) throw new TodoValidationException("备注不能超过 4000 个字符。");
+        if (item.PlannedStartAt is { } plannedStart && item.DueAt is { } plannedEnd && plannedStart >= plannedEnd)
+            throw new TodoValidationException("安排开始时间必须早于结束时间。");
+        if (item.PlannedStartAt is not null && item.DueAt is null)
+            throw new TodoValidationException("安排时间块必须有结束时间。");
         if (item.IsReminder && item.Status == TodoStatus.Pending && item.ReminderAt is null && item.ReminderState != ReminderState.Queued)
         {
             if (item.AdditionalReminderTimes is null || item.AdditionalReminderTimes.Count == 0)
@@ -371,6 +427,12 @@ public sealed class TodoStore
             {
                 RecoverableAtomicFile.WriteAllText(TodoPath + ".pre-v3.bak", json);
                 document = document with { SchemaVersion = 3, Items = document.Items.Select(item => item with { RecurrenceAnchorAt = item.Recurrence.Kind == RecurrenceKind.None ? null : GetNextReminder(item) }).ToList() };
+                WriteDocument(document);
+            }
+            if (document.SchemaVersion < 4)
+            {
+                RecoverableAtomicFile.WriteAllText(TodoPath + ".pre-v4.bak", json);
+                document = document with { SchemaVersion = 4 };
                 WriteDocument(document);
             }
             return document;

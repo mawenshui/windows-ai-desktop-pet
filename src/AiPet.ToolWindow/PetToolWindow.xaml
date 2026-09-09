@@ -379,11 +379,79 @@
                                                  AutomationProperties.AutomationId="TodoFilterSelector"
                                                  AutomationProperties.Name="待办日期筛选选项">
                                             <ListBox.ItemsPanel>
-                                                <ItemsPanelTemplate><UniformGrid Columns="4" /></ItemsPanelTemplate>
+                                                <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
                                             </ListBox.ItemsPanel>
                                         </ListBox>
                                     </Border>
                                 </Grid>
+
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding TodayPlanSelectedCount, StringFormat=已选 {0}/12}" Foreground="{StaticResource AccentPressed}" FontSize="11" VerticalAlignment="Center" />
+                                            <TextBlock Text="今日安排" FontSize="15" FontWeight="SemiBold" />
+                                        </DockPanel>
+                                        <TextBlock Text="只会把你勾选的标题、备注和时间发送给当前 AI 配置；本地安排不访问网络。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,8" />
+                                        <Border Style="{StaticResource InlineChoiceSurface}" MaxHeight="190" Visibility="{Binding HasTodayPlanCandidates, Converter={StaticResource BoolToVisibility}}">
+                                            <ListBox x:Name="TodayPlanCandidateSelector" ItemsSource="{Binding TodayPlanCandidates}" Background="Transparent" BorderThickness="0" SelectionMode="Multiple"
+                                                      ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                                      AutomationProperties.AutomationId="TodayPlanCandidateSelector"
+                                                      AutomationProperties.Name="今日安排候选事项">
+                                                <ListBox.ItemContainerStyle>
+                                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource InlineChoiceRowItem}">
+                                                        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                                    </Style>
+                                                </ListBox.ItemContainerStyle>
+                                                <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Padding="7,6" AutomationProperties.Name="{Binding Title, StringFormat=今日安排候选 {0}}">
+                                                                <StackPanel>
+                                                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                    <TextBlock Text="{Binding ScheduleText}" Foreground="{StaticResource Muted}" FontSize="10" Margin="0,2,0,0" />
+                                                                </StackPanel>
+                                                            </CheckBox>
+                                                        </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Border>
+                                        <TextBlock Text="没有待处理事项可安排。" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,3,0,0">
+                                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasTodayPlanCandidates}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                        </TextBlock>
+                                        <WrapPanel Margin="0,9,0,0">
+                                            <Button Content="{Binding TodayPlanAiButtonLabel}" Style="{StaticResource PrimaryButton}" MinHeight="34" Padding="12,6" Command="{Binding GenerateAiTodayPlanCommand}" Margin="0,0,7,6" AutomationProperties.Name="生成 AI 今日安排" />
+                                            <Button Content="本地安排" Style="{StaticResource SecondaryButton}" MinHeight="34" Padding="12,6" Command="{Binding GenerateLocalTodayPlanCommand}" Margin="0,0,7,6" AutomationProperties.AutomationId="GenerateLocalTodayPlanButton" />
+                                            <Button Content="{Binding TodayPlanUndoLabel}" Style="{StaticResource SecondaryButton}" MinHeight="34" Padding="12,6" Command="{Binding UndoTodayPlanCommand}" Margin="0,0,0,6" Visibility="{Binding CanUndoTodayPlan, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="UndoTodayPlanButton" />
+                                        </WrapPanel>
+                                        <TextBlock Text="{Binding TodayPlanMessage}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" AutomationProperties.LiveSetting="Polite" />
+                                        <TextBlock Text="{Binding TodayPlanError}" Foreground="{StaticResource Error}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="{Binding HasTodayPlanError, Converter={StaticResource BoolToVisibility}}" />
+
+                                        <StackPanel Margin="0,9,0,0" Visibility="{Binding HasTodayPlanDraft, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="安排草稿 · 取消勾选可排除单项" Style="{StaticResource SectionLabel}" />
+                                            <ItemsControl ItemsSource="{Binding TodayPlanDraft}" Margin="0,5,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource Card}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,0,6">
+                                                            <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay}" AutomationProperties.Name="{Binding Title, StringFormat=今日安排草稿 {0}}">
+                                                                <StackPanel>
+                                                                    <DockPanel>
+                                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding TimeText}" Foreground="{StaticResource AccentPressed}" FontWeight="SemiBold" Margin="8,0,0,0" />
+                                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                    </DockPanel>
+                                                                    <TextBlock Text="{Binding Reason}" Foreground="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                                </StackPanel>
+                                                            </CheckBox>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="取消草稿" Style="{StaticResource SecondaryButton}" MinHeight="34" Padding="12,6" Command="{Binding CancelTodayPlanCommand}" />
+                                                <Button Content="确认应用所选" Style="{StaticResource PrimaryButton}" MinHeight="34" Padding="12,6" Margin="7,0,0,0" Command="{Binding ApplyTodayPlanCommand}" AutomationProperties.Name="确认应用今日安排" AutomationProperties.AutomationId="ApplyTodayPlanButton" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
 
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10" Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibility}}">
                                     <StackPanel>
@@ -465,6 +533,7 @@
                                                         <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                     </DockPanel>
                                                     <TextBlock Text="{Binding ItemTypeText}" Foreground="{StaticResource AccentPressed}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                    <TextBlock Text="{Binding PlannedBlockText}" Foreground="{StaticResource Success}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{Binding HasPlannedBlock, Converter={StaticResource BoolToVisibility}}" />
                                                     <TextBlock Text="{Binding Notes}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" MaxHeight="40" Margin="0,3,0,0" />
                                                     <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
                                                         <TextBlock Text="{Binding DueText}" Foreground="{StaticResource Muted}" FontSize="11" />

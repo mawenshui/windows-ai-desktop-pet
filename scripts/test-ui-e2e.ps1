@@ -103,6 +103,7 @@ function Click-Element([string]$Name) {
         [int]$rect.Top,
         [int]$rect.Width,
         [int]$rect.Height)
+    Assert-AppForeground
     [AiPetMouseInput]::SetCursorPos([int]($rect.Left + $rect.Width / 2), [int]($rect.Top + $rect.Height / 2)) | Out-Null
     [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
     [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftUp, 0, 0, 0, [UIntPtr]::Zero)
@@ -118,7 +119,7 @@ function Expand-Element([string]$Name) {
     }
 }
 
-function Select-VisibleChoice([string]$SelectorName, [string]$ItemName) {
+function Select-VisibleChoice([string]$SelectorName, [string]$ItemName, [switch]$SkipEvidence) {
     $selector = Find-Element $SelectorName
     Assert-AppForeground
     $itemCondition = [System.Windows.Automation.AndCondition]::new(
@@ -166,7 +167,7 @@ function Select-VisibleChoice([string]$SelectorName, [string]$ItemName) {
         throw "Physical click did not select: $SelectorName -> $ItemName"
     }
     Write-Output ("[UI] physically selected '{0}' from '{1}'" -f $ItemName, $SelectorName)
-    $selectorEvidence.Add(@{selector=$SelectorName;input='mouse';status='PASS'})
+    if (-not $SkipEvidence) { $selectorEvidence.Add(@{selector=$SelectorName;input='mouse';status='PASS'}) }
 }
 
 function Assert-AppForeground {
@@ -207,6 +208,20 @@ function Get-Value([string]$Name) {
     return $element.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
 }
 
+function Wait-UiProbe([scriptblock]$Condition, [string]$FailureMessage, [int]$TimeoutSeconds = 5) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
+        try {
+            if (Test-Path -LiteralPath $script:probePath) {
+                $probe = Get-Content -LiteralPath $script:probePath -Raw | ConvertFrom-Json
+                if (& $Condition $probe) { return $probe }
+            }
+        } catch { }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw $FailureMessage
+}
+
 function Save-Screenshot([string]$Path) {
     # Capture only this application's foreground window, never a lock/PIN screen or unrelated app.
     Assert-AppForeground
@@ -240,9 +255,12 @@ try {
     $probePath = Join-Path $isolatedData 'ui-probe.json'
     [System.IO.Directory]::CreateDirectory($isolatedData) | Out-Null
     $profiles=@(foreach($id in @('fixture-a','fixture-b')) { @{id=$id;displayName=$id;providerId='deepseek';endpoint='https://example.invalid';model='fixture';secretTargetName="WindowsAiDesktopPet:AI:$id";lastStatus='Untested'} })
-    @{schemaVersion=4;search=@{onboardingCompleted=$true};ai=@{activeProfileId='fixture-a';profiles=$profiles};hotkeys=@{enabled=$false;searchGesture='Ctrl+Alt+Space';quickTodoGesture='Ctrl+Alt+T'};backup=@{automaticEnabled=$false;retentionCount=7}} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $isolatedData 'settings.json') -Encoding utf8NoBOM
-    $todoFixtures=@(foreach($minute in @(1,2)) { @{id=[Guid]::NewGuid().ToString();title='UI fixture';notes='anonymous fixture';createdAt=([DateTimeOffset]'2026-09-01T10:00:00+08:00').AddMinutes($minute).ToString('O');status='Pending'} })
-    @{schemaVersion=3;items=$todoFixtures} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $isolatedData 'todos.json') -Encoding utf8NoBOM
+    @{schemaVersion=5;search=@{onboardingCompleted=$true};ai=@{activeProfileId='fixture-a';profiles=$profiles};hotkeys=@{enabled=$false;searchGesture='Ctrl+Alt+Space';quickTodoGesture='Ctrl+Alt+T'};backup=@{automaticEnabled=$false;retentionCount=7}} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $isolatedData 'settings.json') -Encoding utf8NoBOM
+    $todoFixtures=@(
+        @{id=[Guid]::NewGuid().ToString();title='UI fixture one';notes='anonymous fixture';createdAt='2026-09-01T10:01:00+08:00';status='Pending'},
+        @{id=[Guid]::NewGuid().ToString();title='UI fixture two';notes='anonymous fixture';createdAt='2026-09-01T10:02:00+08:00';status='Pending'}
+    )
+    @{schemaVersion=4;items=$todoFixtures} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $isolatedData 'todos.json') -Encoding utf8NoBOM
     $draftPath=Join-Path $isolatedData 'draft-fixture.json'
     @{Operation=2;TargetTitle='UI fixture'} | ConvertTo-Json | Set-Content -LiteralPath $draftPath -Encoding utf8NoBOM
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new($exe, '--preview --ui-e2e')
@@ -254,6 +272,9 @@ try {
     $startInfo.Environment['AIPET_APP_DATA_ROOT'] = $isolatedData
     $startInfo.Environment['AIPET_UI_E2E_PROBE'] = $probePath
     $startInfo.Environment['AIPET_UI_E2E_DRAFT'] = $draftPath
+    $fixtureDate = [DateTime]::Today.AddHours(9)
+    $fixtureOffset = [TimeZoneInfo]::Local.GetUtcOffset($fixtureDate)
+    $startInfo.Environment['AIPET_UI_E2E_NOW'] = [DateTimeOffset]::new($fixtureDate, $fixtureOffset).ToString('O')
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $toolWindow = Find-Element '小方工具袋' 15
 
@@ -280,6 +301,30 @@ try {
     Select-VisibleChoice 'TodoFilterSelector' '已完成'
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).todoFilterId -ne 'completed') { throw 'Todo filter did not update.' }
     Test-KeyboardChoice 'TodoFilterSelector'
+
+    $stage = 'today-plan-selection'
+    Select-VisibleChoice 'TodayPlanCandidateSelector' '今日安排候选 UI fixture one' -SkipEvidence
+    Select-VisibleChoice 'TodayPlanCandidateSelector' '今日安排候选 UI fixture two' -SkipEvidence
+    $null = Wait-UiProbe { param($probe) $probe.todayPlanSelectedCount -eq 2 } 'Today plan selection did not update.'
+
+    $stage = 'today-plan-local-draft'
+    Click-Element 'GenerateLocalTodayPlanButton'
+    $null = Wait-UiProbe { param($probe) $probe.todayPlanDraftCount -eq 2 } 'Local today plan draft was not generated.'
+    $excludedDraft = Find-Element '今日安排草稿 UI fixture two'
+    Click-Element '今日安排草稿 UI fixture two'
+    $toggle = $excludedDraft.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw 'Today plan draft item was not excluded.' }
+
+    $stage = 'today-plan-apply-undo'
+    Click-Element 'ApplyTodayPlanButton'
+    $null = Wait-UiProbe { param($probe) $probe.CanUndoTodayPlan -eq $true } 'Today plan apply did not enable batch undo.'
+    $savedTodos = @((Get-Content -LiteralPath (Join-Path $isolatedData 'todos.json') -Raw | ConvertFrom-Json).items)
+    if (@($savedTodos | Where-Object { $_.plannedStartAt }).Count -ne 1) { throw 'Today plan did not persist exactly one included item.' }
+    Click-Element 'UndoTodayPlanButton'
+    $null = Wait-UiProbe { param($probe) $probe.CanUndoTodayPlan -eq $false } 'Today plan batch undo did not complete.'
+    $restoredTodos = @((Get-Content -LiteralPath (Join-Path $isolatedData 'todos.json') -Raw | ConvertFrom-Json).items)
+    if (@($restoredTodos | Where-Object { $_.plannedStartAt }).Count -ne 0) { throw 'Today plan undo did not restore original items.' }
+
     Select-Tab '设置'
     $stage = 'inline-theme'
     Select-VisibleChoice 'ThemeSelector' '深色'
@@ -325,7 +370,7 @@ try {
     Click-Element '退出'
     if (-not $process.WaitForExit(5000)) { throw 'Application did not exit through its context menu.' }
 
-    $checks=@('eight-selectors-mouse','eight-selectors-keyboard','unsaved-navigation','focus-restore','tray-actions') | ForEach-Object { @{name=$_;status='PASS'} }
+    $checks=@('eight-selectors-mouse','eight-selectors-keyboard','today-plan-selection','today-plan-local-draft','today-plan-partial-apply','today-plan-batch-undo','unsaved-navigation','focus-restore','tray-actions') | ForEach-Object { @{name=$_;status='PASS'} }
     $report = [ordered]@{ schemaVersion = 1; status = 'PASS'; startedAtUtc = $startedAt; completedAtUtc = [DateTimeOffset]::UtcNow; selectors=@($selectorEvidence.ToArray()); checks=@($checks); environment=@{os=[Environment]::OSVersion.VersionString;displayCount=[System.Windows.Forms.Screen]::AllScreens.Count} }
     [System.IO.File]::WriteAllText($reportPath, ($report | ConvertTo-Json -Depth 4), [System.Text.UTF8Encoding]::new($false))
     Write-Output "[PASS] independent desktop UI automation completed: $reportPath"

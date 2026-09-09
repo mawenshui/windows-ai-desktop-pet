@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.15.0**，于 **2026-09-08** 增加加密完整 AI 配置迁移和 GitHub Release 在线更新。当前为候选版本，独立桌面输入、硬件和签名门禁尚未全部通过。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.16.0**，于 **2026-09-09** 增加隐私受控的今日安排、已逾期和未安排筛选。当前为候选版本，独立桌面输入、硬件和签名门禁尚未全部通过。
 
 ## 当前能力
 
@@ -15,8 +15,9 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **
 - 默认 `Ctrl+Alt+Space` 唤出搜索、`Ctrl+Alt+T` 快速新建待办；可改键或停用，冲突时整组停用并保留托盘入口。
 - 每天最多一次的本地自动备份，默认保留 7 份且可设为 1～30；不包含 API Key、搜索索引或日志。
 - 每次正式启动检查一次 GitHub Release；可选 1～168 小时周期检查、系统代理和用户信任的 HTTPS 加速模板。私有仓库令牌只保存在 Windows 凭据管理器，下载完成须通过 Release SHA-256 清单并由用户确认安装。
+- 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，逐项确认、整批原子写入并撤销最近一批。
 
-内容检索、外部 2D 角色包导入仅有隔离试验工程，未接入应用或发行包；未新增云同步、通用聊天、OCR、3D 或商城。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.15.0－功能扩展计划.md)。
+内容检索、外部 2D 角色包导入仅有隔离试验工程，未接入应用或发行包；未新增云同步、通用聊天、OCR、3D 或商城。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.16.0－功能扩展计划.md)。
 
 ## 使用与开发
 
@@ -33,14 +34,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.15.0 当前完整自动化 **268/268 PASS**，Release 构建 0 警告、0 错误；便携、安装、启动与卸载烟雾 PASS。候选产物会在源码提交后重建以固定 provenance。UI/性能置前门禁 FAIL，签名和物理环境门禁 SKIP，因此不创建正式标签或 GitHub Release。逐项结果见[0.15.0 验证报告](docs/release/0.15.0-test-report.md)。
+0.16.0 完整自动化 278/278 PASS，系统 smoke 与当前显示环境检查 PASS/SKIP；独立 UI 和窗口性能因应用无法置前而 FAIL，脚本未发送输入。候选产物将在干净实现提交后重建，逐项证据见[0.16.0 验证报告](docs/release/0.16.0-test-report.md)。
 
-正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；当前没有创建 0.15.0 标签或 GitHub Release。
+正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；当前没有创建 0.16.0 标签或 GitHub Release。
 
 ## 文档与候选产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.15.0 候选说明](docs/RELEASE_NOTES_0.15.0.md) · [验证报告](docs/release/0.15.0-test-report.md) · [扩展计划](docs/0.15.0－功能扩展计划.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.0 候选说明](docs/RELEASE_NOTES_0.16.0.md) · [验证报告](docs/release/0.16.0-test-report.md) · [扩展计划](docs/0.16.0－功能扩展计划.md)
 
-候选下载：[便携版 ZIP](dist/portable/windows-ai-desktop-pet-v0.15.0-portable.zip)、[安装器 EXE](dist/installer/windows-ai-desktop-pet-v0.15.0-setup.exe)、[SHA-256 清单](dist/checksums/SHA256SUMS.txt)。来源见 RELEASE_PROVENANCE.json，存在资产不等于正式发布。旧报告仅表示当次历史结果。
+0.16.0 候选资产将在实现提交后重新生成；完成前不得把 `dist` 中的 0.15.0 历史候选描述为当前版本。来源见 RELEASE_PROVENANCE.json，存在资产不等于正式发布。旧报告仅表示当次历史结果。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

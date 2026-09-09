@@ -1,10 +1,10 @@
 # 待办与提醒设计
 
-软件：0.15.0；复核日期：2026-09-08。对应 TODO-01～09、EXT-01、EXT-06；本次功能未改变提醒时间语义。
+软件：0.16.0；复核日期：2026-09-09。对应 TODO-01～09、TODAY-01～05、EXT-01、EXT-06；今日安排不改变提醒调度语义。
 
 ## 1. 模型和时间
 
-todos.json schema 3，升级保存 .pre-v3.bak。普通待办与独立提醒分开；ReminderAt/AdditionalReminderTimes 去重并按最早时间归一，额外时间最多 32 个。Recurrence 包括 None、Daily、Weekly、Weekdays、CustomDays、Interval 1～365、EndsAt、TimeZoneId；RecurrenceAnchorAt 保存最初规则锚点，稍后/仅此次改期不漂移锚点。
+todos.json schema 4，在 schema 3 上新增可空 PlannedStartAt，升级保存 .pre-v4.bak。普通待办与独立提醒分开；ReminderAt/AdditionalReminderTimes 去重并按最早时间归一，额外时间最多 32 个。Recurrence 包括 None、Daily、Weekly、Weekdays、CustomDays、Interval 1～365、EndsAt、TimeZoneId；RecurrenceAnchorAt 保存最初规则锚点，稍后/仅此次改期不漂移锚点。
 
 规则按固定当地钟点计算，不是每隔固定 24 小时。周间隔以星期一为边界；显式首次时间可以作为一次例外，后续按规则匹配。结束日期取规则时区 23:59。春季不存在的钟点顺延到首个有效分钟，秋季重复钟点只采用后一次。旧规则无 TimeZoneId 时维持保存偏移。系统时区变化触发重新调度，不改变已有规则所属时区。
 
@@ -15,6 +15,8 @@ todos.json schema 3，升级保存 .pre-v3.bak。普通待办与独立提醒分�
 待办页规则展开区支持间隔、星期、结束日期、时区、额外时间及前四个时刻预览。仅此次修改保留标题/备注/截止/通道/规则与锚点，改变当前提醒时刻；跳过此次保留后续规则，整条取消清除全部安排。
 
 AI 草稿新增 Recurrence 和 AdditionalReminderTimes，和手动入口共用校验。只发送本次输入、当前时间及时区，不发送既有列表。预览不写数据；本地匹配重名目标后明确选择，可更改所选目标。确认后执行创建/修改/完成/删除/稍后；一次撤销在内存中，重启不保留。
+
+今日安排单独列出待处理事项，用户勾选 1～12 项后才构造请求；只发送选中项的 ID、标题、备注、截止时间与当前时间/时区。AI 结果必须完整覆盖这些 ID，使用当前偏移下今天未来且互不重叠的时间块。本地降级不访问网络，从下一刻钟按截止优先分配 30 分钟。两种结果都先逐项预览；确认项以一次原子写入保存 PlannedStartAt 和作为块结束的 DueAt，`UpdatedAt` 变化使旧草稿整批拒绝，最近一批可整体撤销。
 
 ## 3. 状态与事务
 
@@ -44,4 +46,4 @@ App 的 DispatcherTimer 每 5 秒处理一次，合并所有排队事项，至�
 
 待办和通知成组备份/恢复；旧备份无队列时重置陈旧中心，含 Queued 待办却缺记录的备份拒绝。恢复发生在调度器启动前。损坏 JSON 保留，后续写入拒绝覆盖；诊断不输出标题、备注或内容。
 
-ReminderRuleTests、NotificationCenterTests、TodoStoreTests、TodoViewModelTests、ReminderSchedulerTests、MaintenanceTransactionTests、AiTodoClientTests、PetToolWindowLifecycleTests 覆盖最早时刻、停机、跨月/闰年、DST、取消、同时到期、去重、跨午夜静默、重启、清历史、稍后和并发改期。物理休眠/时间调整、Windows 通知抑制、真实鼠标与键盘仍依赖独立环境验证。结果见[当前报告](release/0.15.0-test-report.md)。
+ReminderRuleTests、NotificationCenterTests、TodoStoreTests、TodoViewModelTests、TodayPlanTests、ReminderSchedulerTests、MaintenanceTransactionTests、AiTodoClientTests、PetToolWindowLifecycleTests 覆盖最早时刻、停机、跨月/闰年、DST、取消、同时到期、去重、跨午夜静默、重启、清历史、稍后、并发改期和批量安排。物理休眠/时间调整、Windows 通知抑制、真实鼠标与键盘仍依赖独立环境验证。结果见[当前报告](release/0.16.0-test-report.md)。

@@ -57,7 +57,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         IAiSecretStore? secretStore = null,
         TodoStore? todoStore = null,
         ITodoAiClient? todoAiClient = null,
-        IReadOnlyList<SearchRangeCandidateOption>? searchOnboardingCandidates = null)
+        IReadOnlyList<SearchRangeCandidateOption>? searchOnboardingCandidates = null,
+        Func<DateTimeOffset>? todoNow = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -81,7 +82,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         ReloadAi();
         ReloadAutostart();
         if (todoStore is not null && todoAiClient is not null)
-            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection);
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow);
     }
 
     public ObservableCollection<SearchItem> Results { get; } = new();
@@ -1731,7 +1732,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         SettingsStore settings,
         IAiSecretStore? secretStore = null,
         TodoStore? todoStore = null,
-        ITodoAiClient? todoAiClient = null)
+        ITodoAiClient? todoAiClient = null,
+        Func<DateTimeOffset>? todoNow = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -1768,7 +1770,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         ReloadAutostart();
         RaiseCommandStates();
         if (todoStore is not null && todoAiClient is not null)
-            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection);
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow);
     }
 
     private TodoAiConnection? CreateTodoAiConnection()

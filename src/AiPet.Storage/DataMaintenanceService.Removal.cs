@@ -10,7 +10,12 @@ public sealed partial class DataMaintenanceService
         ArgumentNullException.ThrowIfNull(deleteCredential);
         CheckNoLinks(_root); CheckNoLinks(_logs);
         var settings=Path.Combine(_root,"settings.json");
-        var targets=new HashSet<string>(StringComparer.Ordinal);
+        var targets=new HashSet<string>(StringComparer.Ordinal)
+        {
+            // This target is fixed by the updater and therefore is not stored
+            // in settings, but it is still known application-owned data.
+            "WindowsAiDesktopPet:Updates:GitHub",
+        };
         if(File.Exists(settings))
         {
             using var json=JsonDocument.Parse(File.ReadAllBytes(settings));
@@ -36,7 +41,7 @@ public sealed partial class DataMaintenanceService
             DeleteTree(WorkRoot);
             DeleteTree(Path.Combine(_root,"automatic-backups"));
             foreach(var filename in ModulePaths.Values.Where(name=>name.EndsWith(".json",StringComparison.Ordinal)))
-            foreach(var suffix in new[]{".previous",".pre-v3.bak",".pre-v3.bak.previous",".pre-v4.bak",".pre-v4.bak.previous"}) DeleteTree(Path.Combine(_root,filename+suffix));
+            foreach(var suffix in new[]{".previous",".pre-v3.bak",".pre-v3.bak.previous",".pre-v4.bak",".pre-v4.bak.previous",".pre-v5.bak",".pre-v5.bak.previous"}) DeleteTree(Path.Combine(_root,filename+suffix));
         }
         catch { errors.Add("cleanup_backups_failed"); }
         return new(result.Completed,errors);

@@ -76,7 +76,7 @@ public interface ITodoAiClient
         CancellationToken cancellationToken);
 }
 
-public sealed class OpenAiCompatibleTodoClient : ITodoAiClient
+public sealed partial class OpenAiCompatibleTodoClient : ITodoAiClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

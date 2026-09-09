@@ -127,6 +127,25 @@ public sealed class HomePageLayoutTests
         Assert.Contains("x:Name=\"TodoTitleBox\"", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Today_plan_exposes_explicit_selection_preview_confirm_and_undo_controls()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+
+        Assert.Contains("Text=\"今日安排\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding TodayPlanCandidates}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding GenerateAiTodayPlanCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding GenerateLocalTodayPlanCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding TodayPlanDraft}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ApplyTodayPlanCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding UndoTodayPlanCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"确认应用今日安排\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"TodayPlanCandidateSelector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"GenerateLocalTodayPlanButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"ApplyTodayPlanButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"UndoTodayPlanButton\"", xaml, StringComparison.Ordinal);
+    }
+
     private static string ReadProjectFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

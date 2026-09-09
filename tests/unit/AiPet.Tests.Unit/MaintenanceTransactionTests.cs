@@ -141,7 +141,10 @@ public sealed class MaintenanceTransactionTests : IDisposable
         var result=new DataMaintenanceService(_root).RemoveApplicationData(targets.Add);
         Assert.Empty(result.Errors); Assert.False(File.Exists(settings.SettingsPath));
         Assert.True(File.Exists(Path.Combine(_root,"unrelated.txt")));
-        Assert.All(targets,target=>Assert.StartsWith("WindowsAiDesktopPet:AI:",target));
+        Assert.Contains("WindowsAiDesktopPet:Updates:GitHub", targets);
+        Assert.All(targets,target=>Assert.True(
+            target.StartsWith("WindowsAiDesktopPet:AI:", StringComparison.Ordinal)
+            || target == "WindowsAiDesktopPet:Updates:GitHub"));
     }
     public void Dispose() => Directory.Delete(_root,true);
 }

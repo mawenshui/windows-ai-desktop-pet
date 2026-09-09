@@ -149,7 +149,7 @@ public sealed partial class DataMaintenanceService
         if (json.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("模块必须是 JSON 对象。");
         if (name != "layout.json")
         {
-            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" ? 1 : name == "settings.json" ? 5 : 3;
+            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" ? 1 : name == "settings.json" ? 5 : name == "todos.json" ? 4 : 3;
             if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || schema.GetInt32() < 1 || schema.GetInt32() > max) throw new InvalidDataException("模块 schema 不受支持。");
             if (name is "todos.json" or "shortcuts.json" && (!json.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array))
                 throw new InvalidDataException("事项列表无效。");

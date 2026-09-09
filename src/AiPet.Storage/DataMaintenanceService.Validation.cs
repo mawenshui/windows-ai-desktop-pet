@@ -26,7 +26,7 @@ public sealed partial class DataMaintenanceService
             {
                 Require(item.ValueKind==JsonValueKind.Object && item.TryGetProperty("id",out var id) && id.TryGetGuid(out var guid) && guid!=Guid.Empty && ids.Add(guid));
                 Require(Text(item,name=="shortcuts.json"?"displayName":"title",200,true));
-                foreach(var date in new[] {"createdAt","updatedAt","completedAt","reminderAt","dueAt","queuedAt","scheduledAt","submittedAt","handledAt","queuedOccurrenceAt","recurrenceAnchorAt"}) Require(Date(item,date));
+                foreach(var date in new[] {"createdAt","updatedAt","completedAt","reminderAt","dueAt","plannedStartAt","queuedAt","scheduledAt","submittedAt","handledAt","queuedOccurrenceAt","recurrenceAnchorAt"}) Require(Date(item,date));
                 if(name=="todos.json")
                 {
                     Require(Text(item,"notes",4000) && EnumValue(item,"status",new[]{"Pending","Completed"}) && EnumValue(item,"reminderState",new[]{"None","Scheduled","Delivered","Snoozed","Cancelled","Failed","Queued"}));

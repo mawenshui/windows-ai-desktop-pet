@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.16.0] - 2026-09-09
+
+### Changed
+
+- 新增“已逾期”和“未安排”筛选，“今天”同时识别已确认计划开始时间。
+- 用户明确勾选 1～12 条待处理事项后，可用当前 AI 配置生成今天未来、带绝对偏移且互不重叠的时间块；未勾选事项不进入请求。
+- 提供完全本地的截止优先 30 分钟安排；AI 和本地结果均先逐项预览，确认前不写数据。
+- TodoStore 新增带 `UpdatedAt` 保护的原子批量更新/恢复；确认项整体保存，旧草稿整批拒绝，最近一批可整体撤销。
+- `todos.json` 升级到 schema 4 并保留 `.pre-v4.bak`；新增 `plannedStartAt`，计划结束时间复用 `dueAt`。
+- 修复明确清理个人数据时遗漏固定 GitHub 更新令牌和 `.pre-v5.bak` 设置迁移副本的问题。
+
 ## [0.15.0] - 2026-09-08
 
 ### Changed

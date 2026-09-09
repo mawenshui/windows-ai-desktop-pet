@@ -56,6 +56,13 @@ public sealed record TodoItem
     [JsonPropertyName("dueAt")]
     public DateTimeOffset? DueAt { get; init; }
 
+    /// <summary>
+    /// Optional start of a user-confirmed focus block. DueAt stores the block
+    /// end so existing sorting and date filters remain useful.
+    /// </summary>
+    [JsonPropertyName("plannedStartAt")]
+    public DateTimeOffset? PlannedStartAt { get; init; }
+
     [JsonPropertyName("reminderAt")]
     public DateTimeOffset? ReminderAt { get; init; }
 
@@ -111,7 +118,7 @@ public sealed record TodoItem
 public sealed record TodoDocument
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; init; } = 3;
+    public int SchemaVersion { get; init; } = 4;
 
     [JsonPropertyName("items")]
     public List<TodoItem> Items { get; init; } = new();

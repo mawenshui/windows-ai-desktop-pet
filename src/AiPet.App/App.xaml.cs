@@ -164,6 +164,12 @@ public partial class App : System.Windows.Application
             return;
         }
         var settingsV = _settingsStore.Load();
+        Func<DateTimeOffset>? todoNow = null;
+        if (isUiE2e
+            && DateTimeOffset.TryParse(
+                Environment.GetEnvironmentVariable("AIPET_UI_E2E_NOW"),
+                out var uiE2eNow))
+            todoNow = () => uiE2eNow;
         var preferred = settingsV.Pet.PreferredCharacter;
         if (string.IsNullOrEmpty(preferred) || !manifest.FrameInventory?.Characters.Contains(preferred) == true)
             preferred = manifest.FrameInventory?.Preferred ?? "hero";
@@ -238,7 +244,8 @@ public partial class App : System.Windows.Application
                 _ai,
                 _settingsStore,
                 todoStore: _todoStore,
-                todoAiClient: _todoAi);
+                todoAiClient: _todoAi,
+                todoNow: todoNow);
             fromXaml.CharacterChanged += character => _pet?.SetCharacter(character);
             fromXaml.AppearanceChanged += appearance =>
             {
@@ -387,6 +394,9 @@ public partial class App : System.Windows.Application
                     viewModel.ThemePreference,
                     viewModel.SelectedAiConfigurationId,
                     viewModel.Todo.SelectedAiTargetId,
+                    todayPlanSelectedCount = viewModel.Todo.TodayPlanSelectedCount,
+                    todayPlanDraftCount = viewModel.Todo.TodayPlanDraft.Count,
+                    viewModel.Todo.CanUndoTodayPlan,
                     aiTemplateId = viewModel.SelectedAiTemplate?.Id,
                     viewModel.Provider,
                     viewModel.Endpoint,

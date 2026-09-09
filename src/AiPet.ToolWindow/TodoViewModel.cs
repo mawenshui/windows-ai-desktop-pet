@@ -26,6 +26,10 @@ public sealed record TodoRowViewModel(TodoItem Item)
     public bool CanRestore => IsCompleted && !IsReminder;
     public bool CanCancelReminder => HasReminder && !IsCompleted;
     public bool CanSkipOccurrence => CanCancelReminder && (Item.Recurrence.Kind != RecurrenceKind.None || Item.AdditionalReminderTimes.Count > 0);
+    public bool HasPlannedBlock => Item.PlannedStartAt is not null && Item.DueAt is not null;
+    public string PlannedBlockText => HasPlannedBlock
+        ? $"今日安排 {Item.PlannedStartAt!.Value.ToLocalTime():MM-dd HH:mm}–{Item.DueAt!.Value.ToLocalTime():HH:mm}"
+        : string.Empty;
     public string DueText => Item.DueAt is { } due
         ? $"截止 {due.ToLocalTime():MM-dd HH:mm}"
         : "无截止时间";
@@ -60,6 +64,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private readonly Func<DateTimeOffset> _defaultNow = () => DateTimeOffset.Now;
     private TodoStore? _store;
     private ITodoAiClient? _todoAiClient;
+    private ITodayPlanAiClient? _todayPlanAiClient;
     private Func<TodoAiConnection?>? _connectionProvider;
     private Func<DateTimeOffset> _now;
     private AiTodoDraft? _aiDraft;
@@ -92,6 +97,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     {
         new TodoFilterOption("pending", "待处理"),
         new TodoFilterOption("today", "今天"),
+        new TodoFilterOption("overdue", "已逾期"),
+        new TodoFilterOption("unscheduled", "未安排"),
         new TodoFilterOption("upcoming", "未来 7 天"),
         new TodoFilterOption("completed", "已完成"),
     };
@@ -102,6 +109,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     {
         "completed" => "还没有已完成待办，完成事项后会保留在这里。",
         "today" => "今天没有待办或提醒，可以放心安排下一件事。",
+        "overdue" => "没有已逾期事项。",
+        "unscheduled" => "所有待处理事项都已有时间。",
         "upcoming" => "未来 7 天没有已安排时间的待办。",
         _ => "还没有待办。可以手动新建，或用一句话让 AI 生成草稿。",
     };
@@ -442,6 +451,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     {
         _store = store;
         _todoAiClient = todoAiClient;
+        _todayPlanAiClient = todoAiClient as ITodayPlanAiClient;
         _connectionProvider = connectionProvider;
         _now = now ?? _defaultNow;
         Reload();
@@ -517,6 +527,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         CompleteReminderAlertCommand = new RelayCommand(_ => CompleteReminderAlert(), _ => HasReminderAlert);
         SnoozeReminderAlertCommand = new RelayCommand(_ => SnoozeReminderAlert(), _ => HasReminderAlert);
         OpenReminderAlertCommand = new RelayCommand(_ => OpenReminderAlert(), _ => HasReminderAlert);
+        InitializeTodayPlanCommands();
     }
 
     private void Reload()
@@ -536,8 +547,14 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         {
             "completed" => query.Where(item => item.Status == TodoStatus.Completed),
             "today" => query.Where(item => item.Status == TodoStatus.Pending)
-                .Where(item => item.DueAt?.ToLocalTime().Date == today
+                .Where(item => item.PlannedStartAt?.ToLocalTime().Date == today
+                    || item.DueAt?.ToLocalTime().Date == today
                     || item.ReminderAt?.ToLocalTime().Date == today),
+            "overdue" => query.Where(item => item.Status == TodoStatus.Pending)
+                .Where(item => item.DueAt is { } due && due < now
+                    || item.ReminderAt is { } reminder && reminder < now),
+            "unscheduled" => query.Where(item => item.Status == TodoStatus.Pending)
+                .Where(item => item.DueAt is null && item.ReminderAt is null && item.PlannedStartAt is null),
             "upcoming" => query.Where(item => item.Status == TodoStatus.Pending)
                 .Where(item =>
                 {
@@ -553,6 +570,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             .OrderBy(item => item.DueAt ?? item.ReminderAt ?? DateTimeOffset.MaxValue)
             .ThenBy(item => item.CreatedAt))
             Items.Add(new TodoRowViewModel(item));
+        RefreshTodayPlanCandidates();
         RaiseItemStateChanged();
     }
 
@@ -652,6 +670,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                     Title = EditorOnlyThis ? existing.Title : EditorTitle,
                     Notes = EditorOnlyThis ? existing.Notes : EditorNotes,
                     DueAt = EditorOnlyThis ? existing.DueAt : dueAt,
+                    PlannedStartAt = EditorOnlyThis || dueAt == existing.DueAt ? existing.PlannedStartAt : null,
                     ReminderAt = reminderAt,
                     Recurrence = EditorOnlyThis ? existing.Recurrence : recurrence,
                     RecurrenceAnchorAt = EditorOnlyThis ? existing.RecurrenceAnchorAt : reminderAt,
@@ -747,12 +766,19 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         }
     }
 
-    public void CancelBackgroundWork() => _aiParseCts?.Cancel();
+    public void CancelBackgroundWork()
+    {
+        _aiParseCts?.Cancel();
+        CancelTodayPlanWork();
+    }
 
     public async Task WaitForBackgroundWorkAsync(TimeSpan timeout)
     {
-        if (_aiParseTask is not { IsCompleted: false } task) return;
-        await Task.WhenAny(task, Task.Delay(timeout));
+        var tasks = new List<Task>();
+        if (_aiParseTask is { IsCompleted: false } parseTask) tasks.Add(parseTask);
+        AddTodayPlanBackgroundTask(tasks);
+        if (tasks.Count == 0) return;
+        await Task.WhenAny(Task.WhenAll(tasks), Task.Delay(timeout));
     }
 
     public void PreviewAiDraft(AiTodoDraft draft)
@@ -837,6 +863,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                         Title = _aiDraft.Title ?? target.Title,
                         Notes = _aiDraft.Notes ?? target.Notes,
                         DueAt = _aiDraft.ClearDue ? null : _aiDraft.DueAt ?? target.DueAt,
+                        PlannedStartAt = _aiDraft.ClearDue || _aiDraft.DueAt is not null ? null : target.PlannedStartAt,
                         ReminderAt = updatedReminder,
                         Recurrence = _aiDraft.ClearReminder ? new() : _aiDraft.Recurrence ?? target.Recurrence,
                         AdditionalReminderTimes = _aiDraft.ClearReminder ? Array.Empty<DateTimeOffset>() : _aiDraft.AdditionalReminderTimes ?? target.AdditionalReminderTimes,
@@ -1178,6 +1205,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         RaiseAiCommands();
         RaiseUndoStateChanged();
         RaiseReminderCommands();
+        RaiseTodayPlanCommands();
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
