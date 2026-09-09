@@ -36,12 +36,12 @@ test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构�
 
 0.16.1 完整自动化 **283/283 PASS**，Release 构建 0 警告、0 错误，system 与便携/安装/启动/卸载 package-smoke PASS。独立 UI 和窗口性能因应用无法置前而在发送输入前 FAIL；签名与物理设备为 SKIP。逐项证据见[0.16.1 验证报告](docs/release/0.16.1-test-report.md)。
 
-正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；门禁未齐时不创建 0.16.1 标签或 GitHub Release。
+正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核。当前 [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) 仅作为历史整理用 Pre-release 提供双资产，不表示门禁通过。
 
 ## 文档与候选产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.1 候选说明](docs/RELEASE_NOTES_0.16.1.md) · [验证报告](docs/release/0.16.1-test-report.md) · [扩展计划](docs/0.16.1－功能扩展计划.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.1 候选说明](docs/RELEASE_NOTES_0.16.1.md) · [验证报告](docs/release/0.16.1-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.16.1－功能扩展计划.md)
 
-0.16.1 候选资产来自干净源提交 `302aca03eb6b133c64959a3ebf4b95e6e5247cf2`：便携包 SHA-256 为 `4d5cc73a079dc418c51508e52f07b756ed1ef8c783b26671c061cca010e05dac`，安装器为 `89c2fb64e1b4156687ebb9b476a4f6d731c4a410e20842721186792e0398c3f0`。资产未签名且完整门禁未通过，仍不是正式 Release。
+0.16.1 候选资产来自干净源提交 `302aca03eb6b133c64959a3ebf4b95e6e5247cf2`：便携包 SHA-256 为 `4d5cc73a079dc418c51508e52f07b756ed1ef8c783b26671c061cca010e05dac`，安装器为 `89c2fb64e1b4156687ebb9b476a4f6d731c4a410e20842721186792e0398c3f0`。资产未签名且完整门禁未通过；GitHub 条目保持 Pre-release。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

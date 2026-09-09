@@ -18,4 +18,6 @@
 
 ## 验证与发布
 
-定向回归 26/26、完整自动化 283/283、system 和 package-smoke PASS，Release 构建 0 警告、0 错误。独立 UI 与窗口性能因应用无法置前而在输入前 FAIL；签名和硬件为 SKIP。详情见[0.16.1 验证报告](release/0.16.1-test-report.md)。本版本仍为候选，不创建标签或 GitHub Release。
+定向回归 26/26、完整自动化 283/283、system 和 package-smoke PASS，Release 构建 0 警告、0 错误。独立 UI 与窗口性能因应用无法置前而在输入前 FAIL；签名和硬件为 SKIP。详情见[0.16.1 验证报告](release/0.16.1-test-report.md)。
+
+2026-09-09 按历史发布整理要求建立 [v0.16.1 GitHub Pre-release](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1)，同时提供便携版、安装版和 `SHA256SUMS.txt`，并完成远端重新下载及哈希复核。该条目不改变上述门禁结论，0.16.1 仍是候选而非正式稳定版本。

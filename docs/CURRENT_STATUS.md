@@ -20,7 +20,7 @@ TodoDocument 维持 schema 4，时间块开始使用可空 `plannedStartAt`，�
 
 本轮定向回归 **26/26 PASS**；完整 CI **283/283 PASS**，Release 构建 0 警告、0 错误。system 与 package-smoke PASS。独立 UI 在 `inline-search-scope` 因应用无法置前而在输入前 FAIL；窗口性能同因 FAIL，匿名 20,000 项搜索 p95 为 4.2002 ms；签名和硬件为 SKIP。详见[0.16.1 验证报告](release/0.16.1-test-report.md)。历史 0.16.0 结果不作为本轮通过证据。
 
-0.16.1 候选资产从干净源提交 `302aca03eb6b133c64959a3ebf4b95e6e5247cf2` 生成，便携包与安装器的 SHA-256 分别为 `4d5cc73a079dc418c51508e52f07b756ed1ef8c783b26671c061cca010e05dac` 和 `89c2fb64e1b4156687ebb9b476a4f6d731c4a410e20842721186792e0398c3f0`。源码、文档和候选资产进入 `main`；完整门禁未通过，因此不创建 `v0.16.1` 标签或 GitHub Release。
+0.16.1 候选资产从干净源提交 `302aca03eb6b133c64959a3ebf4b95e6e5247cf2` 生成，便携包与安装器的 SHA-256 分别为 `4d5cc73a079dc418c51508e52f07b756ed1ef8c783b26671c061cca010e05dac` 和 `89c2fb64e1b4156687ebb9b476a4f6d731c4a410e20842721186792e0398c3f0`。源码、文档和候选资产已进入 `main`。按 2026-09-09 的历史发布整理要求，GitHub 已建立 [v0.16.1 Pre-release](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) 并提供便携版、安装版和校验清单；这不改变 UI/性能 FAIL、签名/硬件 SKIP，也不把候选提升为正式稳定版本。
 
 ## 文档入口
 
@@ -28,6 +28,7 @@ TodoDocument 维持 schema 4，时间块开始使用可空 `plannedStartAt`，�
 - [用户手册](USER_MANUAL.md) / [离线 HTML](USER_MANUAL.html)、[测试计划](TEST_PLAN.md)。
 - [0.16.1－功能扩展计划](0.16.1－功能扩展计划.md)、[已有功能优化](已有功能优化.md)。
 - [0.16.1 候选说明](RELEASE_NOTES_0.16.1.md)、[0.16.1 验证报告](release/0.16.1-test-report.md)。
+- [GitHub Release 状态](release/GITHUB_RELEASE_STATUS.md)。
 - [待办提醒设计](TODO_REMINDER_DESIGN.md)、[原型隔离评估](EXTENSION_PROTOTYPE_REPORT.md)、[角色资产来源](../assets/README.md)。
 
 ## 非当前产品能力

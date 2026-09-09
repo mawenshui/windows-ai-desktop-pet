@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format foll
 - 本地安排从精确的下一刻钟开始，空闲不足时保持不写入；草稿显示避让数量。
 - 批量应用和撤销继续使用原子写入与 `UpdatedAt` 保护，并分别提示草稿过期和旧撤销不能覆盖新编辑。
 - GitHub 更新只使用已安全保存的凭据；未保存令牌不参与请求，临时检查失败保留已发现版本。
+- 补齐历史候选 GitHub Pre-release 清单；每个已发布条目均提供便携版、安装版和 SHA-256，并完成远端下载复核。
 
 ## [0.16.0] - 2026-09-09
 
