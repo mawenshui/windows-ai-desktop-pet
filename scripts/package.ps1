@@ -106,14 +106,16 @@ function Publish-FileAtomically {
 $portableAsset = Join-Path $projectRoot "dist\portable\$portableName"
 $installerAsset = Join-Path $projectRoot "dist\installer\$installerName"
 $checksumPath = Join-Path $projectRoot 'dist\checksums\SHA256SUMS.txt'
+$commit = (& git -C $projectRoot rev-parse HEAD 2>$null)
+# Capture the build input state before publishing generated files into tracked
+# dist paths. Checking afterwards would make every successful build look dirty.
+$sourceTreeState = if (@(& git -C $projectRoot status --porcelain --untracked-files=no 2>$null).Count -eq 0) { 'clean' } else { 'dirty' }
 
 Publish-FileAtomically -Source $candidatePortableAsset -Destination $portableAsset
 Publish-FileAtomically -Source $candidateInstallerAsset -Destination $installerAsset
 Publish-FileAtomically -Source $candidateChecksum -Destination $checksumPath
 
 $provenancePath = Join-Path $projectRoot 'dist\checksums\RELEASE_PROVENANCE.json'
-$commit = (& git -C $projectRoot rev-parse HEAD 2>$null)
-$sourceTreeState = if (@(& git -C $projectRoot status --porcelain --untracked-files=no 2>$null).Count -eq 0) { 'clean' } else { 'dirty' }
 $signed = -not [string]::IsNullOrWhiteSpace($env:AIPET_SIGN_CERT_PATH)
 $provenance = [ordered]@{
     schemaVersion = 1
