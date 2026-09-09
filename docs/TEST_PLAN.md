@@ -33,6 +33,7 @@
 | DATA-01/02 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile；路径/容量/schema/hash、中途失败/中断回滚、真实模块/图标/队列成组恢复、损坏后写保护、卸载只删已知应用引用 |
 | HOTKEY-01/02 / EXT-09 | EssentialFeature、PetToolWindowLifecycle、HomePageLayout；组合键规范化/拒绝/去重、设置持久化、快速待办定向及标题焦点、托盘等价入口；真实跨程序按键与占用释放单列实测 |
 | DATA-03 / EXT-10 | EssentialFeature、SettingsStore、FutureFeature；24 小时节流、1～30 份保留、模块包含/排除、损坏输入失败保留、schema 4 与 `.pre-v4.bak` |
+| UPDATE-01～03 | GitHubReleaseUpdate、SettingsStore、HomeViewModel；稳定版本比较、精确资产、加速回退、带令牌禁用加速、Authorization、HTTPS/大小/校验和、临时文件清理、启动一次、周期设置、schema 5 与 `.pre-v5.bak` |
 | EXT-00 | test-release-evidence.ps1；缺失、过期、未来时间、版本/提交/输入不符、FAIL/SKIP、缺检查及资产错误必须失败 |
 | EXT-07/08 | PrototypeTests；正文单独同意、大小/编码/取消/撤销；包路径/缺帧/超大/未知字段/许可/重复/损坏回退 |
 | AUTO/TRAY/HELP | 自启、托盘重建合同、帮助路径与 smoke；真实重登录/Explorer 单列 |

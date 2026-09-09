@@ -52,7 +52,7 @@ public sealed partial class DataMaintenanceService
         }
         if(name=="settings.json")
         {
-            foreach(var module in new[] {"pet","search","toolWindow","ai","appearance","features","autostart","hotkeys","backup"})
+            foreach(var module in new[] {"pet","search","toolWindow","ai","appearance","features","autostart","hotkeys","backup","updates"})
                 if(root.TryGetProperty(module,out var value)) Require(value.ValueKind==JsonValueKind.Object);
             if(root.TryGetProperty("search",out var search) && search.TryGetProperty("ranges",out var ranges)) Require(ranges.ValueKind==JsonValueKind.Array && ranges.GetArrayLength()<=1000 && ranges.EnumerateArray().All(range=>range.ValueKind==JsonValueKind.String && !string.IsNullOrWhiteSpace(range.GetString())));
             if(root.TryGetProperty("ai",out var ai) && ai.TryGetProperty("profiles",out var profiles))
@@ -62,6 +62,12 @@ public sealed partial class DataMaintenanceService
             {
                 Require(Boolean(backup,"automaticEnabled"));
                 if(backup.TryGetProperty("retentionCount",out var retention)) Require(retention.TryGetInt32(out var count) && count is >=1 and <=30);
+            }
+            if(root.TryGetProperty("updates",out var updates))
+            {
+                Require(Boolean(updates,"periodicEnabled"));
+                if(updates.TryGetProperty("intervalHours",out var interval)) Require(interval.TryGetInt32(out var hours) && hours is >=1 and <=168);
+                if(updates.TryGetProperty("accelerationTemplate",out var template)) Require(template.ValueKind==JsonValueKind.String && (template.GetString()?.Length ?? 0)<=500);
             }
         }
         if(name=="provider-presets.json") Require(root.TryGetProperty("providers",out var providers) && providers.ValueKind==JsonValueKind.Array && providers.GetArrayLength()<=32 && providers.EnumerateArray().All(provider=>provider.ValueKind==JsonValueKind.Object));

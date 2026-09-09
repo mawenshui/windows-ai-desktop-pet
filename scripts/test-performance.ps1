@@ -46,6 +46,9 @@ public static class AiPetPerformanceMouse {
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr handle);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     public static IntPtr[] GetTopLevelWindows(uint targetProcessId) {
         var handles = new List<IntPtr>();
         EnumWindows((handle, parameter) => {
@@ -84,7 +87,7 @@ function Find-Element([string]$Name, [int]$TimeoutMilliseconds = 10000, [switch]
                 } catch { }
                 if ($null -eq $processWindow) { continue }
                 if ($processWindow.Current.Name -eq $Name -and
-                    (-not $Visible -or -not $processWindow.Current.IsOffscreen)) {
+                    (-not $Visible -or [AiPetPerformanceMouse]::IsWindowVisible($handle))) {
                     return $processWindow
                 }
                 $item = $processWindow.FindFirst(
@@ -97,7 +100,10 @@ function Find-Element([string]$Name, [int]$TimeoutMilliseconds = 10000, [switch]
     } while ($watch.ElapsedMilliseconds -lt $TimeoutMilliseconds)
     $diagnostic = if ($null -ne $script:process) {
         $windowNames = @([AiPetPerformanceMouse]::GetTopLevelWindows([uint32]$script:process.Id) | ForEach-Object {
-            try { [System.Windows.Automation.AutomationElement]::FromHandle($_).Current.Name } catch { '<uia-unavailable>' }
+            try {
+                $automationWindow = [System.Windows.Automation.AutomationElement]::FromHandle($_)
+                "$($automationWindow.Current.Name){nativeVisible=$([AiPetPerformanceMouse]::IsWindowVisible($_));uiaOffscreen=$($automationWindow.Current.IsOffscreen);rect=$($automationWindow.Current.BoundingRectangle)}"
+            } catch { '<uia-unavailable>' }
         })
         "process=$($script:process.Id), exited=$($script:process.HasExited), windows=[$($windowNames -join ', ')]"
     } else { 'process unavailable' }
@@ -108,6 +114,19 @@ function Click-At([double]$X, [double]$Y) {
     [AiPetPerformanceMouse]::SetCursorPos([int]$X, [int]$Y) | Out-Null
     [AiPetPerformanceMouse]::mouse_event([AiPetPerformanceMouse]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
     [AiPetPerformanceMouse]::mouse_event([AiPetPerformanceMouse]::LeftUp, 0, 0, 0, [UIntPtr]::Zero)
+}
+
+function Assert-AppForeground {
+    $window = Find-Element '小方工具袋'
+    [AiPetPerformanceMouse]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle) | Out-Null
+    Start-Sleep -Milliseconds 150
+    [uint32]$foregroundProcess = 0
+    [AiPetPerformanceMouse]::GetWindowThreadProcessId(
+        [AiPetPerformanceMouse]::GetForegroundWindow(),
+        [ref]$foregroundProcess) | Out-Null
+    if ($foregroundProcess -ne $script:process.Id) {
+        throw 'Interactive desktop cannot foreground the app; performance input was not sent.'
+    }
 }
 
 $process = $null
@@ -135,6 +154,7 @@ try {
         $close.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         Start-Sleep -Milliseconds 20
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        Assert-AppForeground
         Click-At ($petRect.Left + $petRect.Width / 2) ($petRect.Top + $petRect.Height / 2)
         $null = Find-Element '小方工具袋' 2000 -Visible
         $watch.Stop()
@@ -156,6 +176,7 @@ try {
     if (-not $tool.Current.IsOffscreen) { (Find-Element '收起工具窗口').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 50 }
     $dragWatch = [System.Diagnostics.Stopwatch]::StartNew()
     $dragObservations = 0
+    Assert-AppForeground
     [AiPetPerformanceMouse]::SetCursorPos([int]($petRect.Left + $petRect.Width / 2), [int]($petRect.Top + $petRect.Height / 2)) | Out-Null
     [AiPetPerformanceMouse]::mouse_event([AiPetPerformanceMouse]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
     for ($i = 1; $i -le 60; $i++) {

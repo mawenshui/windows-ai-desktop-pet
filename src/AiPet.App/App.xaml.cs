@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -246,6 +247,7 @@ public partial class App : System.Windows.Application
             };
             _homeVm = fromXaml;
             _homeVm.MaintenanceExitRequested += async (_, _) => await RequestShutdownAsync();
+            _homeVm.UpdateInstallerReady += OnUpdateInstallerReady;
             DebugLog("[App] home vm attached from XAML resource");
         }
         else
@@ -294,6 +296,7 @@ public partial class App : System.Windows.Application
         if (isPreview)
         {
             _homeVm?.SetGlobalHotkeyRuntimeStatus(new(false, "预览模式不注册系统级快捷键。"));
+            _homeVm?.SetPreviewUpdateStatus();
             _homeVm?.SetAutomaticBackupStatus(new(
                 AutomaticBackupOutcome.Skipped,
                 "预览模式不创建自动备份。",
@@ -315,6 +318,7 @@ public partial class App : System.Windows.Application
             }
 
             _automaticBackupTask = RunAutomaticBackupAsync();
+            _homeVm?.StartUpdateChecks();
         }
         // Patch: the "设置" item is now wired to open the home page
         // (the integrated ToolWindow already shows settings as a tab).
@@ -360,7 +364,7 @@ public partial class App : System.Windows.Application
                     AttachUiE2eProbe(_homeVm);
                 }
                 DebugLog($"[App] preview shown; visible={_tool?.IsVisible} active={_tool?.IsActive}");
-            }), DispatcherPriority.ApplicationIdle);
+            }), DispatcherPriority.Loaded);
         }
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -497,6 +501,34 @@ public partial class App : System.Windows.Application
         _homeVm?.SetAutomaticBackupStatus(result);
         if (result.Outcome == AutomaticBackupOutcome.Failed)
             _tray?.ShowBalloon("自动备份未完成", result.Message, ToolTipIcon.Warning);
+    }
+
+    private async void OnUpdateInstallerReady(UpdateInstallerReady update)
+    {
+        if (_shutdownRequested) return;
+        var decision = _tool is null
+            ? MessageBoxResult.No
+            : System.Windows.MessageBox.Show(
+                _tool,
+                $"版本 {update.Version} 已下载并通过 SHA-256 校验。\n\n现在启动安装程序并退出桌宠吗？",
+                "准备安装更新",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
+        if (decision != MessageBoxResult.Yes) return;
+        if (_tool is not null && !_tool.ConfirmApplicationClose()) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(update.Path, "/SP-") { UseShellExecute = true });
+            await RequestShutdownAsync();
+        }
+        catch
+        {
+            _tray?.ShowBalloon(
+                "无法启动更新安装器",
+                "下载文件仍保留在本机更新目录，可稍后重试。",
+                System.Windows.Forms.ToolTipIcon.Warning);
+        }
     }
 
     private void ShowTodoPage()

@@ -31,12 +31,14 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal(536, loaded.ToolWindow.Height);
         Assert.False(loaded.ToolWindow.StayOpen);
         Assert.True(loaded.ToolWindow.AlwaysOnTop);
-        Assert.Equal(4, loaded.SchemaVersion);
+        Assert.Equal(5, loaded.SchemaVersion);
         Assert.True(loaded.Hotkeys.Enabled);
         Assert.Equal("Ctrl+Alt+Space", loaded.Hotkeys.SearchGesture);
         Assert.Equal("Ctrl+Alt+T", loaded.Hotkeys.QuickTodoGesture);
         Assert.True(loaded.Backup.AutomaticEnabled);
         Assert.Equal(7, loaded.Backup.RetentionCount);
+        Assert.False(loaded.Updates.PeriodicEnabled);
+        Assert.Equal(24, loaded.Updates.IntervalHours);
     }
 
     [Fact]
@@ -66,6 +68,12 @@ public class SettingsStoreTests : IDisposable
                 QuickTodoGesture = "Win+Alt+T",
             },
             Backup = new BackupSettings { AutomaticEnabled = false, RetentionCount = 12 },
+            Updates = new UpdateSettings
+            {
+                PeriodicEnabled = true,
+                IntervalHours = 6,
+                AccelerationTemplate = "https://mirror.example.test/{url}",
+            },
         };
         s.Save(saved);
         var loaded = s.Load();
@@ -82,6 +90,9 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("Win+Alt+T", loaded.Hotkeys.QuickTodoGesture);
         Assert.False(loaded.Backup.AutomaticEnabled);
         Assert.Equal(12, loaded.Backup.RetentionCount);
+        Assert.True(loaded.Updates.PeriodicEnabled);
+        Assert.Equal(6, loaded.Updates.IntervalHours);
+        Assert.Equal("https://mirror.example.test/{url}", loaded.Updates.AccelerationTemplate);
     }
 
     [Fact]
@@ -125,25 +136,43 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("qwen", profile.ProviderId);
         Assert.Equal("qwen-plus", profile.Model);
         Assert.Equal("legacy", loaded.Ai.ActiveProfileId);
-        Assert.Equal(4, loaded.SchemaVersion);
+        Assert.Equal(5, loaded.SchemaVersion);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
     }
 
     [Fact]
-    public void Schema_v3_upgrades_to_v4_with_new_defaults_and_one_migration_backup()
+    public void Schema_v3_upgrades_to_v5_with_new_defaults_and_migration_backups()
     {
         var store = new SettingsStore(_root);
         File.WriteAllText(store.SettingsPath, "{\"schemaVersion\":3,\"pet\":{\"preferredCharacter\":\"base\"}}");
 
         var loaded = store.Load();
 
-        Assert.Equal(4, loaded.SchemaVersion);
+        Assert.Equal(5, loaded.SchemaVersion);
         Assert.Equal("base", loaded.Pet.PreferredCharacter);
         Assert.True(loaded.Hotkeys.Enabled);
         Assert.True(loaded.Backup.AutomaticEnabled);
         Assert.Equal(7, loaded.Backup.RetentionCount);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
         Assert.False(File.Exists(store.SettingsPath + ".pre-v3.bak"));
+    }
+
+    [Fact]
+    public void Schema_v4_adds_update_defaults_and_preserves_a_pre_v5_backup()
+    {
+        var store = new SettingsStore(_root);
+        File.WriteAllText(store.SettingsPath, "{\"schemaVersion\":4,\"backup\":{\"retentionCount\":9}}");
+
+        var loaded = store.Load();
+
+        Assert.Equal(5, loaded.SchemaVersion);
+        Assert.Equal(9, loaded.Backup.RetentionCount);
+        Assert.False(loaded.Updates.PeriodicEnabled);
+        Assert.Equal(24, loaded.Updates.IntervalHours);
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
+        Assert.False(File.Exists(store.SettingsPath + ".pre-v4.bak"));
     }
 
     [Theory]
@@ -155,6 +184,17 @@ public class SettingsStoreTests : IDisposable
         store.Save(new AppSettings { Backup = new BackupSettings { RetentionCount = input } });
 
         Assert.Equal(expected, store.Load().Backup.RetentionCount);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(200, 168)]
+    public void Update_interval_is_normalized_to_supported_bounds(int input, int expected)
+    {
+        var store = new SettingsStore(_root);
+        store.Save(new AppSettings { Updates = new UpdateSettings { IntervalHours = input } });
+
+        Assert.Equal(expected, store.Load().Updates.IntervalHours);
     }
 
     [Fact]

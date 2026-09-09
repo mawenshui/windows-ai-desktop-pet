@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.15.0**，于 **2026-09-08** 增加带口令加密的完整 AI 配置导入导出。当前为候选版本，独立桌面输入、硬件和签名门禁尚未全部通过。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.15.0**，于 **2026-09-08** 增加加密完整 AI 配置迁移和 GitHub Release 在线更新。当前为候选版本，独立桌面输入、硬件和签名门禁尚未全部通过。
 
 ## 当前能力
 
@@ -14,6 +14,7 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **
 - 维护模块及大小预览、恢复前校验/快照、重启切换/中断回滚、图标依赖恢复、双数据根日志处理和白名单诊断。
 - 默认 `Ctrl+Alt+Space` 唤出搜索、`Ctrl+Alt+T` 快速新建待办；可改键或停用，冲突时整组停用并保留托盘入口。
 - 每天最多一次的本地自动备份，默认保留 7 份且可设为 1～30；不包含 API Key、搜索索引或日志。
+- 每次正式启动检查一次 GitHub Release；可选 1～168 小时周期检查、系统代理和用户信任的 HTTPS 加速模板。私有仓库令牌只保存在 Windows 凭据管理器，下载完成须通过 Release SHA-256 清单并由用户确认安装。
 
 内容检索、外部 2D 角色包导入仅有隔离试验工程，未接入应用或发行包；未新增云同步、通用聊天、OCR、3D 或商城。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.15.0－功能扩展计划.md)。
 
@@ -32,7 +33,7 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.15.0 完整自动化 253/253、Release 构建和候选打包 PASS，正常 Windows 会话的便携/安装/卸载烟雾及系统可自动执行部分 PASS。独立 UI 和性能交互门禁因应用无法在当前桌面置前或被 UI Automation 定位而 FAIL；签名和物理矩阵仍有 SKIP。逐项结果见[0.15.0 验证报告](docs/release/0.15.0-test-report.md)。
+0.15.0 当前完整自动化 **268/268 PASS**，Release 构建 0 警告、0 错误；便携、安装、启动与卸载烟雾 PASS。候选产物会在源码提交后重建以固定 provenance。UI/性能置前门禁 FAIL，签名和物理环境门禁 SKIP，因此不创建正式标签或 GitHub Release。逐项结果见[0.15.0 验证报告](docs/release/0.15.0-test-report.md)。
 
 正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；当前没有创建 0.15.0 标签或 GitHub Release。
 

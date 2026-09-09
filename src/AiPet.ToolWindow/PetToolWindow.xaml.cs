@@ -27,6 +27,7 @@ internal enum UnsavedAiDecision
 public partial class PetToolWindow : Window
 {
     private bool _suppressApiKeyEcho;
+    private bool _suppressUpdateTokenEcho;
     private bool _suppressAutoHide;
     private bool _anchorInteractionActive;
     private bool _allowClose;
@@ -248,6 +249,8 @@ public partial class PetToolWindow : Window
             SyncApiKeyFromVm(vm);
         if (e.PropertyName == nameof(HomeViewModel.ThemePreference) && DataContext is HomeViewModel themeVm)
             ApplyTheme(themeVm.ThemePreference);
+        if (e.PropertyName == nameof(HomeViewModel.UpdateAccessTokenInput) && DataContext is HomeViewModel updateVm)
+            SyncUpdateTokenFromVm(updateVm);
     }
 
     private void SyncApiKeyFromVm(HomeViewModel vm)
@@ -263,6 +266,21 @@ public partial class PetToolWindow : Window
         if (_suppressApiKeyEcho) return;
         if (DataContext is HomeViewModel vm && sender is PasswordBox box)
             vm.ApiKey = box.Password;
+    }
+
+    private void SyncUpdateTokenFromVm(HomeViewModel vm)
+    {
+        if (GitHubUpdateTokenBox.Password == vm.UpdateAccessTokenInput) return;
+        _suppressUpdateTokenEcho = true;
+        try { GitHubUpdateTokenBox.Password = vm.UpdateAccessTokenInput ?? string.Empty; }
+        finally { _suppressUpdateTokenEcho = false; }
+    }
+
+    private void GitHubUpdateTokenBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressUpdateTokenEcho) return;
+        if (DataContext is HomeViewModel vm && sender is PasswordBox box)
+            vm.UpdateAccessTokenInput = box.Password;
     }
 
     private void BackupData_Click(object sender, RoutedEventArgs e)

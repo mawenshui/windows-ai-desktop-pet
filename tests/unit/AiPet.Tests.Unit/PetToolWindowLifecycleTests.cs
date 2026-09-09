@@ -796,7 +796,7 @@ public sealed class PetToolWindowLifecycleTests
         RunSta(()=>
         {
             var root=Path.Combine(Path.GetTempPath(),"aipet-feature-ui-"+Guid.NewGuid().ToString("N"));
-            var now=DateTimeOffset.Now; var store=new TodoStore(root,()=>now);
+            var now=new DateTimeOffset(DateTime.Today.AddHours(12)); var store=new TodoStore(root,()=>now);
             var entry=store.Create(new TodoItem {Title="伸展一下",ReminderAt=now.AddHours(1),IsReminder=true,Recurrence=new(){Kind=RecurrenceKind.Weekdays,TimeZoneId=TimeZoneInfo.Local.Id}});
             var window=new PetToolWindow {AutoHideOnDeactivate=false};
             window.ShowNear(new Rect(900,800,176,148),new Rect(0,0,1920,1040)); window.SelectTodoTab();

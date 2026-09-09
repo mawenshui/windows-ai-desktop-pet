@@ -74,6 +74,7 @@ public sealed partial class HomeViewModel
             async _ => await CreateAutomaticBackupNowAsync(),
             _ => _settings is not null && !_isCreatingAutomaticBackup);
         OpenAutomaticBackupDirectoryCommand = new RelayCommand(_ => OpenAutomaticBackupDirectory(), _ => _settings is not null);
+        InitializeUpdateCommands();
     }
 
     private void LoadEssentialSettings(AppSettings settings)
@@ -83,6 +84,7 @@ public sealed partial class HomeViewModel
         _quickTodoHotkeyGesture = settings.Hotkeys.QuickTodoGesture;
         _automaticBackupEnabled = settings.Backup.AutomaticEnabled;
         _automaticBackupRetentionText = settings.Backup.RetentionCount.ToString();
+        LoadUpdateSettings(settings);
         OnPCFor(nameof(GlobalHotkeysEnabled));
         OnPCFor(nameof(SearchHotkeyGesture));
         OnPCFor(nameof(QuickTodoHotkeyGesture));

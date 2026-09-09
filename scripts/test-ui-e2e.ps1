@@ -156,6 +156,7 @@ function Select-VisibleChoice([string]$SelectorName, [string]$ItemName) {
         [AiPetMouseInput]::SetForegroundWindow([IntPtr]$owner.Current.NativeWindowHandle) | Out-Null
         Start-Sleep -Milliseconds 120
     }
+    Assert-AppForeground
     [AiPetMouseInput]::SetCursorPos([int]($rect.Left + ($rect.Width / 2)), [int]($rect.Top + ($rect.Height / 2))) | Out-Null
     [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
     [AiPetMouseInput]::mouse_event([AiPetMouseInput]::LeftUp, 0, 0, 0, [UIntPtr]::Zero)

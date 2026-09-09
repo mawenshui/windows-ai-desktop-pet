@@ -495,6 +495,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             ConfirmSearchOnboardingCommand, DeferSearchOnboardingCommand, OpenHelpCommand,
             SaveGlobalHotkeysCommand, SaveAutomaticBackupSettingsCommand,
             CreateAutomaticBackupNowCommand, OpenAutomaticBackupDirectoryCommand,
+            SaveUpdateSettingsCommand, SaveUpdateAccessTokenCommand, ClearUpdateAccessTokenCommand,
+            CheckForUpdatesCommand, DownloadUpdateCommand,
         })
         {
             (command as RelayCommand)?.RaiseCanExecuteChanged();
@@ -1617,6 +1619,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     {
         _searchCts?.Cancel();
         _aiTestCts?.Cancel();
+        CancelUpdateWork();
         Todo.CancelBackgroundWork();
         lock (_rangeIndexGate)
             foreach (var cancellation in _rangeIndexCancellations.Values)
@@ -1628,6 +1631,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         var tasks = new List<Task>();
         lock (_rangeIndexGate) tasks.AddRange(_rangeIndexTasks.Values);
         if (_aiTestTask is { IsCompleted: false } aiTestTask) tasks.Add(aiTestTask);
+        AddUpdateBackgroundTasks(tasks);
         tasks.Add(Todo.WaitForBackgroundWorkAsync(timeout));
         if (tasks.Count == 0) return;
         await Task.WhenAny(Task.WhenAll(tasks), Task.Delay(timeout));

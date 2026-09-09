@@ -16,7 +16,7 @@ WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.10、System.Text.Js
 | Todos | schema 3、日历规则、最近到期调度、持久化通知记录 |
 | AI | 模型验证、最小生成验证、草稿协议、无 Key 交换、加密完整配置包、预设加载 |
 | Storage / Secrets | 设置/位置、原子写入、维护事务、每日备份、白名单诊断、Windows 凭据 |
-| SystemIntegration | HKCU 自启、离线帮助、RegisterHotKey / WM_HOTKEY |
+| SystemIntegration | HKCU 自启、离线帮助、RegisterHotKey / WM_HOTKEY、GitHub Release 检查与校验下载 |
 | tests/prototypes | 独立内容索引和严格 2D 子集原型，应用不引用、不打包 |
 
 ## 2. 启动、窗口与退出
@@ -67,7 +67,7 @@ AI 只接收当前一句话、时间及时区。草稿支持重复和额外时�
 
 ## 7. 维护与恢复
 
-备份格式 v2 保存文件 SHA-256，兼容 v1 读取。容量 512 MiB、单项 64 MiB、10,000 文件；拒绝路径越界/ADS/链接/未知模块、异常 JSON/schema、凭据字段。SQLite 是派生数据，不复制活跃数据库。模块包括设置、位置、待办/通知、快捷项/图标、预设及实际 LocalAppData 日志。设置 schema 4 增加 hotkeys 与 backup，并在迁移前写入 `.pre-v4.bak`。
+备份格式 v2 保存文件 SHA-256，兼容 v1 读取。容量 512 MiB、单项 64 MiB、10,000 文件；拒绝路径越界/ADS/链接/未知模块、异常 JSON/schema、凭据字段。SQLite 是派生数据，不复制活跃数据库。模块包括设置、位置、待办/通知、快捷项/图标、预设及实际 LocalAppData 日志。设置 schema 5 在 hotkeys 与 backup 之后增加 updates，并在迁移前分别保留 `.pre-v4.bak`、`.pre-v5.bak`。
 
 QueueRestore 校验并复制待恢复包、记录哈希。用户确认退出，下次启动校验全部输入后保留每个模块 before 快照和 journal，再切换。失败整体 rollback；发现 applying 日志则启动恢复快照。恢复快捷项重写图标为当前根路径；恢复设置清除旧授权索引。旧待办备份不含通知时创建空队列，排队待办缺配套队列时拒绝。
 
@@ -83,7 +83,15 @@ GlobalHotkeyGesture 只接受至少一个 Ctrl/Alt/Shift/Win 修饰键与一个�
 
 AutomaticBackupService 复用 DataMaintenanceService 的模块依赖、JSON/路径/凭据校验和备份格式 v2。正常启动读取设置后在后台执行；文件名保存 UTC 毫秒时间，24 小时内最多一次，成功后才按 1～30 份上限删除旧包。范围固定为设置、位置、待办/通知、快捷项/图标及 Provider 预设，排除凭据、搜索索引和日志。校验、写入或保留清理失败时返回失败状态并保留旧包；卸载明确清理个人数据时删除 automatic-backups。
 
-## 9. 发布证据
+## 9. GitHub Release 在线更新
+
+GitHubReleaseUpdateClient 固定读取 `mawenshui/windows-ai-desktop-pet` 的 latest stable Release，只接受三段稳定 SemVer、精确安装器文件名和 `SHA256SUMS.txt`。元数据/清单各限 1 MiB、安装器限 200 MiB；只接受无用户信息的 HTTPS，网络和读取均有独立超时。下载先写 `.download`，SHA-256 匹配后原子替换目标文件，失败删除临时文件且不改变当前安装。
+
+HttpClient 默认使用 Windows 系统代理。用户可配置恰含一个 `{url}` 的 HTTPS 加速模板，先尝试该入口再回退官方地址。私有仓库令牌存放在 `WindowsAiDesktopPet:Updates:GitHub` Windows 凭据目标；存在令牌时完全忽略加速模板，只使用 GitHub API 和系统代理，避免 Authorization 头发送给第三方。令牌不进入 settings、诊断、维护备份或状态消息。
+
+正常模式装配完成后调用 StartUpdateChecks，一次进程生命周期只启动一个初始检查。周期检查默认关闭，可设 1～168 小时；取消随应用退出。发现更新只显示版本和下载操作，不自动下载。下载校验通过后 App 再次询问用户，用户确认且处理完未保存 AI 编辑后才以 `/SP-` 启动安装器并退出。preview/ui-e2e 不访问网络。
+
+## 10. 发布证据
 
 collect-release-evidence 收集七组独立报告。release-evidence 绑定版本、提交、输入指纹、时间、环境以及烟雾/签名/硬件资产哈希；verify-release 拒绝 dirty、缺失/过期、FAIL/SKIP、缺项、错资产和错 SHA256SUMS。输入包含源码、测试、脚本、配置、素材、workflow、VERSION、Directory.Build.props 和离线手册。
 

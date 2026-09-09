@@ -577,6 +577,47 @@
 
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
                                     <StackPanel>
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Right" Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="9" Padding="9,4">
+                                                <TextBlock Text="GitHub Release" Foreground="{StaticResource AccentPressed}" FontSize="10" FontWeight="SemiBold" />
+                                            </Border>
+                                            <TextBlock Text="应用更新" Style="{StaticResource SectionLabel}" />
+                                        </DockPanel>
+                                        <TextBlock Text="每次正式启动检查一次；失败不会阻止桌宠启动，也不会自动下载安装。系统代理会自动生效。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8" />
+                                        <CheckBox Content="运行期间周期检查" IsChecked="{Binding PeriodicUpdateChecksEnabled, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="运行期间周期检查更新" />
+                                        <Grid Margin="0,2,0,8">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="检查周期" VerticalAlignment="Center" Margin="0,0,9,0" />
+                                            <TextBox Grid.Column="1" Style="{StaticResource Field}" Height="40" MaxLength="3" Text="{Binding UpdateIntervalHoursText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="更新检查周期小时" />
+                                            <TextBlock Grid.Column="2" Text="小时 · 1–168" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        </Grid>
+                                        <Expander Header="国内网络与自定义代理" Margin="0,1,0,8">
+                                            <StackPanel Margin="0,8,0,0">
+                                                <TextBlock Text="需要加速时，填写你信任的 HTTPS 模板并保留 {url} 占位符。应用先尝试该入口，再回退 GitHub 官方地址；安装器仍须通过 Release 校验清单。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7" />
+                                                <TextBox Style="{StaticResource Field}" Height="40" MaxLength="500" Text="{Binding UpdateAccelerationTemplate, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 https://你信任的服务/{url}" AutomationProperties.Name="GitHub 更新加速地址模板" />
+                                                <TextBlock Text="私有仓库访问" Style="{StaticResource SectionLabel}" Margin="0,12,0,7" />
+                                                <TextBlock Text="可保存仅具备仓库只读权限的 GitHub 令牌。令牌只进入 Windows 凭据管理器；启用后不会发送给自定义加速服务。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7" />
+                                                <Border Style="{StaticResource FieldChrome}">
+                                                    <PasswordBox x:Name="GitHubUpdateTokenBox" Style="{StaticResource BarePasswordBox}" MaxLength="512" PasswordChanged="GitHubUpdateTokenBox_PasswordChanged" AutomationProperties.Name="GitHub 更新访问令牌" />
+                                                </Border>
+                                                <WrapPanel Margin="0,8,0,0">
+                                                    <Button Content="安全保存令牌" Style="{StaticResource SecondaryButton}" Command="{Binding SaveUpdateAccessTokenCommand}" Margin="0,0,8,8" />
+                                                    <Button Content="清除令牌" Style="{StaticResource SecondaryButton}" Command="{Binding ClearUpdateAccessTokenCommand}" Margin="0,0,0,8" />
+                                                </WrapPanel>
+                                                <TextBlock Text="{Binding UpdateCredentialStatus}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                            </StackPanel>
+                                        </Expander>
+                                        <WrapPanel>
+                                            <Button Content="保存更新设置" Style="{StaticResource PrimaryButton}" Command="{Binding SaveUpdateSettingsCommand}" Margin="0,0,8,8" />
+                                            <Button Content="立即检查" Style="{StaticResource SecondaryButton}" Command="{Binding CheckForUpdatesCommand}" Margin="0,0,8,8" AutomationProperties.Name="立即检查 GitHub Release 更新" />
+                                            <Button Content="{Binding UpdateDownloadLabel}" Style="{StaticResource SecondaryButton}" Command="{Binding DownloadUpdateCommand}" Margin="0,0,0,8" Visibility="{Binding HasAvailableUpdate, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="下载并准备安装更新" />
+                                        </WrapPanel>
+                                        <TextBlock Text="{Binding UpdateStatus}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
+                                    <StackPanel>
                                         <DockPanel Margin="0,0,0,10">
                                             <Button DockPanel.Dock="Right" Content="＋ 添加文件夹" Style="{StaticResource SecondaryButton}" Padding="14,7" Click="BrowseRange_Click" />
                                             <StackPanel><TextBlock Text="搜索范围" Style="{StaticResource SectionLabel}" Margin="0" /><TextBlock Text="只索引你明确允许的文件夹" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,3,0,0" /></StackPanel>

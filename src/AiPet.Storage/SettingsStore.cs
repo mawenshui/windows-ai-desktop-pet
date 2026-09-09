@@ -8,7 +8,7 @@ namespace AiPet.Storage;
 public sealed class AppSettings
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 4;
+    public int SchemaVersion { get; set; } = 5;
 
     [JsonPropertyName("pet")]
     public PetSettings Pet { get; set; } = new();
@@ -36,6 +36,9 @@ public sealed class AppSettings
 
     [JsonPropertyName("backup")]
     public BackupSettings Backup { get; set; } = new();
+
+    [JsonPropertyName("updates")]
+    public UpdateSettings Updates { get; set; } = new();
 }
 
 public sealed class HotkeySettings
@@ -57,6 +60,18 @@ public sealed class BackupSettings
 
     [JsonPropertyName("retentionCount")]
     public int RetentionCount { get; set; } = AutomaticBackupService.DefaultRetentionCount;
+}
+
+public sealed class UpdateSettings
+{
+    [JsonPropertyName("periodicEnabled")]
+    public bool PeriodicEnabled { get; set; }
+
+    [JsonPropertyName("intervalHours")]
+    public int IntervalHours { get; set; } = 24;
+
+    [JsonPropertyName("accelerationTemplate")]
+    public string AccelerationTemplate { get; set; } = string.Empty;
 }
 
 public sealed class AppearanceSettings
@@ -222,11 +237,13 @@ public sealed class SettingsStore
             var text = File.ReadAllText(SettingsPath);
             var s = JsonSerializer.Deserialize<AppSettings>(text, Options);
             if (s is null) return Defaults();
-            if (s.SchemaVersion < 4)
+            if (s.SchemaVersion < 5)
             {
                 if (s.SchemaVersion < 3)
                     RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v3.bak", text);
-                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v4.bak", text);
+                if (s.SchemaVersion < 4)
+                    RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v4.bak", text);
+                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v5.bak", text);
                 s = Normalize(s);
                 Save(s);
             }
@@ -272,7 +289,7 @@ public sealed class SettingsStore
 
     private static AppSettings Normalize(AppSettings settings)
     {
-        settings.SchemaVersion = 4;
+        settings.SchemaVersion = 5;
         settings.Pet ??= new PetSettings();
         settings.ToolWindow ??= new ToolWindowSettings();
         settings.Autostart ??= new AutostartSettings();
@@ -280,9 +297,14 @@ public sealed class SettingsStore
         settings.Features ??= new FeatureSettings();
         settings.Hotkeys ??= new HotkeySettings();
         settings.Backup ??= new BackupSettings();
+        settings.Updates ??= new UpdateSettings();
         settings.Hotkeys.SearchGesture = NormalizeGestureText(settings.Hotkeys.SearchGesture, "Ctrl+Alt+Space");
         settings.Hotkeys.QuickTodoGesture = NormalizeGestureText(settings.Hotkeys.QuickTodoGesture, "Ctrl+Alt+T");
         settings.Backup.RetentionCount = Math.Clamp(settings.Backup.RetentionCount, 1, 30);
+        settings.Updates.IntervalHours = Math.Clamp(settings.Updates.IntervalHours, 1, 168);
+        settings.Updates.AccelerationTemplate = settings.Updates.AccelerationTemplate?.Trim() ?? string.Empty;
+        if (settings.Updates.AccelerationTemplate.Length > 500)
+            settings.Updates.AccelerationTemplate = string.Empty;
         if (settings.Appearance.Theme is not ("system" or "light" or "dark" or "high-contrast"))
             settings.Appearance.Theme = "system";
         settings.Search ??= new SearchSettings();
