@@ -3,7 +3,7 @@
 | 属性 | 当前基线 |
 | :--- | :--- |
 | 文档修订 | V2.5，2026-09-09，按 0.16.1 精进实现核对 |
-| 软件 | 0.16.1 候选工作区；完整发布门禁待本轮验证 |
+| 软件 | 0.16.1 候选；UI/性能 FAIL，签名/硬件 SKIP，不是正式 Release |
 | 平台 | Windows 桌面，WPF / .NET 8，win-x64 分发 |
 | 状态 | 当前范围与验收约束；不代表所有验收已通过 |
 | 事实来源 | src、tests、config、scripts、packaging 和 workflow；状态见 CURRENT_STATUS.md |

@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.16.1**，于 **2026-09-09** 精进今日安排的冲突避让、原子恢复提示和在线更新的凭据及失败恢复。当前为候选工作区，最终发布门禁结果以本轮验证报告为准。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.16.1**，于 **2026-09-09** 精进今日安排的冲突避让、原子恢复提示和在线更新的凭据及失败恢复。当前为候选版本，独立桌面输入、窗口性能、硬件和签名门禁尚未全部通过。
 
 ## 当前能力
 
@@ -34,7 +34,7 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.16.1 完整自动化 **283/283 PASS**，Release 构建 0 警告、0 错误；独立 UI、性能、系统、打包、签名和硬件门禁继续按本轮代码执行，逐项证据写入[0.16.1 验证报告](docs/release/0.16.1-test-report.md)。
+0.16.1 完整自动化 **283/283 PASS**，Release 构建 0 警告、0 错误，system 与便携/安装/启动/卸载 package-smoke PASS。独立 UI 和窗口性能因应用无法置前而在发送输入前 FAIL；签名与物理设备为 SKIP。逐项证据见[0.16.1 验证报告](docs/release/0.16.1-test-report.md)。
 
 正式发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；门禁未齐时不创建 0.16.1 标签或 GitHub Release。
 
@@ -42,6 +42,6 @@ test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构�
 
 [PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.1 候选说明](docs/RELEASE_NOTES_0.16.1.md) · [验证报告](docs/release/0.16.1-test-report.md) · [扩展计划](docs/0.16.1－功能扩展计划.md)
 
-0.16.1 资产与 SHA-256 将在完整自动化通过并提交干净源代码后重新生成；当前 0.16.0 资产不会冒充 0.16.1 交付物。
+0.16.1 候选资产来自干净源提交 `302aca03eb6b133c64959a3ebf4b95e6e5247cf2`：便携包 SHA-256 为 `4d5cc73a079dc418c51508e52f07b756ed1ef8c783b26671c061cca010e05dac`，安装器为 `89c2fb64e1b4156687ebb9b476a4f6d731c4a410e20842721186792e0398c3f0`。资产未签名且完整门禁未通过，仍不是正式 Release。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。
