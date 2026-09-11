@@ -1,6 +1,6 @@
 # GitHub Release 状态
 
-日期：2026-09-09。此清单按 GitHub 远端实际状态记录；`Pre-release` 只是集中提供历史候选下载，不改变原测试报告中的 PASS、FAIL、SKIP，也不等同于正式稳定发布。
+日期：2026-09-11。此清单按最近一次已核对的 GitHub 远端实际状态记录；`Pre-release` 只是集中提供历史候选下载，不改变原测试报告中的 PASS、FAIL、SKIP，也不等同于正式稳定发布。
 
 ## 已发布版本
 
@@ -20,7 +20,11 @@
 | [v0.14.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.14.0) | Pre-release | 便携 ZIP、安装 EXE、SHA-256 |
 | [v0.15.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.15.0) | Pre-release | 便携 ZIP、安装 EXE、SHA-256 |
 | [v0.16.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.0) | Pre-release | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) | Pre-release；当前候选 | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) | Pre-release；历史候选 | 便携 ZIP、安装 EXE、SHA-256 |
+
+## 当前 0.17.0 状态
+
+0.17.0 的候选便携版、安装版和 SHA-256 已在本地生成并通过 package-smoke，但 UI 与性能为 FAIL，签名与硬件为 SKIP。按仓库发布门禁，不创建 `v0.17.0` 标签或 GitHub Release；待同一候选字节的全部门禁通过后再发布。
 
 本次新增的 12 个历史候选均先以草稿上传，确认三个资产齐全后再发布为 Pre-release。随后通过 GitHub 资产 API 逐版下载全部 15 个 Release 的便携版、安装版和 `SHA256SUMS.txt`；下载字节与本地 SHA-256 全部一致。所有安装器均未签名。
 

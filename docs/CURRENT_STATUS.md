@@ -22,7 +22,9 @@ TodoDocument 维持 schema 4，设置维持 schema 5；`features.enableContentSe
 
 `scripts/test.ps1 -CI` 已完成：结构与 UTF-8 校验、发布证据反例、Release 全解决方案构建及 **289/289** 单元/集成测试均为 PASS，构建 0 警告、0 错误。正文编码、资源上限、排名、摘要、查询模式分流、撤销竞态、watcher、设置持久化和 WPF 合同均有回归覆盖。
 
-0.17.0 的便携版、安装版、SHA-256、package-smoke、独立 UI、system、performance、signatures 和 hardware 仍待本轮实际收集；历史 0.16.1 结果不作为本轮证据。完整结论见[0.17.0 验证报告](release/0.17.0-test-report.md)。全部正式门禁通过前，0.17.0 不能标记为稳定 GitHub Release。
+system 与 package-smoke 为 PASS；便携解压运行、静默安装、安装后启动、静默卸载及自启项清理均通过。独立 UI 在 `inline-search-scope` 因当前桌面无法将应用置前而于输入前 FAIL；窗口性能也在发送输入前因同一条件 FAIL，但已完成的匿名 20,000 项元数据搜索 p95 为 4.3721 ms。安装器与便携可执行文件未签名，signatures 为 SKIP；多屏、100%～200% 缩放、热插拔、休眠/时区、Explorer 重启和真实升级数据保留缺少见证环境，hardware 为 SKIP。
+
+0.17.0 候选资产从干净源提交 `c3366f77d4531579f392a7a1e2236b4918448165` 生成。便携包（76,775,799 bytes）SHA-256 为 `5a5df3fe16279fa0b9ac0d231efa2e4ce0f0474921043c34aa08ae25046ea90e`；安装器（53,962,079 bytes）为 `a494837cd5e0cd8a2668b94cd77d44321538d6b7f4a9a6f0f08c656651b4e44c`。完整结论见[0.17.0 验证报告](release/0.17.0-test-report.md)。由于正式门禁存在 FAIL/SKIP，本版本不创建稳定 GitHub Release。
 
 ## 文档入口
 

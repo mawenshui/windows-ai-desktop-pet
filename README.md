@@ -35,14 +35,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.17.0 完整 CI 当前 **289/289 PASS**，Release 构建 0 警告、0 错误；独立 UI、性能、打包烟雾、签名和物理设备结论将在本轮验证完成后写入[0.17.0 验证报告](docs/release/0.17.0-test-report.md)。
+0.17.0 完整 CI **289/289 PASS**，Release 构建 0 警告、0 错误，system 与便携/安装/启动/卸载 package-smoke PASS。独立 UI 和窗口性能因当前桌面无法将应用置前而在输入前 FAIL；签名与物理设备为 SKIP。逐项证据见[0.17.0 验证报告](docs/release/0.17.0-test-report.md)。
 
-正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；0.17.0 在完整证据产生前不得描述为稳定 Release。
+正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。0.17.0 当前未通过 UI、性能、签名和硬件门禁，因此只保留候选资产，不创建稳定 GitHub Release。
 
 ## 文档与候选产物
 
 [PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.17.0 候选说明](docs/RELEASE_NOTES_0.17.0.md) · [验证报告](docs/release/0.17.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.17.0－功能扩展计划.md)
 
-0.17.0 资产及 SHA-256 将由本轮 `scripts/package.ps1` 从当前代码生成；在报告写入实际字节、烟雾结果和远端核验前，不沿用任何历史资产结论。
+0.17.0 候选资产来自干净源提交 `c3366f77d4531579f392a7a1e2236b4918448165`。便携版 SHA-256 为 `5a5df3fe16279fa0b9ac0d231efa2e4ce0f0474921043c34aa08ae25046ea90e`，安装器为 `a494837cd5e0cd8a2668b94cd77d44321538d6b7f4a9a6f0f08c656651b4e44c`；两者均未签名。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。
