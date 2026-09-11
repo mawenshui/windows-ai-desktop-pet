@@ -26,6 +26,8 @@ system 与 package-smoke 为 PASS；便携解压运行、静默安装、安装�
 
 0.17.0 候选资产从干净源提交 `c3366f77d4531579f392a7a1e2236b4918448165` 生成。便携包（76,775,799 bytes）SHA-256 为 `5a5df3fe16279fa0b9ac0d231efa2e4ce0f0474921043c34aa08ae25046ea90e`；安装器（53,962,079 bytes）为 `a494837cd5e0cd8a2668b94cd77d44321538d6b7f4a9a6f0f08c656651b4e44c`。完整结论见[0.17.0 验证报告](release/0.17.0-test-report.md)。由于正式门禁存在 FAIL/SKIP，本版本不创建稳定 GitHub Release。
 
+源码、文档和候选资产已同步到 `main` 的资产提交 `4ee8809bd703c1417c1d4ed0c29fbfba5a37b558`。GitHub Git Tree API 返回的两个资产 blob SHA 与大小均和本地 Git 对象一致；远端 Release 列表仍以 `v0.16.1` 为最高条目，没有创建 `v0.17.0` 标签或 Release。
+
 ## 文档入口
 
 - [PRD](Windows桌面宠物产品需求文档_PRD.md)、[工程规范](PROJECT_SPEC.md)、[技术设计](TECHNICAL_DESIGN.md)。

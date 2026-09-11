@@ -24,7 +24,7 @@
 
 ## 当前 0.17.0 状态
 
-0.17.0 的候选便携版、安装版和 SHA-256 已在本地生成并通过 package-smoke，但 UI 与性能为 FAIL，签名与硬件为 SKIP。按仓库发布门禁，不创建 `v0.17.0` 标签或 GitHub Release；待同一候选字节的全部门禁通过后再发布。
+0.17.0 的候选便携版、安装版和 SHA-256 已生成、通过 package-smoke，并随源码和文档同步到 `main` 的资产提交 `4ee8809bd703c1417c1d4ed0c29fbfba5a37b558`。GitHub Git Tree API 返回的 blob SHA/大小与本地 Git 对象一致。UI 与性能为 FAIL，签名与硬件为 SKIP，因此不创建 `v0.17.0` 标签或 GitHub Release；待同一候选字节的全部门禁通过后再发布。
 
 本次新增的 12 个历史候选均先以草稿上传，确认三个资产齐全后再发布为 Pre-release。随后通过 GitHub 资产 API 逐版下载全部 15 个 Release 的便携版、安装版和 `SHA256SUMS.txt`；下载字节与本地 SHA-256 全部一致。所有安装器均未签名。
 
