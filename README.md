@@ -1,11 +1,12 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.17.0**，于 **2026-09-11** 新增默认关闭的受控本地文本正文搜索，并完善索引授权、撤销、状态与命中解释。当前为候选工作区，完整发布门禁仍按本次验证结果判定。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.18.0**，于 **2026-09-12** 完善搜索结果操作闭环，支持可见的打开、资源管理器定位、复制路径和加入快捷入口，并在相同查询刷新后恢复当前选择。当前为候选工作区，完整发布门禁仍按本次验证结果判定。
 
 ## 当前能力
 
 - RGS 四种桌宠、四页工具窗、常驻与置顶、页内选择、托盘、自启和离线帮助。
 - 授权本地搜索：名称或相对路径、类别/范围、通配符/正则、匹配原因、固定结果、可选本地最近使用排序及 50 条分页。
+- 搜索结果操作区：单击或键盘选择后可打开、在资源管理器中定位、复制完整路径或加入快捷入口；失效目标保留复制路径能力，条件变化会清除旧选择。
 - 可选受控正文搜索：只读取授权范围内不超过 128 KiB 的 `.txt`/`.md`，每范围最多 1,000 个文件和 16 MiB；正文命中显示短摘要，停用或撤销范围立即清除派生索引。
 - 索引重启监听、目录子树更新、事件溢出串行重建，取消或撤销授权不会提交旧任务结果。
 - 快捷入口分组、固定、多选、拖动或键盘排序，失效扫描/取消、重新定位、批量移除预览和本次运行内撤销。
@@ -18,7 +19,7 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **
 - 每次正式启动检查一次 GitHub Release；可选 1～168 小时周期检查、系统代理和用户信任的 HTTPS 加速模板。私有仓库令牌仅在安全保存到 Windows 凭据管理器后使用；临时检查失败保留已发现版本，下载完成须通过 Release SHA-256 清单并由用户确认安装。
 - 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，自动避让未选事项的既有安排，再逐项确认、整批原子写入并撤销最近一批。
 
-外部 2D 角色包导入仍只有隔离试验工程；PDF/Office 正文、OCR、语义检索、云同步、通用聊天、3D 和商城未接入。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.17.0－功能扩展计划.md)。
+外部 2D 角色包导入仍只有隔离试验工程；PDF/Office 正文、OCR、语义检索、云同步、通用聊天、3D 和商城未接入。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.18.0－功能扩展计划.md)。
 
 ## 使用与开发
 
@@ -35,14 +36,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.17.0 完整 CI **289/289 PASS**，Release 构建 0 警告、0 错误，system 与便携/安装/启动/卸载 package-smoke PASS。独立 UI 和窗口性能因当前桌面无法将应用置前而在输入前 FAIL；签名与物理设备为 SKIP。逐项证据见[0.17.0 验证报告](docs/release/0.17.0-test-report.md)。
+0.18.0 完整 CI **297/297 PASS**，Release 构建 0 警告、0 错误。候选打包和独立门禁结果在[0.18.0 验证报告](docs/release/0.18.0-test-report.md)中记录。
 
-正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。0.17.0 当前未通过 UI、性能、签名和硬件门禁，因此只保留候选资产，不创建稳定 GitHub Release。
+正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。任一 UI、性能、签名或硬件门禁出现 FAIL/SKIP 时，0.18.0 只保留候选资产，不创建稳定 GitHub Release。
 
 ## 文档与候选产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.17.0 候选说明](docs/RELEASE_NOTES_0.17.0.md) · [验证报告](docs/release/0.17.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.17.0－功能扩展计划.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.18.0 候选说明](docs/RELEASE_NOTES_0.18.0.md) · [验证报告](docs/release/0.18.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.18.0－功能扩展计划.md)
 
-0.17.0 候选资产来自干净源提交 `c3366f77d4531579f392a7a1e2236b4918448165`。便携版 SHA-256 为 `5a5df3fe16279fa0b9ac0d231efa2e4ce0f0474921043c34aa08ae25046ea90e`，安装器为 `a494837cd5e0cd8a2668b94cd77d44321538d6b7f4a9a6f0f08c656651b4e44c`；两者均未签名。
+0.18.0 的便携版、安装版、SHA-256 和来源提交将在当前源码与文档提交后重新生成，不复用 0.17.0 的历史资产证据。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

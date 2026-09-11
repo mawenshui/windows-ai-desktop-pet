@@ -238,7 +238,7 @@
                             </Grid>
 
                             <Grid Grid.Row="3">
-                                <ListBox x:Name="ResultsList" ItemsSource="{Binding Results}" BorderThickness="0" Background="Transparent" SelectionMode="Single" MouseDoubleClick="Results_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True" ItemContainerStyle="{StaticResource ResultItem}" AutomationProperties.Name="搜索结果">
+                                <ListBox x:Name="ResultsList" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedResult, Mode=TwoWay}" BorderThickness="0" Background="Transparent" SelectionMode="Single" MouseDoubleClick="Results_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True" ItemContainerStyle="{StaticResource ResultItem}" AutomationProperties.AutomationId="ResultsList" AutomationProperties.Name="搜索结果">
                                     <ListBox.Resources>
                                         <Style TargetType="ScrollBar" BasedOn="{StaticResource CreamScrollBar}" />
                                     </ListBox.Resources>
@@ -258,6 +258,21 @@
                                     </Border.Style>
                                 </Border>
                             </Grid>
+
+                            <Border Grid.Row="4" Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="10" Padding="9,7" Margin="0,7,0,0"
+                                    Visibility="{Binding HasSelectedResult, Converter={StaticResource BoolToVisibility}}"
+                                    AutomationProperties.Name="所选搜索结果操作">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <TextBlock Text="{Binding SelectedResultSummary}" Foreground="{StaticResource Ink}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <WrapPanel Grid.Row="1" Margin="0,6,0,0">
+                                        <Button Content="打开" Style="{StaticResource PrimaryButton}" MinHeight="36" Padding="12,6" Command="{Binding OpenSelectedResultCommand}" AutomationProperties.AutomationId="OpenSelectedResultButton" AutomationProperties.Name="打开所选搜索结果" />
+                                        <Button Content="定位" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="6,0,0,0" Command="{Binding RevealSelectedResultCommand}" AutomationProperties.AutomationId="RevealSelectedResultButton" AutomationProperties.Name="在文件资源管理器中定位所选搜索结果" />
+                                        <Button Content="复制路径" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="6,0,0,0" Command="{Binding CopySelectedResultPathCommand}" AutomationProperties.AutomationId="CopySelectedResultPathButton" AutomationProperties.Name="复制所选搜索结果路径" />
+                                        <Button Content="加入快捷入口" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="6,0,0,0" Command="{Binding AddSelectedResultToShortcutsCommand}" AutomationProperties.AutomationId="AddSelectedResultToShortcutsButton" AutomationProperties.Name="将所选搜索结果加入快捷入口" />
+                                    </WrapPanel>
+                                </Grid>
+                            </Border>
 
                             <DockPanel Grid.Row="5" Margin="2,7,0,0"><Button DockPanel.Dock="Right" Content="继续加载" Style="{StaticResource SecondaryButton}" MinHeight="32" Padding="10,4" Command="{Binding LoadMoreResultsCommand}" Visibility="{Binding HasMoreResults, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="加载更多搜索结果" /><Ellipse Width="6" Height="6" Margin="0,0,7,0" Fill="{StaticResource Accent}" VerticalAlignment="Center" /><TextBlock Text="{Binding Status}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" /></DockPanel>
                         </Grid>

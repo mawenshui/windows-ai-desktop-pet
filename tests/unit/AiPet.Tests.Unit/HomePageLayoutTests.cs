@@ -144,6 +144,26 @@ public sealed class HomePageLayoutTests
     }
 
     [Fact]
+    public void Search_results_expose_selection_and_keyboard_accessible_follow_up_actions()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+
+        Assert.Contains("SelectedItem=\"{Binding SelectedResult, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Visibility=\"{Binding HasSelectedResult, Converter={StaticResource BoolToVisibility}}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding OpenSelectedResultCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding RevealSelectedResultCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding CopySelectedResultPathCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding AddSelectedResultToShortcutsCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"ResultsList\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"OpenSelectedResultButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"RevealSelectedResultButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"CopySelectedResultPathButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"AddSelectedResultToShortcutsButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"在文件资源管理器中定位所选搜索结果\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"复制所选搜索结果路径\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Today_plan_exposes_explicit_selection_preview_confirm_and_undo_controls()
     {
         var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));

@@ -1,4 +1,4 @@
-> 2026-09-11 文档核对：当前基线为 0.17.0，四页是主页、待办、维护、设置，八组选择器已使用页内 ListBox。正文搜索设置与结果摘要继续复用既有颜色、卡片、按钮和 live-region 反馈，不引入新颜色、字体或动效。当前实现与验证边界见 [技术设计](../docs/TECHNICAL_DESIGN.md) 和 [当前状态](../docs/CURRENT_STATUS.md)。
+> 2026-09-12 文档核对：当前基线为 0.18.0，四页是主页、待办、维护、设置，八组选择器已使用页内 ListBox。搜索结果操作区复用既有 `accent.tint`、`accent.soft`、主/次按钮和焦点反馈，不引入新颜色、字体或动效。当前实现与验证边界见 [技术设计](../docs/TECHNICAL_DESIGN.md) 和 [当前状态](../docs/CURRENT_STATUS.md)。
 
 # 多功能 AI 桌宠 · 设计令牌
 
@@ -48,3 +48,4 @@
 - Cards: 14px radius, white surface, `0 2px 12px` equivalent warm shadow; primary result/shortcut hover lifts 2px without changing layout.
 - Pet bubble: 12px radius, paper surface, concise one-line text; appears for hover/action feedback, low-frequency idle phrases, and configured reminder messages.
 - Navigation: compact four-item top strip; selected item is a raised white pill with warm-orange text.
+- Search result actions: 10px radius, `accent.tint` surface with `accent.soft` border, 11px selected-summary text, 36px minimum text-button height, and WrapPanel fallback within the fixed-width popover.

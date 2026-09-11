@@ -254,8 +254,12 @@ try {
     $isolatedData = Join-Path $projectRoot ('build\ui-e2e-data\' + [Guid]::NewGuid().ToString('N'))
     $probePath = Join-Path $isolatedData 'ui-probe.json'
     [System.IO.Directory]::CreateDirectory($isolatedData) | Out-Null
+    $searchFixtureRoot = Join-Path $isolatedData 'search-fixture'
+    [System.IO.Directory]::CreateDirectory($searchFixtureRoot) | Out-Null
+    $searchFixturePath = Join-Path $searchFixtureRoot 'result-action-fixture.txt'
+    [System.IO.File]::WriteAllText($searchFixturePath, 'anonymous search action fixture')
     $profiles=@(foreach($id in @('fixture-a','fixture-b')) { @{id=$id;displayName=$id;providerId='deepseek';endpoint='https://example.invalid';model='fixture';secretTargetName="WindowsAiDesktopPet:AI:$id";lastStatus='Untested'} })
-    @{schemaVersion=5;search=@{onboardingCompleted=$true};ai=@{activeProfileId='fixture-a';profiles=$profiles};hotkeys=@{enabled=$false;searchGesture='Ctrl+Alt+Space';quickTodoGesture='Ctrl+Alt+T'};backup=@{automaticEnabled=$false;retentionCount=7}} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $isolatedData 'settings.json') -Encoding utf8NoBOM
+    @{schemaVersion=5;search=@{onboardingCompleted=$true;ranges=@($searchFixtureRoot)};ai=@{activeProfileId='fixture-a';profiles=$profiles};hotkeys=@{enabled=$false;searchGesture='Ctrl+Alt+Space';quickTodoGesture='Ctrl+Alt+T'};backup=@{automaticEnabled=$false;retentionCount=7}} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $isolatedData 'settings.json') -Encoding utf8NoBOM
     $todoFixtures=@(
         @{id=[Guid]::NewGuid().ToString();title='UI fixture one';notes='anonymous fixture';createdAt='2026-09-01T10:01:00+08:00';status='Pending'},
         @{id=[Guid]::NewGuid().ToString();title='UI fixture two';notes='anonymous fixture';createdAt='2026-09-01T10:02:00+08:00';status='Pending'}
@@ -287,6 +291,31 @@ try {
     Select-VisibleChoice 'CategoryFilterSelector' '图片'
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).Category -ne '图片') { throw 'Result category did not update.' }
     Test-KeyboardChoice 'CategoryFilterSelector'
+
+    $stage = 'search-result-actions'
+    Select-VisibleChoice 'SearchScopeSelector' '全部范围' -SkipEvidence
+    Select-VisibleChoice 'CategoryFilterSelector' '全部' -SkipEvidence
+    Assert-AppForeground
+    $searchBox = Find-Element '本地搜索'
+    $searchBox.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait('result-action-fixture')
+    Start-Sleep -Milliseconds 600
+    Select-VisibleChoice 'ResultsList' 'result-action-fixture.txt' -SkipEvidence
+    foreach ($buttonId in @('OpenSelectedResultButton','RevealSelectedResultButton','CopySelectedResultPathButton','AddSelectedResultToShortcutsButton')) {
+        $button = Find-Element $buttonId
+        if (-not $button.Current.IsEnabled -or $button.Current.IsOffscreen) { throw "Search result action is not available: $buttonId" }
+    }
+    Click-Element 'CopySelectedResultPathButton'
+    if ([System.Windows.Forms.Clipboard]::GetText() -ne $searchFixturePath) { throw 'Search result path was not copied exactly.' }
+    Click-Element 'AddSelectedResultToShortcutsButton'
+    $shortcutPath = Join-Path $isolatedData 'shortcuts.json'
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $savedShortcut = if (Test-Path -LiteralPath $shortcutPath) { @((Get-Content -LiteralPath $shortcutPath -Raw | ConvertFrom-Json).items | Where-Object targetPath -eq $searchFixturePath) } else { @() }
+        if ($savedShortcut.Count -eq 1) { break }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if ($savedShortcut.Count -ne 1) { throw 'Search result was not added to shortcuts.' }
 
     $stage = 'keyboard-navigation'
     Select-Tab '待办'
@@ -370,7 +399,7 @@ try {
     Click-Element '退出'
     if (-not $process.WaitForExit(5000)) { throw 'Application did not exit through its context menu.' }
 
-    $checks=@('eight-selectors-mouse','eight-selectors-keyboard','today-plan-selection','today-plan-local-draft','today-plan-partial-apply','today-plan-batch-undo','unsaved-navigation','focus-restore','tray-actions') | ForEach-Object { @{name=$_;status='PASS'} }
+    $checks=@('eight-selectors-mouse','eight-selectors-keyboard','search-result-actions','today-plan-selection','today-plan-local-draft','today-plan-partial-apply','today-plan-batch-undo','unsaved-navigation','focus-restore','tray-actions') | ForEach-Object { @{name=$_;status='PASS'} }
     $report = [ordered]@{ schemaVersion = 1; status = 'PASS'; startedAtUtc = $startedAt; completedAtUtc = [DateTimeOffset]::UtcNow; selectors=@($selectorEvidence.ToArray()); checks=@($checks); environment=@{os=[Environment]::OSVersion.VersionString;displayCount=[System.Windows.Forms.Screen]::AllScreens.Count} }
     [System.IO.File]::WriteAllText($reportPath, ($report | ConvertTo-Json -Depth 4), [System.Text.UTF8Encoding]::new($false))
     Write-Output "[PASS] independent desktop UI automation completed: $reportPath"

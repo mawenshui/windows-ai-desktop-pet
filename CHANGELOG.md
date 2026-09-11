@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.18.0] - 2026-09-12
+
+### Changed
+
+- 为选中的搜索结果增加打开、资源管理器定位、复制路径和加入快捷入口操作区，同时保留双击与 Enter 打开。
+- 将 Windows Shell 与剪贴板调用隔离到可测试适配器，完整路径作为单个参数传递，失败返回不含敏感路径的稳定提示。
+- 失效目标禁用打开、定位和加入快捷入口，但仍允许复制路径；加入入口复用现有名称、图标、持久化和重复检查。
+- 相同查询刷新按范围与路径恢复选择，关键词、类别、范围、字段或匹配模式变化时清除旧选择；设置和待办 schema 不变。
+
 ## [0.17.0] - 2026-09-11
 
 ### Changed

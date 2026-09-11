@@ -58,13 +58,15 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         TodoStore? todoStore = null,
         ITodoAiClient? todoAiClient = null,
         IReadOnlyList<SearchRangeCandidateOption>? searchOnboardingCandidates = null,
-        Func<DateTimeOffset>? todoNow = null)
+        Func<DateTimeOffset>? todoNow = null,
+        ISearchResultActions? searchResultActions = null)
     {
         _search = search;
         _shortcuts = shortcuts;
         _ai = ai;
         _settings = settings;
         _secretStore = secretStore ?? new WindowsAiSecretStore();
+        _searchResultActions = searchResultActions ?? new WindowsSearchResultActions();
         var loaded = settings.Load();
         _selectedCharacter = loaded.Pet.PreferredCharacter;
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
@@ -144,6 +146,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             _query = value;
             OnPC();
             OnPCFor(nameof(ResultEmptyMessage));
+            ClearSelectedResult();
             RestartSearch();
         }
     }
@@ -157,6 +160,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             _category = value;
             OnPC();
             OnPCFor(nameof(ResultEmptyMessage));
+            ClearSelectedResult();
             RestartSearch(immediate: true);
         }
     }
@@ -172,6 +176,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             OnPC();
             OnPCFor(nameof(SelectedSearchScope));
             OnPCFor(nameof(ResultEmptyMessage));
+            ClearSelectedResult();
             SaveSearchPreferences();
             RestartSearch(immediate: true);
         }
@@ -200,6 +205,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             if (_enableWildcardSearch == value) return;
             _enableWildcardSearch = value;
             OnPC();
+            ClearSelectedResult();
             SaveSearchPreferences();
             RestartSearch();
         }
@@ -214,6 +220,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             if (_enableRegexSearch == value) return;
             _enableRegexSearch = value;
             OnPC();
+            ClearSelectedResult();
             SaveSearchPreferences();
             RestartSearch();
         }
@@ -454,6 +461,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
 
     private void InitializeCommands()
     {
+        InitializeSearchResultCommands();
         SearchCommand = new RelayCommand(_ => RestartSearch(immediate: true));
         LoadMoreResultsCommand = new RelayCommand(async _ => await LoadMoreResultsAsync(), _ => HasMoreResults && !IsSearching);
         AddShortcutCommand = new RelayCommand(_ => AddShortcutRequested?.Invoke(this, EventArgs.Empty));
@@ -506,6 +514,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         {
             (command as RelayCommand)?.RaiseCanExecuteChanged();
         }
+        RaiseSearchResultCommandStates();
     }
 
     // ---------------- search ----------------
@@ -535,6 +544,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             SetSearching(false);
             Status = "请输入关键词，或选择类别。";
             Results.Clear();
+            ClearSelectedResult();
             HasMoreResults = false;
             OnPCFor(nameof(HasResults));
             OnPCFor(nameof(ResultEmptyMessage));
@@ -565,9 +575,12 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             var page = await Task.Run(() => _search.SearchPage(query, kind, options, ct), ct);
             var rows = page.Items;
             if (!IsCurrentSearch(generation, ct)) return;
+            var selectedRangeId = SelectedResult?.RangeId;
+            var selectedPath = SelectedResult?.FullPath;
             _searchPageRevision = page.Revision;
             Results.Clear();
             foreach (var r in rows.Take(pageSize)) Results.Add(r);
+            RestoreSelectedResult(selectedRangeId, selectedPath);
             HasMoreResults = rows.Count > pageSize;
             OnPCFor(nameof(HasResults));
             OnPCFor(nameof(ResultEmptyMessage));
@@ -579,6 +592,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             if (!IsCurrentSearch(generation, ct)) return;
             Status = ex.Message;
             Results.Clear();
+            ClearSelectedResult();
             OnPCFor(nameof(HasResults));
             OnPCFor(nameof(ResultEmptyMessage));
         }
@@ -647,19 +661,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
 
     public void OpenResult(SearchItem item)
     {
-        if (!item.ExistsNow) { Status = "目标已不存在,需重新索引"; return; }
-        try
-        {
-            var psi = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = item.FullPath,
-                UseShellExecute = true,
-            };
-            if (item.Kind == SearchItemKind.Folder) psi.FileName = item.FullPath;
-            System.Diagnostics.Process.Start(psi);
-            if (UseRecentSearchHistory) _search?.RecordUse(item);
-        }
-        catch { Status = "打开失败，请检查权限或默认程序。"; }
+        SelectedResult = item;
+        OpenSelectedResultCommand.Execute(null);
     }
 
     // ---------------- shortcuts ----------------
@@ -1345,6 +1348,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         // the effective query even though the selection setter is not called.
         // Re-run the current non-empty query so results never belong to the
         // previous scope.
+        if (selectionChanged) ClearSelectedResult();
         if (selectionChanged && (!string.IsNullOrWhiteSpace(Query) || Category != "全部"))
             RestartSearch(immediate: true);
     }

@@ -233,6 +233,130 @@ public sealed class HomePageExperienceTests : IDisposable
     }
 
     [Fact]
+    public void Selected_result_actions_open_reveal_copy_and_reuse_shortcut_rules()
+    {
+        var target = Path.Combine(_root, "daily notes.txt");
+        File.WriteAllText(target, "notes");
+        var settings = new SettingsStore(Path.Combine(_root, "result-action-settings"));
+        var shortcuts = new ShortcutStore(Path.Combine(_root, "result-action-shortcuts"));
+        var actions = new RecordingSearchResultActions();
+        var vm = new HomeViewModel(
+            _search,
+            shortcuts,
+            new OpenAiCompatibleClient(),
+            settings,
+            searchResultActions: actions);
+        var item = SearchItemFor(target);
+
+        vm.SelectedResult = item;
+
+        Assert.True(vm.HasSelectedResult);
+        Assert.Contains("daily notes.txt", vm.SelectedResultSummary, StringComparison.Ordinal);
+        Assert.True(vm.OpenSelectedResultCommand.CanExecute(null));
+        Assert.True(vm.RevealSelectedResultCommand.CanExecute(null));
+        Assert.True(vm.CopySelectedResultPathCommand.CanExecute(null));
+        Assert.True(vm.AddSelectedResultToShortcutsCommand.CanExecute(null));
+
+        vm.OpenSelectedResultCommand.Execute(null);
+        vm.RevealSelectedResultCommand.Execute(null);
+        vm.CopySelectedResultPathCommand.Execute(null);
+        vm.AddSelectedResultToShortcutsCommand.Execute(null);
+
+        Assert.Equal(item, actions.Opened);
+        Assert.Equal(item, actions.Revealed);
+        Assert.Equal(target, actions.CopiedPath);
+        Assert.True(vm.HasShortcutTarget(target));
+        Assert.Single(shortcuts.Load());
+
+        vm.AddSelectedResultToShortcutsCommand.Execute(null);
+        Assert.Contains("已存在", vm.Status, StringComparison.Ordinal);
+        Assert.Single(shortcuts.Load());
+    }
+
+    [Fact]
+    public void Missing_selected_result_disables_mutating_actions_but_can_still_copy_its_path()
+    {
+        var target = Path.Combine(_root, "gone.txt");
+        File.WriteAllText(target, "gone");
+        var actions = new RecordingSearchResultActions();
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "missing-result-shortcuts")),
+            new OpenAiCompatibleClient(),
+            new SettingsStore(Path.Combine(_root, "missing-result-settings")),
+            searchResultActions: actions);
+        var item = SearchItemFor(target);
+        vm.SelectedResult = item;
+        File.Delete(target);
+
+        Assert.False(vm.OpenSelectedResultCommand.CanExecute(null));
+        Assert.False(vm.RevealSelectedResultCommand.CanExecute(null));
+        Assert.False(vm.AddSelectedResultToShortcutsCommand.CanExecute(null));
+        Assert.True(vm.CopySelectedResultPathCommand.CanExecute(null));
+
+        vm.OpenResult(item);
+        Assert.Contains("目标已不存在", vm.Status, StringComparison.Ordinal);
+        vm.CopySelectedResultPathCommand.Execute(null);
+        Assert.Equal(target, actions.CopiedPath);
+    }
+
+    [Fact]
+    public void Result_action_failures_are_isolated_behind_stable_user_messages()
+    {
+        var target = Path.Combine(_root, "locked.txt");
+        File.WriteAllText(target, "locked");
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "failed-result-shortcuts")),
+            new OpenAiCompatibleClient(),
+            new SettingsStore(Path.Combine(_root, "failed-result-settings")),
+            searchResultActions: new ThrowingSearchResultActions());
+        vm.SelectedResult = SearchItemFor(target);
+
+        vm.OpenSelectedResultCommand.Execute(null);
+        Assert.Equal("打开失败，请检查权限或默认程序。", vm.Status);
+        vm.RevealSelectedResultCommand.Execute(null);
+        Assert.Equal("定位失败，请检查文件资源管理器是否可用。", vm.Status);
+        vm.CopySelectedResultPathCommand.Execute(null);
+        Assert.Equal("复制路径失败，请检查剪贴板是否被占用。", vm.Status);
+        Assert.DoesNotContain(target, vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Same_query_refresh_restores_selection_while_a_filter_change_clears_it()
+    {
+        var rangeRoot = Directory.CreateDirectory(Path.Combine(_root, "selection-range")).FullName;
+        File.WriteAllText(Path.Combine(rangeRoot, "selected-note.txt"), "selected");
+        _search.AddRange(rangeRoot);
+        var range = _search.ListRanges().Single(item => item.Path == rangeRoot);
+        await _search.IndexRangeAsync(range.Id);
+        var settings = new SettingsStore(Path.Combine(_root, "selection-settings"));
+        var saved = settings.Load();
+        saved.Search.Ranges.Add(rangeRoot);
+        settings.Save(saved);
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "selection-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings,
+            searchResultActions: new RecordingSearchResultActions());
+
+        vm.Query = "selected-note";
+        await WaitUntilAsync(() => vm.Results.Count == 1);
+        var firstInstance = Assert.Single(vm.Results);
+        vm.SelectedResult = firstInstance;
+
+        vm.SearchCommand.Execute(null);
+        await WaitUntilAsync(() => vm.SelectedResult is not null
+            && !ReferenceEquals(firstInstance, vm.SelectedResult));
+        Assert.Equal(firstInstance.RangeId, vm.SelectedResult!.RangeId);
+        Assert.Equal(firstInstance.FullPath, vm.SelectedResult.FullPath);
+
+        vm.Category = "文档";
+        Assert.Null(vm.SelectedResult);
+    }
+
+    [Fact]
     public void Icon_converter_always_returns_a_frozen_image_and_falls_back_for_missing_targets()
     {
         var converter = new ShellIconConverter();
@@ -261,5 +385,35 @@ public sealed class HomePageExperienceTests : IDisposable
         for (var i = 0; i < 60 && !predicate(); i++)
             await Task.Delay(50);
         Assert.True(predicate());
+    }
+
+    private static SearchItem SearchItemFor(string path) => new(
+        1,
+        Path.GetFileName(path),
+        path,
+        Path.GetFileName(path),
+        Path.GetExtension(path),
+        SearchItemKind.Document,
+        new FileInfo(path).Length,
+        DateTimeOffset.UtcNow,
+        Guid.NewGuid(),
+        true);
+
+    private sealed class RecordingSearchResultActions : ISearchResultActions
+    {
+        public SearchItem? Opened { get; private set; }
+        public SearchItem? Revealed { get; private set; }
+        public string? CopiedPath { get; private set; }
+
+        public void Open(SearchItem item) => Opened = item;
+        public void Reveal(SearchItem item) => Revealed = item;
+        public void CopyPath(SearchItem item) => CopiedPath = item.FullPath;
+    }
+
+    private sealed class ThrowingSearchResultActions : ISearchResultActions
+    {
+        public void Open(SearchItem item) => throw new UnauthorizedAccessException(item.FullPath);
+        public void Reveal(SearchItem item) => throw new IOException(item.FullPath);
+        public void CopyPath(SearchItem item) => throw new InvalidOperationException(item.FullPath);
     }
 }

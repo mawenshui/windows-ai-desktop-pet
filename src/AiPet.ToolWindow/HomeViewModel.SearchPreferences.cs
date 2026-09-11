@@ -13,7 +13,7 @@ public sealed partial class HomeViewModel
     public SearchFieldOption SelectedSearchField
     {
         get=>_selectedSearchField??SearchFields[0];
-        set { if (value is null || _selectedSearchField==value) return; _selectedSearchField=value; OnPC(); SaveSearchRankingPreferences(); RestartSearch(immediate:true); }
+        set { if (value is null || _selectedSearchField==value) return; _selectedSearchField=value; OnPC(); ClearSelectedResult(); SaveSearchRankingPreferences(); RestartSearch(immediate:true); }
     }
     private bool _useRecentSearchHistory;
     private bool _enableContentSearch;
@@ -49,6 +49,7 @@ public sealed partial class HomeViewModel
                 OnPC();
                 OnPCFor(nameof(ContentSearchStatus));
                 OnPCFor(nameof(SearchPrivacyNotice));
+                ClearSelectedResult();
                 RaiseContentSearchCommandStates();
                 RestartSearch(immediate: true);
                 if (value) _ = RebuildContentIndexAsync();

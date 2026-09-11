@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.17.0 用户手册</title><style>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.18.0 用户手册</title><style>
     :root { color-scheme: light; font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; color: #241f1c; background: #f7f4f1; }
     body { margin: 0; line-height: 1.7; }
     main { width: min(760px, calc(100% - 40px)); margin: 32px auto; padding: 32px; background: #fffdfc; border: 1px solid #ded7d2; border-radius: 20px; box-shadow: 0 16px 42px rgb(36 31 28 / .10), 0 3px 10px rgb(36 31 28 / .06); }
@@ -12,9 +12,9 @@
     th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ded7d2; }
     @media(max-width:600px) { main { box-sizing: border-box; padding: 20px; } h1 { font-size: 24px; } }
 </style></head><body><main><h1>Windows AI Desktop Pet 用户手册</h1>
-<p>适用版本：<strong>0.17.0</strong>；修订：2026-09-11。候选版，最终发布状态以本轮验证报告为准。</p>
+<p>适用版本：<strong>0.18.0</strong>；修订：2026-09-12。候选版，最终发布状态以本轮验证报告为准。</p>
 <h2>1. 安装与退出</h2>
-<p>完整解压 windows-ai-desktop-pet-v0.17.0-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.17.0-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
+<p>完整解压 windows-ai-desktop-pet-v0.18.0-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.18.0-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
 <p>关闭工具窗只是收起。托盘“退出”才结束应用，自启默认关闭，可在设置或托盘启用。便携目录移动后重新检查自启。便携版和安装版默认共用当前 Windows 账户数据。</p>
 <p>交互卸载会询问是否清理个人数据，默认“否”。选择“是”删除已识别的设置、待办、提醒队列、快捷引用、索引、日志、维护快照、设置中记录的本应用 AI 凭据和固定的 GitHub 更新令牌；目标原文件及未知文件保留。先退出桌宠；清理失败会停止卸载并提示。丢失设置中未记录的旧凭据需自行在 Windows 凭据管理器处理。静默卸载始终保留个人数据。卸载移除指向本次安装位置的自启项；指向其他便携位置的配置不受影响。</p>
 <h2>2. 桌宠与工具窗</h2>
@@ -27,7 +27,15 @@
 <p>主页按范围、类别筛选，默认输入后约 300 ms 查询。设置中选择“名称”或“相对路径”，相对路径从授权根开始。可独立启用 * / ? 通配符和 re: 正则；错误及超时会提示修改。结果显示匹配原因，默认精确、前缀、包含优先，每页 50 条，“继续加载”获取后续结果。索引变化时重新查询，避免拼接不同数据批次。</p>
 <p>需要按正文查找时，在设置 → 搜索范围开启“读取授权范围内的受控文本正文”。应用只读取已授权目录内不超过 128 KiB 的 <code>.txt</code> 和 <code>.md</code>，支持严格 UTF-8 及带 BOM 的 UTF-16；每个范围最多 1,000 个正文文件、16 MiB。隐藏、系统、链接、二进制、非法编码、超限和不可读文件会跳过，名称索引仍可用。普通文字会补充正文匹配；<code>*</code>/<code>?</code> 和 <code>re:</code> 只匹配所选名称或路径字段。</p>
 <p>仅正文命中的结果显示“正文连续包含”和最多 120 字符的单行上下文，名称/路径命中优先。设置卡片显示索引数、跳过数和读取量，可重建，也可使用每个范围的取消操作。选择“停用并清除”会立即禁用查询并清空本机正文索引；移除范围只清除该范围的名称、正文和偏好，不删除原文件。正文、摘要和查询词不进入诊断、备份或 AI 请求。</p>
-<p>可固定常用结果。启用“最近使用排序”前会说明记录已打开结果的路径和时间，数据只在本机；可关闭或清除记录，清除不取消固定。常规重新索引保留偏好；缓存清理或撤销范围会删除对应偏好，需要重新固定。双击或选中后 Enter 通过系统打开。</p>
+<p>可固定常用结果。启用“最近使用排序”前会说明记录已打开结果的路径和时间，数据只在本机；可关闭或清除记录，清除不取消固定。常规重新索引保留偏好；缓存清理或撤销范围会删除对应偏好，需要重新固定。</p>
+<p>单击结果或使用方向键选中后，列表下方出现操作区：</p>
+<ul>
+<li>“打开”使用 Windows 默认关联程序；双击结果或选中后按 Enter 仍可直接打开。</li>
+<li>“定位”在文件资源管理器中选中原文件或文件夹；驱动器根目录会直接打开。</li>
+<li>“复制路径”把完整路径写入剪贴板，不保存到设置、诊断或 AI 请求。</li>
+<li>“加入快捷入口”复用现有快捷入口的默认名称、图标和重复检查。</li>
+</ul>
+<p>打开、定位和加入前会重新检查目标。目标已被移动或删除时，这三项不可用，复制路径仍可帮助排查；应用不会自动删除原索引项。手动重查或索引刷新后，若相同范围和路径仍在首屏，当前选择会恢复；修改关键词、类别、范围、查询字段、通配符、正则或正文模式会清除旧选择。</p>
 <p>范围可取消重建、重试、移除。重启恢复监听，目录改名/删除处理子树；事件溢出重建。取消重建保留上一份成功结果；权限、目录变化或监听失败时可手动重新索引。</p>
 <h2>4. 快捷入口</h2>
 <p>主页“添加入口”“文件夹”及批量拖入保留原操作。六列紧凑网格提供名称、图标和“⋯”编辑菜单。自定义图标复制到本机缓存；失效时可重新定位。</p>
@@ -83,6 +91,10 @@
 <td align="left">检查授权、索引状态、名称/路径模式、正文开关和类别；正文只支持受限 <code>.txt</code>/<code>.md</code>，必要时重建索引</td>
 </tr>
 <tr>
+<td align="left">搜索结果无法打开或定位</td>
+<td align="left">目标可能已移动、删除或失去权限；复制路径确认位置，再重新索引或从快捷入口管理中重新定位</td>
+</tr>
+<tr>
 <td align="left">AI 连接成功但草稿失败</td>
 <td align="left">主动运行生成验证，核对模型权限/格式/额度；可转手动</td>
 </tr>
@@ -115,4 +127,5 @@
 <td align="left">保留包内 docs/USER_MANUAL.html，检查 HTML 默认程序或修复安装</td>
 </tr>
 </tbody></table>
-<p>托盘帮助和设置手册仅打开本地 HTML，不自动访问在线网页。RGS 发行素材使用 CC0-1.0，来源及授权材料随资产保留。</p></main></body></html>
+<p>托盘帮助和设置手册仅打开本地 HTML，不自动访问在线网页。RGS 发行素材使用 CC0-1.0，来源及授权材料随资产保留。</p>
+</main></body></html>
