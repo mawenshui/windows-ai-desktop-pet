@@ -1,4 +1,4 @@
-> 历史评估：EXT-07/08 仍未接入 0.16.1 产品。当前计划与状态见 [0.16.1－功能扩展计划](0.16.1－功能扩展计划.md) 和 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
+> 历史评估：本文保留 0.13.0 当时的试验数据。EXT-07 已在 0.17.0 按更严格边界迁入正式产品，原型代码已移除；EXT-08 仍未接入。当前计划与状态见 [0.17.0－功能扩展计划](0.17.0－功能扩展计划.md) 和 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
 
 # EXT-07 / EXT-08 隔离原型评估
 
@@ -12,7 +12,7 @@ ControlledTextIndex 只在明确的单独正文授权后读取 .txt。严格 UTF
 
 匿名样本：500 个文件、1,011,240 字节，构建约 95.3 ms、查询约 3.6 ms，50 个命中，撤销后无结果或数据库残留。测试覆盖单独授权、编码/大小、取消保留旧索引和撤销竞争。
 
-**决策：保留隔离原型。** 本次机器的合成数据不足以证明常驻资源与实用价值；需明确真实纯文本需求、权限变化/网络盘行为、物理磁盘删除边界和长时资源预算，再提出产品 RFC。删除数据库不是对物理介质的安全擦除声明。
+**当时决策：保留隔离原型。** 0.17.0 后续根据真实产品范围完成了单独开关、同一授权目录、`.txt`/`.md`、UTF-8/带 BOM UTF-16、正文暂存表、开关代次、watcher 同步、命中摘要和设置状态，并迁入 `src/AiPet.Search`。删除 SQLite 行仍不是对物理介质的安全擦除声明。
 
 ## 2. 2D 角色包 EXT-08
 
@@ -35,4 +35,4 @@ pwsh -NoProfile -File scripts/test.ps1 -CI
 dotnet run --project tests/prototypes/AiPet.Prototypes/AiPet.Prototypes.csproj -c Release --no-build -- build/prototype-evaluation assets/pets/RGS_8Directional
 ```
 
-最终是否转产品取决于后续 RFC；本次关闭的是“完成隔离试验并作出决策”，不是“功能已发布”。
+本文只记录 0.13.0 原型结论。EXT-07 的当前产品行为以 PRD SRCH-07 和 0.17.0 验证报告为准；EXT-08 最终是否转产品仍取决于后续 RFC。

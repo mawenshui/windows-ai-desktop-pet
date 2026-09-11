@@ -70,6 +70,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
         _selectedSearchScopeId = loaded.Search.LastScopeId;
+        _enableContentSearch = loaded.Features.EnableContentSearch;
+        _search.SetContentSearchEnabled(_enableContentSearch);
         _searchOnboardingCompleted = loaded.Search.OnboardingCompleted;
         _searchOnboardingCandidateSource = searchOnboardingCandidates;
         LoadEssentialSettings(loaded);
@@ -481,6 +483,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             _ => DeferSearchOnboarding(),
             _ => _settings is not null && ShowSearchOnboarding);
         OpenHelpCommand = new RelayCommand(_ => OpenHelp());
+        InitializeContentSearchCommands();
         InitializeEssentialCommands();
     }
 
@@ -498,6 +501,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             CreateAutomaticBackupNowCommand, OpenAutomaticBackupDirectoryCommand,
             SaveUpdateSettingsCommand, SaveUpdateAccessTokenCommand, ClearUpdateAccessTokenCommand,
             CheckForUpdatesCommand, DownloadUpdateCommand,
+            RebuildContentIndexCommand, DisableContentSearchCommand,
         })
         {
             (command as RelayCommand)?.RaiseCanExecuteChanged();
@@ -556,7 +560,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
                 enableWildcard,
                 enableRegex,
                 scope,
-                Limit: pageSize + 1, Field: SelectedSearchField.Field, UseRecentHistory: UseRecentSearchHistory);
+                Limit: pageSize + 1, Field: SelectedSearchField.Field, UseRecentHistory: UseRecentSearchHistory,
+                EnableContentSearch: EnableContentSearch);
             var page = await Task.Run(() => _search.SearchPage(query, kind, options, ct), ct);
             var rows = page.Items;
             if (!IsCurrentSearch(generation, ct)) return;
@@ -602,7 +607,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             var scope = SearchScopes.FirstOrDefault(x => x.Id == SelectedSearchScopeId)?.RangeId;
             var kind = category == "全部" ? (SearchItemKind?)null : MapCategory(category);
             var query = Query;
-            var options = new SearchQueryOptions(EnableWildcardSearch, EnableRegexSearch, scope, pageSize + 1, Results.Count, SelectedSearchField.Field, UseRecentSearchHistory);
+            var options = new SearchQueryOptions(EnableWildcardSearch, EnableRegexSearch, scope, pageSize + 1, Results.Count, SelectedSearchField.Field, UseRecentSearchHistory, EnableContentSearch);
             var page = await Task.Run(() => _search.SearchPage(query, kind, options, ct), ct);
             if (!IsCurrentSearch(generation, ct)) return;
             if (page.Revision != _searchPageRevision) { RestartSearch(immediate: true); Status = "索引已更新，正在刷新结果。"; return; }
@@ -1311,6 +1316,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         OnPCFor(nameof(HasRanges));
         OnPCFor(nameof(ShowSearchOnboarding));
         RefreshSearchScopes();
+        OnPCFor(nameof(ContentSearchStatus));
+        RaiseContentSearchCommandStates();
         RaiseRangeCommandStates();
     }
 
@@ -1492,17 +1499,24 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     {
         if (_search is null) return;
         Task task;
+        var created = false;
         lock (_rangeIndexGate)
         {
             if (_rangeIndexTasks.TryGetValue(id, out var running) && !running.IsCompleted)
-                return;
-            var cancellation = new CancellationTokenSource();
-            _rangeIndexCancellations[id] = cancellation;
-            _rangeIndexProgress[id] = 0;
-            task = IndexRangeCoreAsync(id, cancellation);
-            _rangeIndexTasks[id] = task;
+            {
+                task = running;
+            }
+            else
+            {
+                var cancellation = new CancellationTokenSource();
+                _rangeIndexCancellations[id] = cancellation;
+                _rangeIndexProgress[id] = 0;
+                task = IndexRangeCoreAsync(id, cancellation);
+                _rangeIndexTasks[id] = task;
+                created = true;
+            }
         }
-        RefreshRanges();
+        if (created) RefreshRanges();
         await task;
     }
 
@@ -1746,6 +1760,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         _selectedCharacter = loaded.Pet.PreferredCharacter;
         _enableWildcardSearch = loaded.Search.EnableWildcardSearch;
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
+        _enableContentSearch = loaded.Features.EnableContentSearch;
+        _search.SetContentSearchEnabled(_enableContentSearch);
         _selectedSearchField = SearchFields.First(field => field.Id == (loaded.Search.QueryField == "path" ? "path" : "name"));
         _useRecentSearchHistory = loaded.Search.UseRecentHistory;
         OnPCFor(nameof(SelectedSearchField)); OnPCFor(nameof(SearchHistoryLabel));
@@ -1758,6 +1774,9 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         OnPCFor(nameof(SelectedCharacter));
         OnPCFor(nameof(EnableWildcardSearch));
         OnPCFor(nameof(EnableRegexSearch));
+        OnPCFor(nameof(EnableContentSearch));
+        OnPCFor(nameof(ContentSearchStatus));
+        OnPCFor(nameof(SearchPrivacyNotice));
         OnPCFor(nameof(ThemePreference));
         OnPCFor(nameof(SelectedTheme));
         OnPCFor(nameof(EnablePetRoaming));

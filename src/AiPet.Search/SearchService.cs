@@ -19,6 +19,8 @@ public sealed partial class SearchService : IDisposable
     private readonly Func<SearchRange, IEnumerable<SearchItemRow>> _scan;
     private readonly Func<IReadOnlyList<ApplicationEntry>> _appEntries;
     private readonly Dictionary<Guid, SearchIndexWatcher> _watchers = new();
+    private bool _contentSearchEnabled;
+    private long _contentSearchGeneration;
 
     public SearchService(
         string dbPath,
@@ -34,6 +36,29 @@ public sealed partial class SearchService : IDisposable
     public IReadOnlyList<SearchRange> ListRanges() { lock (_indexGate) return _index.ListRanges(); }
     public SearchRange? GetRange(Guid id) { lock (_indexGate) return _index.GetRange(id); }
     public int CountItems(Guid id) { lock (_indexGate) return _index.CountItemsInRange(id); }
+    public bool ContentSearchEnabled { get { lock (_indexGate) return _contentSearchEnabled; } }
+    public ContentIndexSummary GetContentSummary(Guid? rangeId = null)
+    {
+        lock (_indexGate) return _index.GetContentSummary(rangeId);
+    }
+
+    public void SetContentSearchEnabled(bool enabled)
+    {
+        lock (_indexGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_contentSearchEnabled != enabled)
+            {
+                _contentSearchEnabled = enabled;
+                _contentSearchGeneration++;
+            }
+            if (!enabled)
+            {
+                _index.PurgeAllContent();
+                _revision++;
+            }
+        }
+    }
 
     public void AddRange(string path)
     {
@@ -120,7 +145,11 @@ public sealed partial class SearchService : IDisposable
         SearchItemKind? kindFilter,
         SearchQueryOptions options)
     {
-        lock (_indexGate) return _index.Search(query, kindFilter, options);
+        lock (_indexGate)
+            return _index.Search(
+                query,
+                kindFilter,
+                options with { EnableContentSearch = options.EnableContentSearch && _contentSearchEnabled });
     }
 
     private void EnsureWatcher(SearchRange range)

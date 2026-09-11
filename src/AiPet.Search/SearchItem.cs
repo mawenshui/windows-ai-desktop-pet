@@ -5,7 +5,8 @@ namespace AiPet.Search;
 /// <summary>
 /// One row in the local search index. Mirrors the columns we collect per
 /// PRD §3 SRCH-01 (name + relative path + extension + type + last modified
-/// time; never file content).
+/// time). Optional snippets are populated only for an explained match from
+/// the separately authorised local text index.
 /// </summary>
 public sealed record SearchItem(
     long Id,
@@ -23,6 +24,8 @@ public sealed record SearchItem(
     public bool IsPinned { get; init; }
     public string PinLabel => IsPinned ? "取消固定" : "固定";
     public string MatchReason { get; init; } = "按最近修改时间";
+    public string MatchSnippet { get; init; } = string.Empty;
+    public bool HasMatchSnippet => !string.IsNullOrWhiteSpace(MatchSnippet);
     /// <summary>
     /// True if the underlying file/directory is still present at <see cref="FullPath"/>.
     /// The index row may be stale (e.g. user moved the file); callers must

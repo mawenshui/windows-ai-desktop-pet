@@ -18,7 +18,8 @@ public sealed record SearchQueryOptions(
     int Limit = 100,
     int Offset = 0,
     SearchField Field = SearchField.Name,
-    bool UseRecentHistory = false);
+    bool UseRecentHistory = false,
+    bool EnableContentSearch = false);
 
 public sealed class SearchQueryException : Exception
 {

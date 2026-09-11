@@ -1,11 +1,12 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.16.1**，于 **2026-09-09** 精进今日安排的冲突避让、原子恢复提示和在线更新的凭据及失败恢复。当前为候选版本，独立桌面输入、窗口性能、硬件和签名门禁尚未全部通过。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.17.0**，于 **2026-09-11** 新增默认关闭的受控本地文本正文搜索，并完善索引授权、撤销、状态与命中解释。当前为候选工作区，完整发布门禁仍按本次验证结果判定。
 
 ## 当前能力
 
 - RGS 四种桌宠、四页工具窗、常驻与置顶、页内选择、托盘、自启和离线帮助。
-- 授权元数据搜索：名称或相对路径、类别/范围、通配符/正则、匹配原因、固定结果、可选本地最近使用排序及 50 条分页。
+- 授权本地搜索：名称或相对路径、类别/范围、通配符/正则、匹配原因、固定结果、可选本地最近使用排序及 50 条分页。
+- 可选受控正文搜索：只读取授权范围内不超过 128 KiB 的 `.txt`/`.md`，每范围最多 1,000 个文件和 16 MiB；正文命中显示短摘要，停用或撤销范围立即清除派生索引。
 - 索引重启监听、目录子树更新、事件溢出串行重建，取消或撤销授权不会提交旧任务结果。
 - 快捷入口分组、固定、多选、拖动或键盘排序，失效扫描/取消、重新定位、批量移除预览和本次运行内撤销。
 - 普通待办和独立提醒：一次性、每日、每周、工作日、自选星期、间隔/结束日期、保存时区、额外时间、下次预览、仅此次修改与整条规则取消。
@@ -17,7 +18,7 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **
 - 每次正式启动检查一次 GitHub Release；可选 1～168 小时周期检查、系统代理和用户信任的 HTTPS 加速模板。私有仓库令牌仅在安全保存到 Windows 凭据管理器后使用；临时检查失败保留已发现版本，下载完成须通过 Release SHA-256 清单并由用户确认安装。
 - 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，自动避让未选事项的既有安排，再逐项确认、整批原子写入并撤销最近一批。
 
-内容检索、外部 2D 角色包导入仅有隔离试验工程，未接入应用或发行包；未新增云同步、通用聊天、OCR、3D 或商城。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.16.1－功能扩展计划.md)。
+外部 2D 角色包导入仍只有隔离试验工程；PDF/Office 正文、OCR、语义检索、云同步、通用聊天、3D 和商城未接入。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.17.0－功能扩展计划.md)。
 
 ## 使用与开发
 
@@ -34,14 +35,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.16.1 完整自动化 **283/283 PASS**，Release 构建 0 警告、0 错误，system 与便携/安装/启动/卸载 package-smoke PASS。独立 UI 和窗口性能因应用无法置前而在发送输入前 FAIL；签名与物理设备为 SKIP。逐项证据见[0.16.1 验证报告](docs/release/0.16.1-test-report.md)。
+0.17.0 完整 CI 当前 **289/289 PASS**，Release 构建 0 警告、0 错误；独立 UI、性能、打包烟雾、签名和物理设备结论将在本轮验证完成后写入[0.17.0 验证报告](docs/release/0.17.0-test-report.md)。
 
-正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核。当前 [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) 仅作为历史整理用 Pre-release 提供双资产，不表示门禁通过。
+正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。受保护 self-hosted Windows runner 发布已验证的相同字节并下载复核；0.17.0 在完整证据产生前不得描述为稳定 Release。
 
 ## 文档与候选产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.16.1 候选说明](docs/RELEASE_NOTES_0.16.1.md) · [验证报告](docs/release/0.16.1-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.16.1－功能扩展计划.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.17.0 候选说明](docs/RELEASE_NOTES_0.17.0.md) · [验证报告](docs/release/0.17.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.17.0－功能扩展计划.md)
 
-0.16.1 候选资产来自干净源提交 `302aca03eb6b133c64959a3ebf4b95e6e5247cf2`：便携包 SHA-256 为 `4d5cc73a079dc418c51508e52f07b756ed1ef8c783b26671c061cca010e05dac`，安装器为 `89c2fb64e1b4156687ebb9b476a4f6d731c4a410e20842721186792e0398c3f0`。资产未签名且完整门禁未通过；GitHub 条目保持 Pre-release。
+0.17.0 资产及 SHA-256 将由本轮 `scripts/package.ps1` 从当前代码生成；在报告写入实际字节、烟雾结果和远端核验前，不沿用任何历史资产结论。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

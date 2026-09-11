@@ -576,6 +576,38 @@ public sealed class HomeViewModelTests : IDisposable
         Assert.Equal(1, secrets.Count);
     }
 
+    [Fact]
+    public async Task Content_search_toggle_persists_builds_queries_and_purges_without_restarting()
+    {
+        var files = Directory.CreateDirectory(Path.Combine(_root, "content-toggle-files")).FullName;
+        File.WriteAllText(Path.Combine(files, "notes.txt"), "view model content marker");
+        var settings = new SettingsStore(Path.Combine(_root, "content-toggle-settings"));
+        var document = settings.Load();
+        document.Search.Ranges.Add(files);
+        settings.Save(document);
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "content-toggle-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings);
+
+        Assert.False(vm.EnableContentSearch);
+        Assert.Contains("只匹配名称和路径元数据", vm.SearchPrivacyNotice, StringComparison.Ordinal);
+        vm.EnableContentSearch = true;
+        await WaitUntilAsync(() => _search.GetContentSummary().Indexed == 1);
+        Assert.True(settings.Load().Features.EnableContentSearch);
+        Assert.Contains("已索引 1 个", vm.ContentSearchStatus, StringComparison.Ordinal);
+        vm.Query = "content marker";
+        await WaitUntilAsync(() => vm.Results.Count == 1);
+        Assert.Equal("正文连续包含", Assert.Single(vm.Results).MatchReason);
+
+        vm.DisableContentSearchCommand.Execute(null);
+        Assert.False(settings.Load().Features.EnableContentSearch);
+        Assert.Equal(0, _search.GetContentSummary().Indexed);
+        await WaitUntilAsync(() => vm.Results.Count == 0);
+        Assert.Contains("索引为空", vm.ContentSearchStatus, StringComparison.Ordinal);
+    }
+
     private HomeViewModel CreateViewModel(
         IAiClient? ai = null,
         IAiSecretStore? secretStore = null) => new(

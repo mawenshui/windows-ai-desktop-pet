@@ -156,16 +156,20 @@ public sealed class PetToolWindowLifecycleTests
             var settingsScroll = FindElement<ScrollViewer>(window, "SettingsScroll");
             var wildcard = FindElement<CheckBox>(window, "WildcardSearchToggle");
             var regex = FindElement<CheckBox>(window, "RegexSearchToggle");
+            var contentSearch = FindElement<CheckBox>(window, "ContentSearchToggle");
             var aiSettings = FindElement<Expander>(window, "AiSettingsExpander");
             Assert.NotNull(characters);
             Assert.NotNull(settingsScroll);
             Assert.NotNull(wildcard);
             Assert.NotNull(regex);
+            Assert.NotNull(contentSearch);
             Assert.NotNull(aiSettings);
             Assert.Equal(4, characters.Items.Count);
             Assert.True(settingsScroll.ActualHeight >= 200);
             Assert.True(wildcard.MinHeight >= 36);
             Assert.True(regex.MinHeight >= 36);
+            Assert.True(contentSearch.MinHeight >= 40);
+            Assert.Equal("ContentSearchToggle", System.Windows.Automation.AutomationProperties.GetAutomationId(contentSearch));
 
             aiSettings.IsExpanded = true;
             aiSettings.BringIntoView();

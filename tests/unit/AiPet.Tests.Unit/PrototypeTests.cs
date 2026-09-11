@@ -20,34 +20,6 @@ public sealed class PrototypeTests : IDisposable
         return destination;
     }
     [Fact]
-    public async Task Content_requires_separate_consent_bounds_encoding_and_purges_on_revoke()
-    {
-        var fixtures=Path.Combine(_root,"text"); Directory.CreateDirectory(fixtures);
-        File.WriteAllText(Path.Combine(fixtures,"allowed.txt"),"anonymous needle");
-        File.WriteAllText(Path.Combine(fixtures,"ignored.pdf"),"needle");
-        File.WriteAllBytes(Path.Combine(fixtures,"invalid.txt"),new byte[] {0xff,0xff});
-        File.WriteAllText(Path.Combine(fixtures,"large.txt"),new string('x',ControlledTextIndex.MaximumFileBytes+1));
-        var data=Path.Combine(_root,"index"); using var index=new ControlledTextIndex(data);
-        Assert.Throws<InvalidOperationException>(()=>index.Authorize(fixtures,false));
-        await Assert.ThrowsAsync<InvalidOperationException>(()=>index.BuildAsync());
-        index.Authorize(fixtures,true);
-        var result=await index.BuildAsync(); Assert.Equal(1,result.Indexed); Assert.Equal(3,result.Skipped);
-        Assert.Equal("allowed.txt",Assert.Single(index.Search("needle")));
-        using var cancelled=new CancellationTokenSource(); cancelled.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>index.BuildAsync(cancelled.Token));
-        Assert.Single(index.Search("needle")); index.Revoke(); Assert.Empty(index.Search("needle")); Assert.Empty(Directory.GetFiles(data));
-    }
-    [Fact]
-    public async Task Revocation_cancels_rebuild_without_recreating_derived_data()
-    {
-        var fixtures=Path.Combine(_root,"text"); Directory.CreateDirectory(fixtures);
-        for(var i=0;i<300;i++) File.WriteAllText(Path.Combine(fixtures,$"{i}.txt"),new string('x',20000));
-        var data=Path.Combine(_root,"index"); using var index=new ControlledTextIndex(data); index.Authorize(fixtures,true);
-        var work=index.BuildAsync(); index.Revoke();
-        try { await work; } catch(OperationCanceledException) { }
-        Assert.Empty(index.Search("x")); Assert.Empty(Directory.GetFiles(data));
-    }
-    [Fact]
     public void Pack_preview_import_duplicate_and_corruption_fallback_are_isolated()
     {
         var source=Pack(); var preview=StrictPetPack.Preview(source);

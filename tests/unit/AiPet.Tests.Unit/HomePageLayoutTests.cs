@@ -25,7 +25,8 @@ public sealed class HomePageLayoutTests
         Assert.DoesNotContain("SelectedValue=\"{Binding SelectedSearchScopeId", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"首次搜索范围授权\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"确认并建立索引\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"确认前只展示候选路径，不会枚举或读取其中的文件；搜索始终只匹配名称和路径元数据。\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding SearchPrivacyNotice}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding MatchSnippet}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("<Grid Grid.Row=\"3\">", xaml, StringComparison.Ordinal);
         Assert.Contains("<StackPanel Grid.Row=\"4\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AllowDrop=\"True\"", xaml, StringComparison.Ordinal);
@@ -125,6 +126,21 @@ public sealed class HomePageLayoutTests
         Assert.Contains("Text=\"{Binding GlobalHotkeyStatus}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding AutomaticBackupStatus}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"TodoTitleBox\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Content_search_controls_explain_consent_limits_status_and_revocation()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+
+        Assert.Contains("x:Name=\"ContentSearchToggle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"ContentSearchToggle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding EnableContentSearch, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("不超过 128 KiB 的 .txt 和 .md", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding ContentSearchStatus}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding RebuildContentIndexCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding DisableContentSearchCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

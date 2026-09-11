@@ -90,7 +90,7 @@
                                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Left"
                                                  Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                                                  TextWrapping="NoWrap" AcceptsReturn="False"
-                                                 ToolTip="普通名称、*.pdf 或 re:^报告" AutomationProperties.Name="按文件名搜索" />
+                                                 ToolTip="普通文字可匹配名称、路径或已启用的受控正文；*.pdf 和 re:^报告 只匹配所选元数据字段" AutomationProperties.Name="本地搜索" />
                                         <Path Width="17" Height="17" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0,0,0"
                                               Data="M8,2 A6,6 0 1 0 8,14 A6,6 0 1 0 8,2 M12.5,12.5 L17,17"
                                               Stroke="{StaticResource AccentPressed}" StrokeThickness="1.8" StrokeStartLineCap="Round" IsHitTestVisible="False" />
@@ -103,7 +103,7 @@
                                     AutomationProperties.Name="首次搜索范围授权">
                                 <StackPanel>
                                     <TextBlock Text="先选择允许搜索的文件夹" FontWeight="SemiBold" FontSize="14" />
-                                    <TextBlock Text="确认前只展示候选路径，不会枚举或读取其中的文件；搜索始终只匹配名称和路径元数据。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,9" />
+                                    <TextBlock Text="{Binding SearchPrivacyNotice}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,9" />
                                     <ItemsControl ItemsSource="{Binding SearchOnboardingCandidates}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
@@ -242,7 +242,7 @@
                                     <ListBox.Resources>
                                         <Style TargetType="ScrollBar" BasedOn="{StaticResource CreamScrollBar}" />
                                     </ListBox.Resources>
-                                    <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Width="30" Height="30" Background="{StaticResource AccentTint}" CornerRadius="8" VerticalAlignment="Center"><Image Width="22" Height="22" Source="{Binding Converter={StaticResource ShellIconConverter}}" Stretch="Uniform" SnapsToDevicePixels="True" /></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding RelativePath}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis" /><DockPanel><Button DockPanel.Dock="Right" Content="{Binding PinLabel}" Style="{StaticResource SecondaryButton}" Padding="7,3" MinHeight="28" Command="{Binding DataContext.ToggleResultPinCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" /><TextBlock Text="{Binding MatchReason}" Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" /></DockPanel></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+                                    <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Width="30" Height="30" Background="{StaticResource AccentTint}" CornerRadius="8" VerticalAlignment="Center"><Image Width="22" Height="22" Source="{Binding Converter={StaticResource ShellIconConverter}}" Stretch="Uniform" SnapsToDevicePixels="True" /></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding RelativePath}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding MatchSnippet}" Foreground="{StaticResource Ink}" FontSize="11" TextWrapping="Wrap" MaxHeight="34" Margin="0,3,0,1" Visibility="{Binding HasMatchSnippet, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="正文命中摘要" /><DockPanel><Button DockPanel.Dock="Right" Content="{Binding PinLabel}" Style="{StaticResource SecondaryButton}" Padding="7,3" MinHeight="28" Command="{Binding DataContext.ToggleResultPinCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" /><TextBlock Text="{Binding MatchReason}" Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" /></DockPanel></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
                                 </ListBox>
                                 <Border VerticalAlignment="Stretch" MinHeight="38">
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="280">
@@ -723,6 +723,18 @@
                                                 </ItemsControl>
                                             </Grid>
                                         </Border>
+                                        <Border Background="{StaticResource Canvas}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,0,0,12">
+                                            <StackPanel>
+                                                <TextBlock Text="文件正文搜索（可选）" FontWeight="SemiBold" FontSize="12" />
+                                                <CheckBox x:Name="ContentSearchToggle" Content="读取授权范围内的受控文本正文" IsChecked="{Binding EnableContentSearch, Mode=TwoWay}" MinHeight="40" Margin="0,4,0,0" AutomationProperties.AutomationId="ContentSearchToggle" AutomationProperties.Name="启用受控文件正文搜索" />
+                                                <TextBlock Text="只处理不超过 128 KiB 的 .txt 和 .md，支持严格 UTF-8 与带 BOM 的 UTF-16；索引只保存在本机，停用会立即清除。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding ContentSearchStatus}" Foreground="{StaticResource Ink}" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0" AutomationProperties.LiveSetting="Polite" />
+                                                <WrapPanel Margin="0,8,0,0">
+                                                    <Button Content="重建正文索引" Style="{StaticResource SecondaryButton}" MinHeight="40" Command="{Binding RebuildContentIndexCommand}" Margin="0,0,7,0" AutomationProperties.Name="重建所有授权范围的正文索引" />
+                                                    <Button Content="停用并清除" Style="{StaticResource SecondaryButton}" MinHeight="40" Command="{Binding DisableContentSearchCommand}" AutomationProperties.Name="停用正文搜索并清除本地正文索引" />
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </Border>
                                         <TextBlock Text="文件名匹配方式" FontWeight="SemiBold" FontSize="12" />
                                         <CheckBox x:Name="WildcardSearchToggle" Content="启用 * 和 ? 通配符" IsChecked="{Binding EnableWildcardSearch, Mode=TwoWay}" MinHeight="40" Margin="0,5,0,0" AutomationProperties.Name="启用文件名通配符搜索" />
                                         <CheckBox x:Name="RegexSearchToggle" Content="启用 re: 正则表达式" IsChecked="{Binding EnableRegexSearch, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="启用文件名正则表达式搜索" />
@@ -733,7 +745,7 @@
                                             <Button Content="{Binding SearchHistoryLabel}" Style="{StaticResource SecondaryButton}" Click="ToggleSearchHistory_Click" Margin="0,0,6,6" />
                                             <Button Content="清除最近使用记录" Style="{StaticResource SecondaryButton}" Command="{Binding ClearSearchHistoryCommand}" Margin="0,0,0,6" />
                                         </WrapPanel>
-                                        <TextBlock Text="关闭时按普通文字搜索；可匹配名称或相对路径，不读取文件内容。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                        <TextBlock Text="普通文字按所选元数据字段搜索，并在启用时补充正文；通配符和正则只处理元数据。" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
                                     </StackPanel>
                                 </Border>
 

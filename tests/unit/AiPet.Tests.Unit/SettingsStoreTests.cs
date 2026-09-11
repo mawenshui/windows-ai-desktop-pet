@@ -74,6 +74,7 @@ public class SettingsStoreTests : IDisposable
                 IntervalHours = 6,
                 AccelerationTemplate = "https://mirror.example.test/{url}",
             },
+            Features = new FeatureSettings { EnableContentSearch = true },
         };
         s.Save(saved);
         var loaded = s.Load();
@@ -93,6 +94,7 @@ public class SettingsStoreTests : IDisposable
         Assert.True(loaded.Updates.PeriodicEnabled);
         Assert.Equal(6, loaded.Updates.IntervalHours);
         Assert.Equal("https://mirror.example.test/{url}", loaded.Updates.AccelerationTemplate);
+        Assert.True(loaded.Features.EnableContentSearch);
     }
 
     [Fact]

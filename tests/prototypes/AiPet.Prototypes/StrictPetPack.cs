@@ -19,7 +19,7 @@ public static class StrictPetPack
     private static readonly string[] Directions={"down","down_right","right","up_right","up"};
     public static PetPackPreview Preview(string directory)
     {
-        directory=Path.GetFullPath(directory); ControlledTextIndex.EnsureNoLinks(directory);
+        directory=Path.GetFullPath(directory); EnsureNoLinks(directory);
         var manifestPath=SafeFile(directory,"pet.json");
         if (new FileInfo(manifestPath).Length>64*1024) throw new InvalidDataException("Manifest budget exceeded.");
         using var json=JsonDocument.Parse(File.ReadAllBytes(manifestPath),new JsonDocumentOptions {MaxDepth=24});
@@ -93,9 +93,18 @@ public static class StrictPetPack
         if (Path.IsPathRooted(relative) || relative.Contains(':') || relative.Split('/','\\').Any(part=>part is ".." or "." or "")) throw new InvalidDataException("Unsafe pack path.");
         var file=Path.GetFullPath(Path.Combine(root,relative));
         if (!file.StartsWith(Path.TrimEndingDirectorySeparator(root)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Pack path escaped root.");
-        ControlledTextIndex.EnsureNoLinks(file);
+        EnsureNoLinks(file);
         if (!File.Exists(file)) throw new InvalidDataException("Missing pack file.");
         return file;
+    }
+    internal static void EnsureNoLinks(string path)
+    {
+        for (var current=Path.GetFullPath(path); !string.IsNullOrEmpty(current); current=Path.GetDirectoryName(current))
+        {
+            if ((File.Exists(current) || Directory.Exists(current)) &&
+                File.GetAttributes(current).HasFlag(FileAttributes.ReparsePoint))
+                throw new InvalidDataException("Pet pack paths cannot contain links or reparse points.");
+        }
     }
 }
 
@@ -105,11 +114,11 @@ public sealed class ExperimentalPetLibrary
     private readonly string _builtin;
     private string? _active;
     public ExperimentalPetLibrary(string isolatedRoot,string builtin)
-    { _root=Path.GetFullPath(isolatedRoot); _builtin=Path.GetFullPath(builtin); ControlledTextIndex.EnsureNoLinks(_root); Directory.CreateDirectory(_root); }
+    { _root=Path.GetFullPath(isolatedRoot); _builtin=Path.GetFullPath(builtin); StrictPetPack.EnsureNoLinks(_root); Directory.CreateDirectory(_root); }
     private string PackPath(string id)
     {
         if (!Regex.IsMatch(id,"^[a-z0-9][a-z0-9-]{0,63}$")) throw new InvalidDataException("Invalid pack ID.");
-        var path=Path.Combine(_root,id); ControlledTextIndex.EnsureNoLinks(path); return path;
+        var path=Path.Combine(_root,id); StrictPetPack.EnsureNoLinks(path); return path;
     }
     public void Import(string source,PetPackPreview confirmedPreview)
     {

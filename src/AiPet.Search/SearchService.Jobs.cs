@@ -20,7 +20,14 @@ public sealed partial class SearchService
     public void RecordUse(SearchItem item) { lock (_indexGate) { _index.RecordUse(item,DateTimeOffset.UtcNow); _revision++; } }
     public void ClearHistory() { lock (_indexGate) { _index.ClearHistory(); _revision++; } }
     public (long Revision, IReadOnlyList<SearchItem> Items) SearchPage(string query, SearchItemKind? kind, SearchQueryOptions options, CancellationToken ct = default)
-    { lock (_indexGate) return (_revision,_index.Search(query,kind,options,ct)); }
+    {
+        lock (_indexGate)
+            return (_revision, _index.Search(
+                query,
+                kind,
+                options with { EnableContentSearch = options.EnableContentSearch && _contentSearchEnabled },
+                ct));
+    }
     private RangeJob GetJob(Guid id)
     {
         ObjectDisposedException.ThrowIf(_disposed,this);
@@ -47,27 +54,82 @@ public sealed partial class SearchService
     private void IndexCore(Guid id,RangeJob job,IProgress<int>? progress,int batchSize,CancellationToken ct)
     {
         SearchRange range;
-        lock (_indexGate) { CheckJob(id,job,ct); range=_index.GetRange(id)!; _index.UpsertRange(range with { State=SearchRangeState.Preparing,LastError=null }); }
+        bool contentEnabled;
+        long contentGeneration;
+        lock (_indexGate)
+        {
+            CheckJob(id,job,ct);
+            range=_index.GetRange(id)!;
+            contentEnabled = _contentSearchEnabled;
+            contentGeneration = _contentSearchGeneration;
+            _index.UpsertRange(range with { State=SearchRangeState.Preparing,LastError=null });
+        }
         try
         {
             if (!Directory.Exists(range.Path)) throw new DirectoryNotFoundException();
             if (!SafeMetadataPath(range.Path,range.Path)) throw new UnauthorizedAccessException();
-            var batch=new List<SearchItemRow>(batchSize); var indexed=0;
+            var batch=new List<SearchItemRow>(batchSize);
+            var contentBatch=new List<ContentIndexRow>(batchSize);
+            var indexed=0;
+            var contentIndexed=0;
+            var contentSkipped=0;
+            long contentBytes=0;
             lock (_indexGate) { CheckJob(id,job,ct); _index.PrepareStagedItems(id); }
             foreach (var row in _scan(range))
             {
                 ct.ThrowIfCancellationRequested();
                 if (row.RangeId != id || !IsUnder(range.Path,row.FullPath)) continue;
                 batch.Add(row);
+                if (contentEnabled && row.Kind != SearchItemKind.Folder)
+                {
+                    if (contentIndexed >= ContentSearchPolicy.MaximumFilesPerRange
+                        || contentBytes >= ContentSearchPolicy.MaximumCorpusBytesPerRange)
+                    {
+                        contentSkipped++;
+                    }
+                    else if (ContentSearchPolicy.TryRead(range.Path, row, ct, out var content)
+                             && content is not null
+                             && contentBytes + content.ByteCount <= ContentSearchPolicy.MaximumCorpusBytesPerRange)
+                    {
+                        contentBatch.Add(content);
+                        contentIndexed++;
+                        contentBytes += content.ByteCount;
+                    }
+                    else
+                    {
+                        contentSkipped++;
+                    }
+                }
                 if (batch.Count<batchSize) continue;
-                lock (_indexGate) { CheckJob(id,job,ct); _index.InsertStagedItems(batch); }
+                lock (_indexGate)
+                {
+                    CheckJob(id,job,ct);
+                    _index.InsertStagedItems(batch);
+                    if (contentBatch.Count > 0
+                        && _contentSearchEnabled
+                        && contentGeneration == _contentSearchGeneration)
+                        _index.InsertStagedContentItems(contentBatch);
+                }
                 indexed+=batch.Count; progress?.Report(indexed); batch.Clear();
+                contentBatch.Clear();
             }
             lock (_indexGate)
             {
                 CheckJob(id,job,ct);
                 if (batch.Count>0) _index.InsertStagedItems(batch);
-                _index.CommitStagedItems(id);
+                if (contentBatch.Count>0
+                    && _contentSearchEnabled
+                    && contentGeneration == _contentSearchGeneration)
+                    _index.InsertStagedContentItems(contentBatch);
+                var commitContent = contentEnabled
+                    && _contentSearchEnabled
+                    && contentGeneration == _contentSearchGeneration;
+                _index.CommitStagedItems(
+                    id,
+                    commitContent
+                        ? new ContentIndexSummary(contentIndexed, contentSkipped, contentBytes, DateTimeOffset.UtcNow)
+                        : null,
+                    commitContent);
                 _index.UpsertRange(range with { State=SearchRangeState.Ready,LastIndexedAt=DateTimeOffset.UtcNow,LastError=null });
                 _revision++;
             }
@@ -149,10 +211,40 @@ public sealed partial class SearchService
                     foreach (var child in DefaultDirectoryScanner(range with { Path=path }))
                     { job.Lifetime.Token.ThrowIfCancellationRequested(); rows.Add(child with { RelativePath=Path.GetRelativePath(range.Path,child.FullPath) }); }
             }
+            var contentRows = new List<ContentIndexRow>();
+            long generation;
+            bool updateContent;
+            lock (_indexGate)
+            {
+                updateContent = _contentSearchEnabled;
+                generation = _contentSearchGeneration;
+            }
+            if (updateContent)
+            {
+                long bytes = 0;
+                foreach (var row in rows.Where(row => row.Kind != SearchItemKind.Folder))
+                {
+                    job.Lifetime.Token.ThrowIfCancellationRequested();
+                    if (contentRows.Count >= ContentSearchPolicy.MaximumFilesPerRange
+                        || bytes >= ContentSearchPolicy.MaximumCorpusBytesPerRange)
+                    {
+                        continue;
+                    }
+                    if (ContentSearchPolicy.TryRead(range.Path, row, job.Lifetime.Token, out var content)
+                        && content is not null
+                        && bytes + content.ByteCount <= ContentSearchPolicy.MaximumCorpusBytesPerRange)
+                    {
+                        contentRows.Add(content);
+                        bytes += content.ByteCount;
+                    }
+                }
+            }
             lock (_indexGate)
             {
                 CheckJob(id,job,job.Lifetime.Token);
                 _index.ReplaceSubtree(id,path,rows);
+                if (updateContent && _contentSearchEnabled && generation == _contentSearchGeneration)
+                    _index.ReplaceContentSubtree(id,path,contentRows,DateTimeOffset.UtcNow);
                 _revision++;
             }
         }
