@@ -26,7 +26,7 @@ automated、system 与 package-smoke 为 PASS。便携解压运行、静默安�
 
 0.18.0 候选资产从干净源提交 `ca0683249486689f91d6b517fea5c01a6349b77b` 生成。便携包（76,779,487 bytes）SHA-256 为 `ba4cfbc08be54663cd02690cd93a1c8fd8852391c8845f34df129c8128f8d49d`；安装器（53,962,781 bytes）为 `e4dff40526389ec86eb9f30532191c47c6625f44e2eca2cf34f8f43e78f9b015`。完整结论见[0.18.0 验证报告](release/0.18.0-test-report.md)。由于正式门禁存在 FAIL/SKIP，本版本不创建稳定 GitHub Release。
 
-远端 `main`、Release 列表和 0.18.0 候选资产将在本轮资产提交后核对；未通过全部正式门禁时不创建稳定标签或 Release。
+源码、文档和候选资产已同步到 `main` 的资产提交 `8ebcfad8a78c87cd4ddf33745ad85f5140193973`。GitHub Git Tree API 返回的便携包、安装器和 SHA-256 清单 blob SHA 与大小均和本地 Git 对象一致；远端 Release 列表仍以 `v0.16.1` 为最高条目，没有创建 `v0.17.0` 或 `v0.18.0` 标签和 Release。
 
 ## 文档入口
 

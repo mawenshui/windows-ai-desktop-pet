@@ -24,7 +24,7 @@
 
 ## 当前 0.18.0 状态
 
-0.18.0 的候选便携版、安装版和 SHA-256 已从干净源提交 `ca0683249486689f91d6b517fea5c01a6349b77b` 生成并通过 package-smoke。UI 与性能为 FAIL，签名与硬件为 SKIP，因此不创建 `v0.18.0` 标签或 GitHub Release；资产提交、远端 Git blob 和 Release 列表将在推送后更新本段。
+0.18.0 的候选便携版、安装版和 SHA-256 已从干净源提交 `ca0683249486689f91d6b517fea5c01a6349b77b` 生成并通过 package-smoke，随 `main` 的资产提交 `8ebcfad8a78c87cd4ddf33745ad85f5140193973` 同步。GitHub Tree API 返回的两个资产及清单 blob SHA/大小与本地 Git 对象一致；Release 列表最高仍为 `v0.16.1`。UI 与性能为 FAIL，签名与硬件为 SKIP，因此没有创建 `v0.18.0` 标签或 GitHub Release。
 
 0.17.0 的候选便携版、安装版和 SHA-256 已随源码和文档同步到 `main` 的资产提交 `4ee8809bd703c1417c1d4ed0c29fbfba5a37b558`。GitHub Git Tree API 返回的 blob SHA/大小与本地 Git 对象一致。UI 与性能为 FAIL，签名与硬件为 SKIP，因此没有创建 `v0.17.0` 标签或 GitHub Release。
 
