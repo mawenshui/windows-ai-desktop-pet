@@ -36,7 +36,7 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.18.0 完整 CI **297/297 PASS**，Release 构建 0 警告、0 错误。候选打包和独立门禁结果在[0.18.0 验证报告](docs/release/0.18.0-test-report.md)中记录。
+0.18.0 完整 CI **297/297 PASS**，Release 构建 0 警告、0 错误，system 与便携/安装/启动/卸载 package-smoke PASS。独立 UI 和窗口性能因当前桌面无法将应用置前而在输入前 FAIL；签名与物理设备为 SKIP。逐项证据见[0.18.0 验证报告](docs/release/0.18.0-test-report.md)。
 
 正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。任一 UI、性能、签名或硬件门禁出现 FAIL/SKIP 时，0.18.0 只保留候选资产，不创建稳定 GitHub Release。
 
@@ -44,6 +44,6 @@ test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构�
 
 [PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.18.0 候选说明](docs/RELEASE_NOTES_0.18.0.md) · [验证报告](docs/release/0.18.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.18.0－功能扩展计划.md)
 
-0.18.0 的便携版、安装版、SHA-256 和来源提交将在当前源码与文档提交后重新生成，不复用 0.17.0 的历史资产证据。
+0.18.0 候选资产来自干净源提交 `ca0683249486689f91d6b517fea5c01a6349b77b`。便携版 SHA-256 为 `ba4cfbc08be54663cd02690cd93a1c8fd8852391c8845f34df129c8128f8d49d`，安装器为 `e4dff40526389ec86eb9f30532191c47c6625f44e2eca2cf34f8f43e78f9b015`；两者均未签名。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

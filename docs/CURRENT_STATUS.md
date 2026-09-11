@@ -22,11 +22,11 @@
 
 版本升级后 `scripts/test.ps1 -CI` 已完成：结构与 UTF-8 校验、发布证据反例、Release 全解决方案构建及 **297/297** 单元/集成测试均为 PASS，构建 0 警告、0 错误。搜索结果动作参数、稳定失败提示、命令状态、失效目标、快捷入口复用、选择生命周期和 WPF 可访问入口已加入回归。
 
-0.18.0 的版本后完整自动化、system、performance、打包、package-smoke、签名和硬件门禁尚待本轮重新执行；历史 0.17.0 结果不作为新版本证据。
+automated、system 与 package-smoke 为 PASS。便携解压运行、静默安装、安装后启动、静默卸载及本安装位置自启项清理均通过。独立 UI 在 `inline-search-scope` 因当前桌面无法将应用置前而于输入前 FAIL；performance 也在发送输入前因同一条件 FAIL。安装器与便携可执行文件未签名，signatures 为 SKIP；多屏、100%～200% 缩放矩阵、热插拔、休眠/时区、Explorer 重启和真实升级数据保留缺少见证环境，hardware 为 SKIP。
 
-0.18.0 候选资产将从本轮干净源提交重新生成，便携版、安装版、SHA-256、来源提交和门禁结果见完成后的[0.18.0 验证报告](release/0.18.0-test-report.md)。
+0.18.0 候选资产从干净源提交 `ca0683249486689f91d6b517fea5c01a6349b77b` 生成。便携包（76,779,487 bytes）SHA-256 为 `ba4cfbc08be54663cd02690cd93a1c8fd8852391c8845f34df129c8128f8d49d`；安装器（53,962,781 bytes）为 `e4dff40526389ec86eb9f30532191c47c6625f44e2eca2cf34f8f43e78f9b015`。完整结论见[0.18.0 验证报告](release/0.18.0-test-report.md)。由于正式门禁存在 FAIL/SKIP，本版本不创建稳定 GitHub Release。
 
-远端 `main`、Release 列表和 0.18.0 资产将在本轮本地实现、测试及打包完成后核对；未通过全部正式门禁时不创建稳定标签或 Release。
+远端 `main`、Release 列表和 0.18.0 候选资产将在本轮资产提交后核对；未通过全部正式门禁时不创建稳定标签或 Release。
 
 ## 文档入口
 
