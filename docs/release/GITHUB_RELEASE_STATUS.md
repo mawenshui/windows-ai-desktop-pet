@@ -1,6 +1,6 @@
 # GitHub Release 状态
 
-日期：2026-09-12。此清单按最近一次已核对的 GitHub 远端实际状态记录；`Pre-release` 只是集中提供历史候选下载，不改变原测试报告中的 PASS、FAIL、SKIP，也不等同于正式稳定发布。
+日期：2026-09-13。此清单按最近一次已核对的 GitHub 远端实际状态记录；`Pre-release` 只是集中提供历史候选下载，不改变原测试报告中的 PASS、FAIL、SKIP，也不等同于正式稳定发布。
 
 ## 已发布版本
 
@@ -22,7 +22,11 @@
 | [v0.16.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.0) | Pre-release | 便携 ZIP、安装 EXE、SHA-256 |
 | [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) | Pre-release；历史候选 | 便携 ZIP、安装 EXE、SHA-256 |
 
-## 当前 0.18.0 状态
+## 当前 0.18.1 状态
+
+0.18.1 的候选便携版、安装版和 SHA-256 已从干净源提交 `9b8b1a96e4ebac66531ebe5719b0e12568b4a5b8` 生成并通过 package-smoke，随 `main` 的资产提交 `b3d1b4f405ab6368c5575adac6b88bb733c5c626` 同步。GitHub Tree API 返回的两个资产及清单 blob SHA/大小与本地 Git 对象一致；Release 列表仍没有 `v0.18.1`。UI 与性能为 FAIL，签名与硬件为 SKIP，因此没有创建 `v0.18.1` 标签或 GitHub Release。
+
+## 0.18.0 与 0.17.0 状态
 
 0.18.0 的候选便携版、安装版和 SHA-256 已从干净源提交 `ca0683249486689f91d6b517fea5c01a6349b77b` 生成并通过 package-smoke，随 `main` 的资产提交 `8ebcfad8a78c87cd4ddf33745ad85f5140193973` 同步。GitHub Tree API 返回的两个资产及清单 blob SHA/大小与本地 Git 对象一致；Release 列表最高仍为 `v0.16.1`。UI 与性能为 FAIL，签名与硬件为 SKIP，因此没有创建 `v0.18.0` 标签或 GitHub Release。
 
