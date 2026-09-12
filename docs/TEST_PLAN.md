@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.18.0，2026-09-12；测试结果以[本次报告](release/0.18.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
+基线：0.18.1，2026-09-12；测试结果以[本次报告](release/0.18.1-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -23,10 +23,10 @@
 
 | 需求 | 核心测试 |
 | :--- | :--- |
-| PET/WIN/NAV/SET | PetWindowPositioner、PetPopoverPositioner、PetToolWindowLifecycle、HomePageLayout、ShellNavigation；未保存导航取消保留、主题/页内选择、渲染与新管理窗 |
-| SRCH-01～08 / EXT-04 | SearchService、SearchIndex、SearchLifecycle、ContentSearch、SearchResultActions、HomeViewModel/HomePageLayout；授权撤销竞争、重启监听、目录改名、相对路径、稳定分页、固定/清历史、正文边界，以及打开/定位的单参数路径、复制、失效命令状态、快捷入口复用、同查询选择恢复和条件变化清除 |
-| QCK-01～06 / EXT-05 | ShortcutStore、ShortcutOrganization；重复 ID、100 项排序/分组、批量预览过期、撤销图标、扫描取消 |
-| TODO-01～09 / EXT-01 | TodoStore、TodoViewModel、ReminderRule、ReminderScheduler；跨月闰年/DST/规则时区、最早额外时刻、停机跳过、整条取消和仅此次保存 |
+| PET/WIN/NAV/SET | PetWindowPositioner、PetPopoverPositioner、PetToolWindowLifecycle、HomePageLayout、HomeViewModel、GitHubReleaseUpdate、ShellNavigation；未保存导航取消保留、主题/页内选择、三组显式保存基线、渲染与管理窗 |
+| SRCH-01～09 / EXT-04 | SearchService、SearchIndex、SearchLifecycle、ContentSearch、SearchResultActions、HomeViewModel/HomePageLayout；授权撤销竞争、重启监听、目录改名、相对路径、稳定分页、固定/清历史、正文边界，以及安全结果动作、选择生命周期、一键清空和快捷入口重复状态 |
+| QCK-01～07 / EXT-05 | ShortcutStore、ShortcutOrganization、HomePageLayout；重复 ID、100 项排序/分组、选择数量、固定区边界、扫描互斥、Delete 预览、批量预览过期、撤销图标和扫描取消 |
+| TODO-01～10 / EXT-01 | TodoStore、TodoViewModel、ReminderRule、ReminderScheduler；编辑器空白标题命令状态、跨月闰年/DST/规则时区、最早额外时刻、停机跳过、整条取消和仅此次保存 |
 | TODAY-01～05 | TodayPlan、TodoStore、TodoViewModel、HomePageLayout；六种筛选、只发送选中项正文、未选项匿名占用时间、AI/本地冲突避让、精确刻钟边界、过期应用/撤销整批拒绝及分离提示、schema 4 迁移和整批撤销 |
 | EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离 |
 | AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留 |
@@ -45,6 +45,6 @@
 
 七组 gate：automated、ui、system、performance、package-smoke、signatures、hardware。输入指纹覆盖源码/测试/脚本/资源/配置/离线手册及版本构建元数据，报告必须来自当前提交且不超过 72 小时。缺少必需检查、FAIL/SKIP、错资产或 dirty 都拒绝。
 
-系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.18.0 还需在解锁的同桌面会话验证结果单击/键盘选择、四项操作、特殊字符路径、失效目标、刷新选择恢复，以及正文开关、今日安排、两个默认全局组合、自动备份和完整 AI 配置迁移的回归。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
+系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.18.1 还需在解锁的同桌面会话验证搜索清空后的焦点、快捷入口已加入状态、三组设置按钮状态、快捷管理器键盘与扫描状态、空标题保存禁用，以及 0.18.0 搜索结果动作、正文开关、今日安排、两个默认全局组合、自动备份和完整 AI 配置迁移的回归。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
 
 NotifyIcon/桌宠提交无法证明展示，需实测专注助手、隐藏桌宠、动画关闭和中心处理。UI 无法获取前台或运行失败不应降低测试条件、替换为属性赋值并声称真实输入 PASS。完整门禁不齐只保留候选，不创建正式 Release。

@@ -86,7 +86,7 @@
                                         </ListBox.ItemTemplate>
                                     </ListBox>
                                     <Grid Grid.Column="2" VerticalAlignment="Top">
-                                        <TextBox x:Name="SearchBox" Height="44" Style="{StaticResource Field}" Padding="35,0,12,0"
+                                        <TextBox x:Name="SearchBox" Height="44" Style="{StaticResource Field}" Padding="35,0,46,0"
                                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Left"
                                                  Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                                                  TextWrapping="NoWrap" AcceptsReturn="False"
@@ -94,6 +94,11 @@
                                         <Path Width="17" Height="17" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0,0,0"
                                               Data="M8,2 A6,6 0 1 0 8,14 A6,6 0 1 0 8,2 M12.5,12.5 L17,17"
                                               Stroke="{StaticResource AccentPressed}" StrokeThickness="1.8" StrokeStartLineCap="Round" IsHitTestVisible="False" />
+                                        <Button x:Name="ClearSearchButton" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                Style="{StaticResource IconButton}" Content="×" FontSize="18" Padding="0"
+                                                Visibility="{Binding HasSearchQuery, Converter={StaticResource BoolToVisibility}}"
+                                                Command="{Binding ClearSearchCommand}" Click="ClearSearch_Click"
+                                                ToolTip="清空搜索并继续输入" AutomationProperties.AutomationId="ClearSearchButton" AutomationProperties.Name="清空搜索" />
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -269,7 +274,7 @@
                                         <Button Content="打开" Style="{StaticResource PrimaryButton}" MinHeight="36" Padding="12,6" Command="{Binding OpenSelectedResultCommand}" AutomationProperties.AutomationId="OpenSelectedResultButton" AutomationProperties.Name="打开所选搜索结果" />
                                         <Button Content="定位" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="6,0,0,0" Command="{Binding RevealSelectedResultCommand}" AutomationProperties.AutomationId="RevealSelectedResultButton" AutomationProperties.Name="在文件资源管理器中定位所选搜索结果" />
                                         <Button Content="复制路径" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="6,0,0,0" Command="{Binding CopySelectedResultPathCommand}" AutomationProperties.AutomationId="CopySelectedResultPathButton" AutomationProperties.Name="复制所选搜索结果路径" />
-                                        <Button Content="加入快捷入口" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="6,0,0,0" Command="{Binding AddSelectedResultToShortcutsCommand}" AutomationProperties.AutomationId="AddSelectedResultToShortcutsButton" AutomationProperties.Name="将所选搜索结果加入快捷入口" />
+                                        <Button Content="{Binding SelectedResultShortcutLabel}" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="6,0,0,0" Command="{Binding AddSelectedResultToShortcutsCommand}" AutomationProperties.AutomationId="AddSelectedResultToShortcutsButton" AutomationProperties.Name="将所选搜索结果加入快捷入口" />
                                     </WrapPanel>
                                 </Grid>
                             </Border>
@@ -608,7 +613,7 @@
                                             <TextBlock Grid.Column="2" Text="1–30" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0" />
                                         </Grid>
                                         <WrapPanel>
-                                            <Button Content="保存设置" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAutomaticBackupSettingsCommand}" Margin="0,0,8,8" />
+                                            <Button Content="{Binding AutomaticBackupSaveLabel}" Style="{StaticResource PrimaryButton}" Command="{Binding SaveAutomaticBackupSettingsCommand}" Margin="0,0,8,8" AutomationProperties.Name="保存自动备份设置" />
                                             <Button Content="立即创建" Style="{StaticResource SecondaryButton}" Command="{Binding CreateAutomaticBackupNowCommand}" Margin="0,0,8,8" />
                                             <Button Content="打开备份文件夹" Style="{StaticResource SecondaryButton}" Command="{Binding OpenAutomaticBackupDirectoryCommand}" Margin="0,0,0,8" />
                                         </WrapPanel>
@@ -654,7 +659,7 @@
                                         <TextBox Style="{StaticResource Field}" Height="40" MaxLength="80" Text="{Binding SearchHotkeyGesture, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 Ctrl+Alt+Space" AutomationProperties.Name="打开搜索快捷键" />
                                         <TextBlock Text="快速记待办" Style="{StaticResource SectionLabel}" Margin="0,10,0,7" />
                                         <TextBox Style="{StaticResource Field}" Height="40" MaxLength="80" Text="{Binding QuickTodoHotkeyGesture, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 Ctrl+Alt+T" AutomationProperties.Name="快速记待办快捷键" />
-                                        <Button Content="保存并应用" Style="{StaticResource PrimaryButton}" Command="{Binding SaveGlobalHotkeysCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
+                                        <Button Content="{Binding GlobalHotkeySaveLabel}" Style="{StaticResource PrimaryButton}" Command="{Binding SaveGlobalHotkeysCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" AutomationProperties.Name="保存并应用全局快捷键" />
                                         <TextBlock Text="{Binding GlobalHotkeyStatus}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,7,0,0" AutomationProperties.LiveSetting="Polite" />
                                     </StackPanel>
                                 </Border>
@@ -692,7 +697,7 @@
                                             </StackPanel>
                                         </Expander>
                                         <WrapPanel>
-                                            <Button Content="保存更新设置" Style="{StaticResource PrimaryButton}" Command="{Binding SaveUpdateSettingsCommand}" Margin="0,0,8,8" />
+                                            <Button Content="{Binding UpdateSettingsSaveLabel}" Style="{StaticResource PrimaryButton}" Command="{Binding SaveUpdateSettingsCommand}" Margin="0,0,8,8" AutomationProperties.Name="保存更新检查设置" />
                                             <Button Content="立即检查" Style="{StaticResource SecondaryButton}" Command="{Binding CheckForUpdatesCommand}" Margin="0,0,8,8" AutomationProperties.Name="立即检查 GitHub Release 更新" />
                                             <Button Content="{Binding UpdateDownloadLabel}" Style="{StaticResource SecondaryButton}" Command="{Binding DownloadUpdateCommand}" Margin="0,0,0,8" Visibility="{Binding HasAvailableUpdate, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="下载并准备安装更新" />
                                         </WrapPanel>

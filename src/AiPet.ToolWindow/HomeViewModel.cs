@@ -145,11 +145,14 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             if (_query == value) return;
             _query = value;
             OnPC();
+            OnPCFor(nameof(HasSearchQuery));
             OnPCFor(nameof(ResultEmptyMessage));
             ClearSelectedResult();
+            (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
             RestartSearch();
         }
     }
+    public bool HasSearchQuery => !string.IsNullOrEmpty(Query);
     private string _category = "全部";
     public string Category
     {
@@ -438,6 +441,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     }
 
     public ICommand SearchCommand { get; private set; } = null!;
+    public ICommand ClearSearchCommand { get; private set; } = null!;
     public ICommand LoadMoreResultsCommand { get; private set; } = null!;
     public ICommand AddShortcutCommand { get; private set; } = null!;
     public ICommand EditShortcutCommand { get; private set; } = null!;
@@ -463,6 +467,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     {
         InitializeSearchResultCommands();
         SearchCommand = new RelayCommand(_ => RestartSearch(immediate: true));
+        ClearSearchCommand = new RelayCommand(_ => ClearSearch(), _ => HasSearchQuery);
         LoadMoreResultsCommand = new RelayCommand(async _ => await LoadMoreResultsAsync(), _ => HasMoreResults && !IsSearching);
         AddShortcutCommand = new RelayCommand(_ => AddShortcutRequested?.Invoke(this, EventArgs.Empty));
         EditShortcutCommand = new RelayCommand(p => EditShortcutRequested?.Invoke(ShortcutById(p)), p => p is Guid && _shortcuts is not null);
@@ -499,7 +504,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     {
         foreach (var command in new ICommand[]
         {
-            SearchCommand, AddShortcutCommand, EditShortcutCommand,
+            SearchCommand, ClearSearchCommand, AddShortcutCommand, EditShortcutCommand,
             RelocateShortcutCommand, MoveShortcutUpCommand, MoveShortcutDownCommand,
             RemoveShortcutCommand, LaunchShortcutCommand, TestConnectionCommand,
             SaveAiConfigCommand, NewAiConfigCommand, ToggleAutostartCommand, AddRangeCommand,
@@ -672,8 +677,18 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         Shortcuts.Clear();
         foreach (var s in _shortcuts!.Load()) Shortcuts.Add(s);
         OnPCFor(nameof(HasShortcuts));
+        OnPCFor(nameof(IsSelectedResultInShortcuts));
+        OnPCFor(nameof(SelectedResultShortcutLabel));
+        RaiseSearchResultCommandStates();
         (MoveShortcutUpCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (MoveShortcutDownCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void ClearSearch()
+    {
+        if (!HasSearchQuery) return;
+        Query = string.Empty;
+        RestartSearch(immediate: true);
     }
 
     public bool HasShortcutTarget(string path) =>

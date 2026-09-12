@@ -70,6 +70,43 @@ public sealed class HomeViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Explicit_save_settings_track_changes_and_reset_only_after_successful_save()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "dirty-settings"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "dirty-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings);
+
+        Assert.False(vm.HasUnsavedGlobalHotkeyChanges);
+        Assert.False(vm.HasUnsavedAutomaticBackupChanges);
+        Assert.False(vm.SaveGlobalHotkeysCommand.CanExecute(null));
+        Assert.False(vm.SaveAutomaticBackupSettingsCommand.CanExecute(null));
+        Assert.Equal("已保存", vm.GlobalHotkeySaveLabel);
+        Assert.Equal("已保存", vm.AutomaticBackupSaveLabel);
+
+        vm.SearchHotkeyGesture = "invalid";
+        Assert.True(vm.HasUnsavedGlobalHotkeyChanges);
+        Assert.True(vm.SaveGlobalHotkeysCommand.CanExecute(null));
+        vm.SaveGlobalHotkeysCommand.Execute(null);
+        Assert.True(vm.HasUnsavedGlobalHotkeyChanges);
+        Assert.Contains("组合", vm.GlobalHotkeyStatus, StringComparison.Ordinal);
+
+        vm.SearchHotkeyGesture = "Ctrl+Shift+F12";
+        vm.SaveGlobalHotkeysCommand.Execute(null);
+        Assert.False(vm.HasUnsavedGlobalHotkeyChanges);
+        Assert.False(vm.SaveGlobalHotkeysCommand.CanExecute(null));
+
+        vm.AutomaticBackupRetentionText = "12";
+        Assert.True(vm.HasUnsavedAutomaticBackupChanges);
+        Assert.Equal("保存设置（有修改）", vm.AutomaticBackupSaveLabel);
+        vm.SaveAutomaticBackupSettingsCommand.Execute(null);
+        Assert.False(vm.HasUnsavedAutomaticBackupChanges);
+        Assert.Equal(12, settings.Load().Backup.RetentionCount);
+    }
+
+    [Fact]
     public void Built_in_provider_selection_replaces_endpoint_and_model_with_preset()
     {
         var vm = CreateViewModel();

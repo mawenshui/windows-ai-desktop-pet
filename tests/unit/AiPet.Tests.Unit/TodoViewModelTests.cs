@@ -13,6 +13,31 @@ public sealed class TodoViewModelTests : IDisposable
         new(2026, 8, 28, 9, 0, 0, TimeSpan.FromHours(8));
 
     [Fact]
+    public void Manual_editor_enables_save_only_for_a_non_blank_title()
+    {
+        var store = new TodoStore(_root, () => _now);
+        var vm = CreateViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")));
+
+        Assert.False(vm.CanSaveEditor);
+        Assert.False(vm.SaveEditorCommand.CanExecute(null));
+
+        vm.NewTodoCommand.Execute(null);
+        Assert.False(vm.SaveEditorCommand.CanExecute(null));
+        vm.EditorTitle = "   ";
+        Assert.False(vm.CanSaveEditor);
+        Assert.False(vm.SaveEditorCommand.CanExecute(null));
+
+        vm.EditorTitle = "整理桌面";
+        Assert.True(vm.CanSaveEditor);
+        Assert.True(vm.SaveEditorCommand.CanExecute(null));
+        vm.SaveEditorCommand.Execute(null);
+
+        Assert.Equal("整理桌面", Assert.Single(store.Load()).Title);
+        Assert.False(vm.CanSaveEditor);
+        Assert.False(vm.SaveEditorCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Ai_create_has_no_side_effect_before_confirmation_and_can_be_undone()
     {
         var store = new TodoStore(_root, () => _now);

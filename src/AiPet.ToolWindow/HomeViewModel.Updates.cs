@@ -21,6 +21,9 @@ public sealed partial class HomeViewModel
     private bool _periodicUpdateChecksEnabled;
     private string _updateIntervalHoursText = "24";
     private string _updateAccelerationTemplate = string.Empty;
+    private bool _savedPeriodicUpdateChecksEnabled;
+    private string _savedUpdateIntervalHoursText = "24";
+    private string _savedUpdateAccelerationTemplate = string.Empty;
     private string _updateAccessTokenInput = string.Empty;
     private bool _hasStoredUpdateAccessToken;
     private string _updateCredentialStatus = "未保存 GitHub 访问令牌。";
@@ -38,6 +41,7 @@ public sealed partial class HomeViewModel
             if (_periodicUpdateChecksEnabled == value) return;
             _periodicUpdateChecksEnabled = value;
             OnPC();
+            RaiseUpdateSettingsSaveState();
         }
     }
 
@@ -49,6 +53,7 @@ public sealed partial class HomeViewModel
             if (_updateIntervalHoursText == value) return;
             _updateIntervalHoursText = value;
             OnPC();
+            RaiseUpdateSettingsSaveState();
         }
     }
 
@@ -60,6 +65,7 @@ public sealed partial class HomeViewModel
             if (_updateAccelerationTemplate == value) return;
             _updateAccelerationTemplate = value;
             OnPC();
+            RaiseUpdateSettingsSaveState();
         }
     }
 
@@ -139,6 +145,12 @@ public sealed partial class HomeViewModel
     public string UpdateDownloadLabel => IsDownloadingUpdate
         ? $"下载中 {_updateDownloadProgress}%"
         : "下载并准备安装";
+    public bool HasUnsavedUpdateSettings => _settings is not null
+        && (PeriodicUpdateChecksEnabled != _savedPeriodicUpdateChecksEnabled
+            || !string.Equals(UpdateIntervalHoursText, _savedUpdateIntervalHoursText, StringComparison.Ordinal)
+            || !string.Equals(UpdateAccelerationTemplate, _savedUpdateAccelerationTemplate, StringComparison.Ordinal));
+    public string UpdateSettingsSaveLabel =>
+        HasUnsavedUpdateSettings ? "保存更新设置（有修改）" : "已保存";
 
     public ICommand SaveUpdateSettingsCommand { get; private set; } = null!;
     public ICommand SaveUpdateAccessTokenCommand { get; private set; } = null!;
@@ -152,7 +164,7 @@ public sealed partial class HomeViewModel
     {
         SaveUpdateSettingsCommand = new RelayCommand(
             _ => SaveUpdateSettings(),
-            _ => _settings is not null && !IsDownloadingUpdate);
+            _ => HasUnsavedUpdateSettings && !IsDownloadingUpdate);
         SaveUpdateAccessTokenCommand = new RelayCommand(
             _ => SaveUpdateAccessToken(),
             _ => _settings is not null && !string.IsNullOrWhiteSpace(UpdateAccessTokenInput) && !IsDownloadingUpdate);
@@ -172,6 +184,7 @@ public sealed partial class HomeViewModel
         _periodicUpdateChecksEnabled = settings.Updates.PeriodicEnabled;
         _updateIntervalHoursText = settings.Updates.IntervalHours.ToString();
         _updateAccelerationTemplate = settings.Updates.AccelerationTemplate;
+        CaptureSavedUpdateSettings();
         RefreshUpdateCredentialStatus();
         OnPCFor(nameof(PeriodicUpdateChecksEnabled));
         OnPCFor(nameof(UpdateIntervalHoursText));
@@ -307,6 +320,7 @@ public sealed partial class HomeViewModel
             _settings.Save(settings);
             UpdateIntervalHoursText = interval.ToString();
             UpdateAccelerationTemplate = template ?? string.Empty;
+            CaptureSavedUpdateSettings();
             UpdateStatus = PeriodicUpdateChecksEnabled
                 ? $"更新设置已保存；每 {interval} 小时检查一次。"
                 : "更新设置已保存；仅在启动时检查一次。";
@@ -408,5 +422,20 @@ public sealed partial class HomeViewModel
         (ClearUpdateAccessTokenCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (CheckForUpdatesCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (DownloadUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void CaptureSavedUpdateSettings()
+    {
+        _savedPeriodicUpdateChecksEnabled = PeriodicUpdateChecksEnabled;
+        _savedUpdateIntervalHoursText = UpdateIntervalHoursText;
+        _savedUpdateAccelerationTemplate = UpdateAccelerationTemplate;
+        RaiseUpdateSettingsSaveState();
+    }
+
+    private void RaiseUpdateSettingsSaveState()
+    {
+        OnPCFor(nameof(HasUnsavedUpdateSettings));
+        OnPCFor(nameof(UpdateSettingsSaveLabel));
+        (SaveUpdateSettingsCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 }

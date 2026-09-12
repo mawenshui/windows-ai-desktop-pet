@@ -156,14 +156,22 @@ public sealed class GitHubReleaseUpdateTests : IDisposable
         await Task.Delay(50);
 
         Assert.Equal(1, fake.CheckCount);
+        Assert.False(vm.HasUnsavedUpdateSettings);
+        Assert.False(vm.SaveUpdateSettingsCommand.CanExecute(null));
         vm.PeriodicUpdateChecksEnabled = true;
         vm.UpdateIntervalHoursText = "6";
         vm.UpdateAccelerationTemplate = "https://mirror.example.test/{url}";
+        Assert.True(vm.HasUnsavedUpdateSettings);
+        Assert.Equal("保存更新设置（有修改）", vm.UpdateSettingsSaveLabel);
+        Assert.True(vm.SaveUpdateSettingsCommand.CanExecute(null));
         vm.SaveUpdateSettingsCommand.Execute(null);
         var loaded = settings.Load();
         Assert.True(loaded.Updates.PeriodicEnabled, vm.UpdateStatus);
         Assert.Equal(6, loaded.Updates.IntervalHours);
         Assert.Equal("https://mirror.example.test/{url}", loaded.Updates.AccelerationTemplate);
+        Assert.False(vm.HasUnsavedUpdateSettings);
+        Assert.Equal("已保存", vm.UpdateSettingsSaveLabel);
+        Assert.False(vm.SaveUpdateSettingsCommand.CanExecute(null));
         vm.CancelBackgroundWork();
     }
 

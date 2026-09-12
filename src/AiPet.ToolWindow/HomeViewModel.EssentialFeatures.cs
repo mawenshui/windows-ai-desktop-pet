@@ -11,28 +11,33 @@ public sealed partial class HomeViewModel
     private bool _globalHotkeysEnabled = true;
     private string _searchHotkeyGesture = "Ctrl+Alt+Space";
     private string _quickTodoHotkeyGesture = "Ctrl+Alt+T";
+    private bool _savedGlobalHotkeysEnabled = true;
+    private string _savedSearchHotkeyGesture = "Ctrl+Alt+Space";
+    private string _savedQuickTodoHotkeyGesture = "Ctrl+Alt+T";
     private string _globalHotkeyStatus = "等待应用注册快捷键。";
     private bool _automaticBackupEnabled = true;
     private bool _isCreatingAutomaticBackup;
     private string _automaticBackupRetentionText = AutomaticBackupService.DefaultRetentionCount.ToString();
+    private bool _savedAutomaticBackupEnabled = true;
+    private string _savedAutomaticBackupRetentionText = AutomaticBackupService.DefaultRetentionCount.ToString();
     private string _automaticBackupStatus = "尚无自动备份；可立即创建。";
 
     public bool GlobalHotkeysEnabled
     {
         get => _globalHotkeysEnabled;
-        set { if (_globalHotkeysEnabled == value) return; _globalHotkeysEnabled = value; OnPC(); }
+        set { if (_globalHotkeysEnabled == value) return; _globalHotkeysEnabled = value; OnPC(); RaiseGlobalHotkeySaveState(); }
     }
 
     public string SearchHotkeyGesture
     {
         get => _searchHotkeyGesture;
-        set { if (_searchHotkeyGesture == value) return; _searchHotkeyGesture = value; OnPC(); }
+        set { if (_searchHotkeyGesture == value) return; _searchHotkeyGesture = value; OnPC(); RaiseGlobalHotkeySaveState(); }
     }
 
     public string QuickTodoHotkeyGesture
     {
         get => _quickTodoHotkeyGesture;
-        set { if (_quickTodoHotkeyGesture == value) return; _quickTodoHotkeyGesture = value; OnPC(); }
+        set { if (_quickTodoHotkeyGesture == value) return; _quickTodoHotkeyGesture = value; OnPC(); RaiseGlobalHotkeySaveState(); }
     }
 
     public string GlobalHotkeyStatus
@@ -44,13 +49,13 @@ public sealed partial class HomeViewModel
     public bool AutomaticBackupEnabled
     {
         get => _automaticBackupEnabled;
-        set { if (_automaticBackupEnabled == value) return; _automaticBackupEnabled = value; OnPC(); }
+        set { if (_automaticBackupEnabled == value) return; _automaticBackupEnabled = value; OnPC(); RaiseAutomaticBackupSaveState(); }
     }
 
     public string AutomaticBackupRetentionText
     {
         get => _automaticBackupRetentionText;
-        set { if (_automaticBackupRetentionText == value) return; _automaticBackupRetentionText = value; OnPC(); }
+        set { if (_automaticBackupRetentionText == value) return; _automaticBackupRetentionText = value; OnPC(); RaiseAutomaticBackupSaveState(); }
     }
 
     public string AutomaticBackupStatus
@@ -58,6 +63,18 @@ public sealed partial class HomeViewModel
         get => _automaticBackupStatus;
         private set { if (_automaticBackupStatus == value) return; _automaticBackupStatus = value; OnPC(); }
     }
+
+    public bool HasUnsavedGlobalHotkeyChanges => _settings is not null
+        && (GlobalHotkeysEnabled != _savedGlobalHotkeysEnabled
+            || !string.Equals(SearchHotkeyGesture, _savedSearchHotkeyGesture, StringComparison.Ordinal)
+            || !string.Equals(QuickTodoHotkeyGesture, _savedQuickTodoHotkeyGesture, StringComparison.Ordinal));
+    public string GlobalHotkeySaveLabel =>
+        HasUnsavedGlobalHotkeyChanges ? "保存并应用（有修改）" : "已保存";
+    public bool HasUnsavedAutomaticBackupChanges => _settings is not null
+        && (AutomaticBackupEnabled != _savedAutomaticBackupEnabled
+            || !string.Equals(AutomaticBackupRetentionText, _savedAutomaticBackupRetentionText, StringComparison.Ordinal));
+    public string AutomaticBackupSaveLabel =>
+        HasUnsavedAutomaticBackupChanges ? "保存设置（有修改）" : "已保存";
 
     public ICommand SaveGlobalHotkeysCommand { get; private set; } = null!;
     public ICommand SaveAutomaticBackupSettingsCommand { get; private set; } = null!;
@@ -68,8 +85,8 @@ public sealed partial class HomeViewModel
 
     private void InitializeEssentialCommands()
     {
-        SaveGlobalHotkeysCommand = new RelayCommand(_ => SaveGlobalHotkeys(), _ => _settings is not null);
-        SaveAutomaticBackupSettingsCommand = new RelayCommand(_ => SaveAutomaticBackupSettings(), _ => _settings is not null);
+        SaveGlobalHotkeysCommand = new RelayCommand(_ => SaveGlobalHotkeys(), _ => HasUnsavedGlobalHotkeyChanges);
+        SaveAutomaticBackupSettingsCommand = new RelayCommand(_ => SaveAutomaticBackupSettings(), _ => HasUnsavedAutomaticBackupChanges);
         CreateAutomaticBackupNowCommand = new RelayCommand(
             async _ => await CreateAutomaticBackupNowAsync(),
             _ => _settings is not null && !_isCreatingAutomaticBackup);
@@ -84,6 +101,8 @@ public sealed partial class HomeViewModel
         _quickTodoHotkeyGesture = settings.Hotkeys.QuickTodoGesture;
         _automaticBackupEnabled = settings.Backup.AutomaticEnabled;
         _automaticBackupRetentionText = settings.Backup.RetentionCount.ToString();
+        CaptureSavedGlobalHotkeySettings();
+        CaptureSavedAutomaticBackupSettings();
         LoadUpdateSettings(settings);
         OnPCFor(nameof(GlobalHotkeysEnabled));
         OnPCFor(nameof(SearchHotkeyGesture));
@@ -123,6 +142,7 @@ public sealed partial class HomeViewModel
             settings.Hotkeys.QuickTodoGesture = QuickTodoHotkeyGesture;
             _settings.Save(settings);
             GlobalHotkeyStatus = "快捷键设置已保存，正在应用。";
+            CaptureSavedGlobalHotkeySettings();
             GlobalHotkeysChanged?.Invoke(this, EventArgs.Empty);
         }
         catch
@@ -142,6 +162,7 @@ public sealed partial class HomeViewModel
             settings.Backup.RetentionCount = retention;
             _settings.Save(settings);
             AutomaticBackupRetentionText = retention.ToString();
+            CaptureSavedAutomaticBackupSettings();
             AutomaticBackupStatus = AutomaticBackupEnabled
                 ? $"每日自动备份已启用 · 最多保留 {retention} 份"
                 : "每日自动备份已关闭。";
@@ -202,4 +223,33 @@ public sealed partial class HomeViewModel
 
     public void SetAutomaticBackupStatus(AutomaticBackupResult result) =>
         AutomaticBackupStatus = result.Message;
+
+    private void CaptureSavedGlobalHotkeySettings()
+    {
+        _savedGlobalHotkeysEnabled = GlobalHotkeysEnabled;
+        _savedSearchHotkeyGesture = SearchHotkeyGesture;
+        _savedQuickTodoHotkeyGesture = QuickTodoHotkeyGesture;
+        RaiseGlobalHotkeySaveState();
+    }
+
+    private void CaptureSavedAutomaticBackupSettings()
+    {
+        _savedAutomaticBackupEnabled = AutomaticBackupEnabled;
+        _savedAutomaticBackupRetentionText = AutomaticBackupRetentionText;
+        RaiseAutomaticBackupSaveState();
+    }
+
+    private void RaiseGlobalHotkeySaveState()
+    {
+        OnPCFor(nameof(HasUnsavedGlobalHotkeyChanges));
+        OnPCFor(nameof(GlobalHotkeySaveLabel));
+        (SaveGlobalHotkeysCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void RaiseAutomaticBackupSaveState()
+    {
+        OnPCFor(nameof(HasUnsavedAutomaticBackupChanges));
+        OnPCFor(nameof(AutomaticBackupSaveLabel));
+        (SaveAutomaticBackupSettingsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
 }

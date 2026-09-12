@@ -345,6 +345,15 @@ public partial class PetToolWindow : Window
             vm.OpenResult(item);
     }
 
+    private void ClearSearch_Click(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            SearchBox.Focus();
+            Keyboard.Focus(SearchBox);
+        }));
+    }
+
     private void ShellTab_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left && sender is TabItem tab)

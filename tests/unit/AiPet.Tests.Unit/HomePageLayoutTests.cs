@@ -19,7 +19,7 @@ public sealed class HomePageLayoutTests
         Assert.DoesNotContain("今天想找什么？", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("输入文件名，结果会在下方即时出现", xaml, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Padding=\"35,0,12,0\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Padding=\"35,0,46,0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("VerticalContentAlignment=\"Center\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedItem=\"{Binding SelectedSearchScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("SelectedValue=\"{Binding SelectedSearchScopeId", xaml, StringComparison.Ordinal);
@@ -120,12 +120,33 @@ public sealed class HomePageLayoutTests
         Assert.Contains("AutomationProperties.Name=\"打开搜索快捷键\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"快速记待办快捷键\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{Binding SaveGlobalHotkeysCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding GlobalHotkeySaveLabel}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ClearSearchButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ClearSearchCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding SelectedResultShortcutLabel}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"启用每日自动备份\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"自动备份保留份数\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{Binding CreateAutomaticBackupNowCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding AutomaticBackupSaveLabel}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding UpdateSettingsSaveLabel}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding GlobalHotkeyStatus}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding AutomaticBackupStatus}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"TodoTitleBox\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Shortcut_manager_exposes_context_state_and_safe_keyboard_removal()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "ShortcutManagerWindow.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "ShortcutManagerWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"SelectionText\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionChanged=\"Entries_SelectionChanged\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ScanButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CancelScanButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Delete 预览移除", xaml, StringComparison.Ordinal);
+        Assert.Contains("e.Key == Key.Delete", code, StringComparison.Ordinal);
+        Assert.Contains("ShowRemovalPreview();", code, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -159,6 +159,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             if (_isEditorOpen == value) return;
             _isEditorOpen = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(CanSaveEditor));
+            (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
@@ -170,6 +172,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     public string EditorSaveLabel => IsEditing
         ? "保存修改"
         : (EditorIsReminder ? "创建提醒项" : "创建待办");
+    public bool CanSaveEditor =>
+        IsEditorOpen && _store is not null && !string.IsNullOrWhiteSpace(EditorTitle);
 
     private string _editorTitle = string.Empty;
     public string EditorTitle
@@ -181,6 +185,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             _editorTitle = value;
             EditorError = string.Empty;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(CanSaveEditor));
+            (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
@@ -511,7 +517,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         NewTodoCommand = new RelayCommand(_ => OpenNewEditor());
         EditTodoCommand = new RelayCommand(parameter => OpenEditor(Find(parameter)), parameter => Find(parameter) is not null);
         CancelEditorCommand = new RelayCommand(_ => CloseEditor());
-        SaveEditorCommand = new RelayCommand(_ => SaveEditor(), _ => _store is not null);
+        SaveEditorCommand = new RelayCommand(_ => SaveEditor(), _ => CanSaveEditor);
         CompleteTodoCommand = new RelayCommand(parameter => Complete(Find(parameter)), parameter => Find(parameter)?.Status == TodoStatus.Pending);
         RestoreTodoCommand = new RelayCommand(parameter => Restore(Find(parameter)), parameter =>
             Find(parameter) is { Status: TodoStatus.Completed, IsReminder: false });
@@ -1152,6 +1158,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsEditing));
         OnPropertyChanged(nameof(EditorHeading));
         OnPropertyChanged(nameof(EditorSaveLabel));
+        OnPropertyChanged(nameof(CanSaveEditor));
+        (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void RaiseAiStateChanged()

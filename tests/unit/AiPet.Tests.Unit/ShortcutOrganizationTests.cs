@@ -1,5 +1,6 @@
 using System.IO;
 using AiPet.Shortcuts;
+using AiPet.ToolWindow;
 using Xunit;
 
 namespace AiPet.Tests.Unit;
@@ -8,6 +9,46 @@ public sealed class ShortcutOrganizationTests : IDisposable
 {
     private readonly string _root=Path.Combine(Path.GetTempPath(),"aipet-shortcut-organize-"+Guid.NewGuid().ToString("N"));
     public ShortcutOrganizationTests()=>Directory.CreateDirectory(_root);
+
+    [Fact]
+    public void Manager_actions_follow_selection_boundaries_and_scan_state()
+    {
+        var first = new ShortcutItem { DisplayName = "first", Pinned = true };
+        var second = new ShortcutItem { DisplayName = "second", Pinned = true };
+        var third = new ShortcutItem { DisplayName = "third", Pinned = false };
+        var displayed = new[] { first, second, third };
+
+        var empty = ShortcutManagerInteraction.Resolve(displayed, Array.Empty<Guid>(), false, false, "");
+        Assert.Equal("当前显示 3 个入口 · 已选 0 个", empty.SelectionSummary);
+        Assert.False(empty.CanOrganize);
+        Assert.True(empty.CanScan);
+        Assert.Equal("移出分组", empty.GroupLabel);
+
+        var firstSelected = ShortcutManagerInteraction.Resolve(displayed, new[] { first.Id }, false, true, "工作");
+        Assert.False(firstSelected.CanMoveUp);
+        Assert.True(firstSelected.CanMoveDown);
+        Assert.True(firstSelected.CanRelocate);
+        Assert.True(firstSelected.CanUndo);
+        Assert.Equal("取消固定", firstSelected.PinLabel);
+        Assert.Equal("移入分组", firstSelected.GroupLabel);
+
+        var secondSelected = ShortcutManagerInteraction.Resolve(displayed, new[] { second.Id }, false, false, "");
+        Assert.True(secondSelected.CanMoveUp);
+        Assert.False(secondSelected.CanMoveDown);
+
+        var multiple = ShortcutManagerInteraction.Resolve(displayed, new[] { first.Id, second.Id }, false, false, "");
+        Assert.True(multiple.CanOrganize);
+        Assert.True(multiple.CanRemove);
+        Assert.False(multiple.CanRelocate);
+        Assert.False(multiple.CanMoveUp);
+        Assert.False(multiple.CanMoveDown);
+
+        var scanning = ShortcutManagerInteraction.Resolve(displayed, new[] { first.Id }, true, true, "工作");
+        Assert.False(scanning.CanOrganize);
+        Assert.False(scanning.CanScan);
+        Assert.False(scanning.CanUndo);
+        Assert.True(scanning.CanCancelScan);
+    }
     [Fact]
     public void Repeated_reorder_ids_never_duplicate_records()
     {

@@ -18,6 +18,8 @@ public sealed partial class HomeViewModel
             OnPC();
             OnPCFor(nameof(HasSelectedResult));
             OnPCFor(nameof(SelectedResultSummary));
+            OnPCFor(nameof(IsSelectedResultInShortcuts));
+            OnPCFor(nameof(SelectedResultShortcutLabel));
             RaiseSearchResultCommandStates();
         }
     }
@@ -27,6 +29,12 @@ public sealed partial class HomeViewModel
     public string SelectedResultSummary => SelectedResult is null
         ? string.Empty
         : $"已选：{SelectedResult.Name} · {KindLabel(SelectedResult.Kind)} · {FormatSize(SelectedResult)}";
+
+    public bool IsSelectedResultInShortcuts =>
+        SelectedResult is not null && HasShortcutTarget(SelectedResult.FullPath);
+
+    public string SelectedResultShortcutLabel =>
+        IsSelectedResultInShortcuts ? "已在快捷入口" : "加入快捷入口";
 
     public ICommand OpenSelectedResultCommand { get; private set; } = null!;
     public ICommand RevealSelectedResultCommand { get; private set; } = null!;
@@ -46,7 +54,7 @@ public sealed partial class HomeViewModel
             _ => SelectedResult is not null);
         AddSelectedResultToShortcutsCommand = new RelayCommand(
             _ => AddSelectedResultToShortcuts(),
-            _ => SelectedResult?.ExistsNow == true && _shortcuts is not null);
+            _ => SelectedResult?.ExistsNow == true && _shortcuts is not null && !IsSelectedResultInShortcuts);
     }
 
     private void OpenSelectedResult()

@@ -256,6 +256,7 @@ public sealed class HomePageExperienceTests : IDisposable
         Assert.True(vm.RevealSelectedResultCommand.CanExecute(null));
         Assert.True(vm.CopySelectedResultPathCommand.CanExecute(null));
         Assert.True(vm.AddSelectedResultToShortcutsCommand.CanExecute(null));
+        Assert.Equal("加入快捷入口", vm.SelectedResultShortcutLabel);
 
         vm.OpenSelectedResultCommand.Execute(null);
         vm.RevealSelectedResultCommand.Execute(null);
@@ -267,10 +268,39 @@ public sealed class HomePageExperienceTests : IDisposable
         Assert.Equal(target, actions.CopiedPath);
         Assert.True(vm.HasShortcutTarget(target));
         Assert.Single(shortcuts.Load());
+        Assert.True(vm.IsSelectedResultInShortcuts);
+        Assert.Equal("已在快捷入口", vm.SelectedResultShortcutLabel);
+        Assert.False(vm.AddSelectedResultToShortcutsCommand.CanExecute(null));
+    }
 
-        vm.AddSelectedResultToShortcutsCommand.Execute(null);
-        Assert.Contains("已存在", vm.Status, StringComparison.Ordinal);
-        Assert.Single(shortcuts.Load());
+    [Fact]
+    public async Task Clear_search_removes_query_and_selection_without_changing_the_category()
+    {
+        var target = Path.Combine(_root, "clear-query.txt");
+        File.WriteAllText(target, "clear");
+        _search.AddRange(_root);
+        var range = _search.ListRanges().Single(item => item.Path == _root);
+        await _search.IndexRangeAsync(range.Id);
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "clear-shortcuts")),
+            new OpenAiCompatibleClient(),
+            new SettingsStore(Path.Combine(_root, "clear-settings")));
+
+        vm.Category = "文档";
+        vm.Query = "clear-query";
+        await WaitUntilAsync(() => vm.Results.Count == 1);
+        vm.SelectedResult = Assert.Single(vm.Results);
+
+        Assert.True(vm.HasSearchQuery);
+        Assert.True(vm.ClearSearchCommand.CanExecute(null));
+        vm.ClearSearchCommand.Execute(null);
+
+        Assert.Equal(string.Empty, vm.Query);
+        Assert.Equal("文档", vm.Category);
+        Assert.Null(vm.SelectedResult);
+        Assert.False(vm.HasSearchQuery);
+        Assert.False(vm.ClearSearchCommand.CanExecute(null));
     }
 
     [Fact]

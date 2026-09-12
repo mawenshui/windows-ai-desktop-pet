@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.18.1] - 2026-09-12
+
+### Changed
+
+- 搜索框增加保持输入焦点的一键清空；已加入快捷入口的结果显示当前状态并禁用重复提交，快捷数据变化后实时刷新。
+- 全局快捷键、自动备份和更新检查分别跟踪最后一次成功加载或保存的基线，按钮区分“有修改”和“已保存”，失败保留输入。
+- 快捷入口管理器显示筛选/选择数量，按选择数、固定区排序边界和扫描状态启用动作；Delete 键复用现有安全移除预览。
+- 待办编辑器仅在标题非空白时允许保存，保留现有日期、时间、重复与提醒验证；设置/待办/快捷入口 schema 均不变。
+
 ## [0.18.0] - 2026-09-12
 
 ### Changed
