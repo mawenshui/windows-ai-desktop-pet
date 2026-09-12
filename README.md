@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.18.1**，于 **2026-09-12** 统一完善搜索、显式保存设置、快捷入口管理和待办编辑的界面状态与操作逻辑。当前为候选工作区，完整发布门禁仍按本次验证结果判定。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.18.1**，于 **2026-09-13** 统一完善搜索、显式保存设置、快捷入口管理和待办编辑的界面状态与操作逻辑。当前为候选版本，完整发布门禁按本次验证结果判定。
 
 ## 当前能力
 
@@ -37,7 +37,7 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.18.1 升级前完整 CI **302/302 PASS**，Release 构建 0 警告、0 错误；升级后的打包与独立门禁以[0.18.1 验证报告](docs/release/0.18.1-test-report.md)为准。
+0.18.1 升级后的完整 CI **302/302 PASS**，Release 构建 0 警告、0 错误；system 与最终资产 package-smoke 为 PASS。独立 UI、性能、签名和实机条件的实际边界见[0.18.1 验证报告](docs/release/0.18.1-test-report.md)。
 
 正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。任一 UI、性能、签名或硬件门禁出现 FAIL/SKIP 时，0.18.1 只保留候选资产，不创建稳定 GitHub Release。
 
@@ -45,6 +45,6 @@ test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构�
 
 [PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.18.1 候选说明](docs/RELEASE_NOTES_0.18.1.md) · [验证报告](docs/release/0.18.1-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.18.1－功能扩展计划.md)
 
-0.18.1 的候选资产、校验和和门禁结论以本轮完成后的验证报告为准；历史 0.18.0 候选资产及哈希保留在对应报告中。
+0.18.1 候选便携版 SHA-256 为 `dbb405d7e880d9b77aa7ba224710c3a368fa4ff02baef46130c5a67233e71072`，安装版为 `1561aa4c0429b242a3739bb99ff2f21f9288313fa746f0fe1792b90fdb02d8b0`；历史 0.18.0 候选资产及哈希保留在对应报告中。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。
