@@ -209,6 +209,115 @@ public sealed class TodoViewModelTests : IDisposable
         Assert.False(vm.RestoreTodoCommand.CanExecute(saved.Id));
     }
 
+    [Fact]
+    public void Dirty_editor_requires_an_inline_discard_choice_before_closing()
+    {
+        var store = new TodoStore(_root, () => _now);
+        var vm = CreateViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")));
+
+        vm.NewTodoCommand.Execute(null);
+        Assert.False(vm.HasUnsavedEditorChanges);
+        vm.EditorTitle = "未保存的待办";
+        Assert.True(vm.HasUnsavedEditorChanges);
+        Assert.Contains("未保存", vm.EditorStateHint);
+
+        vm.CancelEditorCommand.Execute(null);
+        Assert.True(vm.IsEditorOpen);
+        Assert.True(vm.ShowDiscardEditorConfirmation);
+        Assert.True(vm.KeepEditingCommand.CanExecute(null));
+        Assert.True(vm.DiscardEditorCommand.CanExecute(null));
+
+        vm.KeepEditingCommand.Execute(null);
+        Assert.True(vm.IsEditorOpen);
+        Assert.False(vm.ShowDiscardEditorConfirmation);
+        Assert.Equal("未保存的待办", vm.EditorTitle);
+
+        vm.CancelEditorCommand.Execute(null);
+        vm.DiscardEditorCommand.Execute(null);
+        Assert.False(vm.IsEditorOpen);
+        Assert.Empty(store.Load());
+    }
+
+    [Fact]
+    public void Empty_state_action_returns_to_pending_then_opens_the_manual_editor()
+    {
+        var store = new TodoStore(_root, () => _now);
+        var vm = CreateViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")));
+
+        vm.SelectedFilterId = "completed";
+        Assert.Equal("返回待处理", vm.EmptyActionLabel);
+        Assert.Contains("已完成 0 条", vm.FilterSummary);
+        Assert.Contains("待处理总计 0 条", vm.FilterSummary);
+        vm.EmptyStateCommand.Execute(null);
+
+        Assert.Equal("pending", vm.SelectedFilterId);
+        Assert.Equal("新建第一条待办", vm.EmptyActionLabel);
+        Assert.False(vm.IsEditorOpen);
+        vm.EmptyStateCommand.Execute(null);
+        Assert.True(vm.IsEditorOpen);
+    }
+
+    [Fact]
+    public void Manual_create_edit_complete_and_delete_share_one_recoverable_undo_path()
+    {
+        var store = new TodoStore(_root, () => _now);
+        var vm = CreateViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")));
+
+        vm.NewTodoCommand.Execute(null);
+        vm.EditorTitle = "新建项";
+        vm.SaveEditorCommand.Execute(null);
+        var created = Assert.Single(store.Load());
+        Assert.True(vm.CanUndoLastAction);
+        Assert.Contains("创建待办", vm.UndoLabel);
+        vm.UndoLastActionCommand.Execute(null);
+        Assert.Empty(store.Load());
+
+        var original = store.Create(new TodoItem { Title = "原标题" });
+        vm.RefreshItems();
+        vm.EditTodoCommand.Execute(original.Id);
+        vm.EditorTitle = "新标题";
+        vm.SaveEditorCommand.Execute(null);
+        Assert.Equal("新标题", Assert.Single(store.Load()).Title);
+        vm.UndoLastActionCommand.Execute(null);
+        Assert.Equal("原标题", Assert.Single(store.Load()).Title);
+
+        vm.CompleteTodoCommand.Execute(original.Id);
+        Assert.Equal(TodoStatus.Completed, Assert.Single(store.Load()).Status);
+        vm.UndoLastActionCommand.Execute(null);
+        Assert.Equal(TodoStatus.Pending, Assert.Single(store.Load()).Status);
+
+        vm.DeleteTodoCommand.Execute(original.Id);
+        Assert.Empty(store.Load());
+        Assert.Contains("删除待办", vm.UndoLabel);
+        vm.UndoLastActionCommand.Execute(null);
+        Assert.Equal("原标题", Assert.Single(store.Load()).Title);
+        Assert.False(vm.CanUndoLastAction);
+    }
+
+    [Fact]
+    public void Stale_manual_undo_never_overwrites_a_later_change()
+    {
+        var clock = _now;
+        var store = new TodoStore(_root, () => clock);
+        var original = store.Create(new TodoItem { Title = "并发保护" });
+        var vm = new TodoViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
+            () => new TodoAiConnection("https://example.test", "model", "test-api-key"), () => clock);
+
+        clock = clock.AddSeconds(1);
+        vm.CompleteTodoCommand.Execute(original.Id);
+        var completed = Assert.Single(store.Load());
+        clock = clock.AddSeconds(1);
+        store.Update(completed with { Notes = "后续修改" });
+
+        vm.UndoLastActionCommand.Execute(null);
+
+        var current = Assert.Single(store.Load());
+        Assert.Equal(TodoStatus.Completed, current.Status);
+        Assert.Equal("后续修改", current.Notes);
+        Assert.Contains("撤销失败", vm.Status);
+        Assert.True(vm.CanUndoLastAction);
+    }
+
     private TodoViewModel CreateViewModel(TodoStore store, ITodoAiClient ai) =>
         new(store, ai, () => new TodoAiConnection(
             "https://example.test",

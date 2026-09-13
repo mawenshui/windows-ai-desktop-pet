@@ -12,4 +12,11 @@ public static class ShellNavigation
         var delta = reverse ? -1 : 1;
         return (currentIndex + delta + tabCount) % tabCount;
     }
+
+    public static int DirectTabIndex(int digit, int tabCount)
+    {
+        if (tabCount <= 0) throw new ArgumentOutOfRangeException(nameof(tabCount));
+        var index = digit - 1;
+        return index >= 0 && index < tabCount ? index : -1;
+    }
 }

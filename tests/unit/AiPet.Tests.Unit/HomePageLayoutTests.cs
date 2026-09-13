@@ -28,7 +28,9 @@ public sealed class HomePageLayoutTests
         Assert.Contains("Text=\"{Binding SearchPrivacyNotice}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding MatchSnippet}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("<Grid Grid.Row=\"3\">", xaml, StringComparison.Ordinal);
-        Assert.Contains("<StackPanel Grid.Row=\"4\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<StackPanel Grid.Row=\"5\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<DockPanel Grid.Row=\"6\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<RowDefinition Height=\"*\" MinHeight=\"44\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("AllowDrop=\"True\"", xaml, StringComparison.Ordinal);
         Assert.Contains("DragOver=\"ShortcutBar_DragOver\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Drop=\"ShortcutBar_Drop\"", xaml, StringComparison.Ordinal);
@@ -38,7 +40,7 @@ public sealed class HomePageLayoutTests
         Assert.Contains("Text=\"{Binding DisplayName}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Description}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding TargetPath}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<Setter Property=\"Opacity\" Value=\"0\" />", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Setter Property=\"Opacity\" Value=\"0.72\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("HorizontalScrollBarVisibility=\"Auto\"", xaml, StringComparison.Ordinal);
     }
@@ -55,15 +57,20 @@ public sealed class HomePageLayoutTests
         Assert.Contains("x:Name=\"CloseButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Opened=\"ShortcutMenu_Opened\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Margin=\"2,0\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<Setter Property=\"Width\" Value=\"28\" />", theme, StringComparison.Ordinal);
-        Assert.Contains("<Setter Property=\"Height\" Value=\"28\" />", theme, StringComparison.Ordinal);
+        Assert.Contains("<Setter Property=\"Width\" Value=\"36\" />", theme, StringComparison.Ordinal);
+        Assert.Contains("<Setter Property=\"Height\" Value=\"36\" />", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"CompactButton\"", theme, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"DangerSecondaryButton\"", theme, StringComparison.Ordinal);
         Assert.Contains("Width=\"14\" Height=\"14\"", xaml, StringComparison.Ordinal);
 
         var ellipsis = xaml.IndexOf("Content=\"⋯\"", StringComparison.Ordinal);
         Assert.True(ellipsis >= 0, "The shortcut management button should remain discoverable.");
-        var ellipsisEnd = xaml.IndexOf("/>", ellipsis, StringComparison.Ordinal);
+        var ellipsisEnd = xaml.IndexOf(">", ellipsis, StringComparison.Ordinal);
         Assert.True(ellipsisEnd > ellipsis);
         Assert.Contains("OpenShortcutMenu_Click", xaml[ellipsis..ellipsisEnd], StringComparison.Ordinal);
+        Assert.Contains("Width=\"24\" Height=\"24\"", xaml[ellipsis..ellipsisEnd], StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"{Binding DisplayName, StringFormat=快捷入口目标已失效：{0}，请重新定位或移除}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Data=\"M1,0 V5 M1,7 V8\"", xaml, StringComparison.Ordinal);
 
         // Every former dropdown is now a native single-selection ListBox in
         // the window's own visual tree, so selection never crosses a Popup.
@@ -135,6 +142,26 @@ public sealed class HomePageLayoutTests
     }
 
     [Fact]
+    public void Update_settings_use_builtin_routes_without_professional_inputs()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "HomeViewModel.Updates.cs"));
+
+        Assert.Contains("x:Name=\"SmartUpdateRouteStatus\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding UpdateRouteStatus}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{Binding PeriodicUpdateChecksEnabled}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CheckForUpdatesButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"立即检查\" Style=\"{StaticResource PrimaryButton}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding UpdateDownloadLabel}\" Style=\"{StaticResource PrimaryButton}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateAccelerationTemplate", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("GitHubUpdateTokenBox", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveUpdateAccessTokenCommand", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateAccessTokenInput", code, StringComparison.Ordinal);
+        Assert.Contains("settings.Updates.AccelerationTemplate = string.Empty;", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Shortcut_manager_exposes_context_state_and_safe_keyboard_removal()
     {
         var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "ShortcutManagerWindow.xaml"));
@@ -150,6 +177,20 @@ public sealed class HomePageLayoutTests
     }
 
     [Fact]
+    public void Cache_reset_uses_explicit_risk_styling_and_verb_confirmation()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs"));
+
+        Assert.Contains("Content=\"退出并重建缓存\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource DangerSecondaryButton}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ShowResetCachesDialog()", code, StringComparison.Ordinal);
+        Assert.Contains("DecisionButton(\"退出并重建\"", code, StringComparison.Ordinal);
+        Assert.Contains("DecisionButton(\"保留并返回\"", code, StringComparison.Ordinal);
+        Assert.Contains("设置、待办、快捷入口", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Content_search_controls_explain_consent_limits_status_and_revocation()
     {
         var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
@@ -162,6 +203,34 @@ public sealed class HomePageLayoutTests
         Assert.Contains("Command=\"{Binding RebuildContentIndexCommand}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{Binding DisableContentSearchCommand}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Settings_expose_keyboard_directory_and_named_focus_targets()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"SettingsSectionSelector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionChanged=\"SettingsSectionSelector_SelectionChanged\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<UniformGrid Columns=\"5\" />", xaml, StringComparison.Ordinal);
+        foreach (var target in new[]
+                 {
+                     "AppearanceSettingsSection", "HotkeySettingsSection", "UpdateSettingsSection",
+                     "SearchSettingsSection", "AiSettingsSection",
+                 })
+            Assert.Contains($"x:Name=\"{target}\"", xaml, StringComparison.Ordinal);
+        foreach (var target in new[]
+                 {
+                     "CharacterList", "HotkeyEnabledToggle", "PeriodicUpdateCheckToggle",
+                     "ContentSearchToggle", "AiTemplateSelector",
+                 })
+            Assert.Contains($"x:Name=\"{target}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TryResolveUnsavedAiChanges(\"切换设置分组\")", code, StringComparison.Ordinal);
+        Assert.Contains("AiSettingsExpander.IsExpanded = true;", code, StringComparison.Ordinal);
+        Assert.Contains("target.BringIntoView", code, StringComparison.Ordinal);
+        Assert.Contains("Keyboard.Focus(focusTarget);", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingsSection\" Style=\"{StaticResource SectionCard}\" Margin=\"0,0,0,12\" Focusable=\"True\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -182,6 +251,9 @@ public sealed class HomePageLayoutTests
         Assert.Contains("AutomationProperties.AutomationId=\"AddSelectedResultToShortcutsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"在文件资源管理器中定位所选搜索结果\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"复制所选搜索结果路径\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("private bool FocusFirstSearchResult()", ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs")), StringComparison.Ordinal);
+        Assert.Contains("SearchBox.IsKeyboardFocusWithin", ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs")), StringComparison.Ordinal);
+        Assert.Contains("ResultsList.SelectedIndex <= 0", ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs")), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -201,6 +273,68 @@ public sealed class HomePageLayoutTests
         Assert.Contains("AutomationProperties.AutomationId=\"GenerateLocalTodayPlanButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.AutomationId=\"ApplyTodayPlanButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.AutomationId=\"UndoTodayPlanButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TodayPlanExpander\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding HasTodayPlanDraft", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding HasTodayPlanError", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo_manual_path_precedes_progressively_disclosed_ai_tools()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"NewTodoButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TodoAiExpander\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Grid Grid.Row=\"0\" Margin=\"1,0,0,9\">", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Border Grid.Row=\"1\" Style=\"{StaticResource SectionCard}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<ItemsControl Grid.Row=\"2\" ItemsSource=\"{Binding Items}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Border Grid.Row=\"3\" Background=\"{StaticResource AccentTint}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"NewTodo_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"TodoEditorClose_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TodoTitleBox.Focus();", code, StringComparison.Ordinal);
+        Assert.Contains("NewTodoButton.Focus();", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Keyboard_search_todo_and_maintenance_optimizations_remain_discoverable_and_accessible()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs"));
+
+        Assert.Contains("主页 · Alt+1 · Ctrl+L 聚焦搜索", xaml, StringComparison.Ordinal);
+        Assert.Contains("待办 · Alt+2 · Ctrl+N 快速新建", xaml, StringComparison.Ordinal);
+        Assert.Contains("F1 打开手册", xaml, StringComparison.Ordinal);
+        Assert.Contains("key == Key.N && modifiers == ModifierKeys.Control", code, StringComparison.Ordinal);
+        Assert.Contains("key == Key.F1 && modifiers == ModifierKeys.None", code, StringComparison.Ordinal);
+        Assert.Contains("key == Key.Enter && modifiers == ModifierKeys.Control", code, StringComparison.Ordinal);
+        Assert.Contains("Todo.IsEditorOpen: true", code, StringComparison.Ordinal);
+
+        Assert.Contains("Text=\"{Binding SearchResultCountText}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"重置搜索条件\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ResetSearchContextCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"管理搜索范围\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding FilterSummary}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding EmptyActionLabel}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding EmptyStateCommand}\"", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("Text=\"{Binding EditorStateHint}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Visibility=\"{Binding ShowDiscardEditorConfirmation", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding KeepEditingCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding DiscardEditorCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding DataContext.Todo.DeleteTodoCommand", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding UndoLastActionCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeleteTodo_Click", code, StringComparison.Ordinal);
+
+        Assert.Contains("Command=\"{Binding SelectFirstTodayPlanCandidatesCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ClearTodayPlanSelectionCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("24 小时 HH:mm", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("MinHeight=\"32\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("MinHeight=\"34\"", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("Text=\"{Binding MaintenanceStatus}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ex.Message", code, StringComparison.Ordinal);
     }
 
     private static string ReadProjectFile(string relativePath)

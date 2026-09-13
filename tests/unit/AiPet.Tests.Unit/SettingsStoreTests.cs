@@ -93,7 +93,7 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal(12, loaded.Backup.RetentionCount);
         Assert.True(loaded.Updates.PeriodicEnabled);
         Assert.Equal(6, loaded.Updates.IntervalHours);
-        Assert.Equal("https://mirror.example.test/{url}", loaded.Updates.AccelerationTemplate);
+        Assert.Equal(string.Empty, loaded.Updates.AccelerationTemplate);
         Assert.True(loaded.Features.EnableContentSearch);
     }
 

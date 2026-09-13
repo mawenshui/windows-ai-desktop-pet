@@ -26,9 +26,16 @@ public sealed partial class HomeViewModel
 
     public bool HasSelectedResult => SelectedResult is not null;
 
-    public string SelectedResultSummary => SelectedResult is null
-        ? string.Empty
-        : $"已选：{SelectedResult.Name} · {KindLabel(SelectedResult.Kind)} · {FormatSize(SelectedResult)}";
+    public string SelectedResultSummary
+    {
+        get
+        {
+            if (SelectedResult is null) return string.Empty;
+            var index = Results.IndexOf(SelectedResult);
+            var position = index >= 0 ? $"{index + 1}/{Results.Count}" : $"–/{Results.Count}";
+            return $"已选 {position}：{SelectedResult.Name} · {KindLabel(SelectedResult.Kind)} · {FormatSize(SelectedResult)} · Enter 打开";
+        }
+    }
 
     public bool IsSelectedResultInShortcuts =>
         SelectedResult is not null && HasShortcutTarget(SelectedResult.FullPath);

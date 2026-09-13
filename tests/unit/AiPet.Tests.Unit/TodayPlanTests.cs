@@ -265,6 +265,28 @@ public sealed class TodayPlanTests : IDisposable
     }
 
     [Fact]
+    public void Today_plan_can_select_the_first_twelve_candidates_and_clear_them_in_one_action()
+    {
+        var store = new TodoStore(_root, () => _now);
+        for (var index = 0; index < 15; index++)
+            store.Create(new TodoItem { Title = $"事项 {index + 1:D2}" });
+        var vm = new TodoViewModel(store, new CapturingTodayPlanClient(), Connection, () => _now);
+
+        Assert.Equal(15, vm.TodayPlanCandidates.Count);
+        Assert.True(vm.SelectFirstTodayPlanCandidatesCommand.CanExecute(null));
+        vm.SelectFirstTodayPlanCandidatesCommand.Execute(null);
+
+        Assert.Equal(12, vm.TodayPlanSelectedCount);
+        Assert.All(vm.TodayPlanCandidates.Take(12), candidate => Assert.True(candidate.IsSelected));
+        Assert.All(vm.TodayPlanCandidates.Skip(12), candidate => Assert.False(candidate.IsSelected));
+        Assert.True(vm.ClearTodayPlanSelectionCommand.CanExecute(null));
+
+        vm.ClearTodayPlanSelectionCommand.Execute(null);
+        Assert.Equal(0, vm.TodayPlanSelectedCount);
+        Assert.All(vm.TodayPlanCandidates, candidate => Assert.False(candidate.IsSelected));
+    }
+
+    [Fact]
     public void Schema_three_migrates_to_four_and_keeps_a_recovery_copy()
     {
         Directory.CreateDirectory(_root);

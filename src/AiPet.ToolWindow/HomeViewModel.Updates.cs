@@ -9,8 +9,6 @@ public sealed record UpdateInstallerReady(string Path, string Version);
 
 public sealed partial class HomeViewModel
 {
-    internal const string GitHubUpdateCredentialTarget = "WindowsAiDesktopPet:Updates:GitHub";
-
     private IReleaseUpdateClient _updateClient = new GitHubReleaseUpdateClient();
     private CancellationTokenSource? _updateLifetimeCts;
     private CancellationTokenSource? _periodicUpdateCts;
@@ -20,14 +18,10 @@ public sealed partial class HomeViewModel
     private bool _updateChecksStarted;
     private bool _periodicUpdateChecksEnabled;
     private string _updateIntervalHoursText = "24";
-    private string _updateAccelerationTemplate = string.Empty;
     private bool _savedPeriodicUpdateChecksEnabled;
     private string _savedUpdateIntervalHoursText = "24";
-    private string _savedUpdateAccelerationTemplate = string.Empty;
-    private string _updateAccessTokenInput = string.Empty;
-    private bool _hasStoredUpdateAccessToken;
-    private string _updateCredentialStatus = "未保存 GitHub 访问令牌。";
     private string _updateStatus = "应用启动后会检查一次 GitHub Release。";
+    private string _updateRouteStatus = "智能线路已开启：优先连接 GitHub 官方，连接不畅时自动切换。";
     private bool _isCheckingForUpdates;
     private bool _isDownloadingUpdate;
     private int _updateDownloadProgress;
@@ -57,53 +51,6 @@ public sealed partial class HomeViewModel
         }
     }
 
-    public string UpdateAccelerationTemplate
-    {
-        get => _updateAccelerationTemplate;
-        set
-        {
-            if (_updateAccelerationTemplate == value) return;
-            _updateAccelerationTemplate = value;
-            OnPC();
-            RaiseUpdateSettingsSaveState();
-        }
-    }
-
-    public string UpdateAccessTokenInput
-    {
-        get => _updateAccessTokenInput;
-        set
-        {
-            if (_updateAccessTokenInput == value) return;
-            _updateAccessTokenInput = value;
-            OnPC();
-            RaiseUpdateCommandStates();
-        }
-    }
-
-    public bool HasStoredUpdateAccessToken
-    {
-        get => _hasStoredUpdateAccessToken;
-        private set
-        {
-            if (_hasStoredUpdateAccessToken == value) return;
-            _hasStoredUpdateAccessToken = value;
-            OnPC();
-            RaiseUpdateCommandStates();
-        }
-    }
-
-    public string UpdateCredentialStatus
-    {
-        get => _updateCredentialStatus;
-        private set
-        {
-            if (_updateCredentialStatus == value) return;
-            _updateCredentialStatus = value;
-            OnPC();
-        }
-    }
-
     public string UpdateStatus
     {
         get => _updateStatus;
@@ -111,6 +58,17 @@ public sealed partial class HomeViewModel
         {
             if (_updateStatus == value) return;
             _updateStatus = value;
+            OnPC();
+        }
+    }
+
+    public string UpdateRouteStatus
+    {
+        get => _updateRouteStatus;
+        private set
+        {
+            if (_updateRouteStatus == value) return;
+            _updateRouteStatus = value;
             OnPC();
         }
     }
@@ -141,20 +99,18 @@ public sealed partial class HomeViewModel
     }
 
     public bool HasAvailableUpdate => _availableUpdate is not null;
+    public bool HasNoAvailableUpdate => _availableUpdate is null;
     public string AvailableUpdateVersion => _availableUpdate?.Version.ToString(3) ?? string.Empty;
     public string UpdateDownloadLabel => IsDownloadingUpdate
         ? $"下载中 {_updateDownloadProgress}%"
         : "下载并准备安装";
     public bool HasUnsavedUpdateSettings => _settings is not null
         && (PeriodicUpdateChecksEnabled != _savedPeriodicUpdateChecksEnabled
-            || !string.Equals(UpdateIntervalHoursText, _savedUpdateIntervalHoursText, StringComparison.Ordinal)
-            || !string.Equals(UpdateAccelerationTemplate, _savedUpdateAccelerationTemplate, StringComparison.Ordinal));
+            || !string.Equals(UpdateIntervalHoursText, _savedUpdateIntervalHoursText, StringComparison.Ordinal));
     public string UpdateSettingsSaveLabel =>
         HasUnsavedUpdateSettings ? "保存更新设置（有修改）" : "已保存";
 
     public ICommand SaveUpdateSettingsCommand { get; private set; } = null!;
-    public ICommand SaveUpdateAccessTokenCommand { get; private set; } = null!;
-    public ICommand ClearUpdateAccessTokenCommand { get; private set; } = null!;
     public ICommand CheckForUpdatesCommand { get; private set; } = null!;
     public ICommand DownloadUpdateCommand { get; private set; } = null!;
 
@@ -165,12 +121,6 @@ public sealed partial class HomeViewModel
         SaveUpdateSettingsCommand = new RelayCommand(
             _ => SaveUpdateSettings(),
             _ => HasUnsavedUpdateSettings && !IsDownloadingUpdate);
-        SaveUpdateAccessTokenCommand = new RelayCommand(
-            _ => SaveUpdateAccessToken(),
-            _ => _settings is not null && !string.IsNullOrWhiteSpace(UpdateAccessTokenInput) && !IsDownloadingUpdate);
-        ClearUpdateAccessTokenCommand = new RelayCommand(
-            _ => ClearUpdateAccessToken(),
-            _ => _settings is not null && (HasStoredUpdateAccessToken || !string.IsNullOrEmpty(UpdateAccessTokenInput)) && !IsDownloadingUpdate);
         CheckForUpdatesCommand = new RelayCommand(
             async _ => await CheckForUpdatesAsync(automatic: false),
             _ => _settings is not null && !IsCheckingForUpdates && !IsDownloadingUpdate);
@@ -183,12 +133,9 @@ public sealed partial class HomeViewModel
     {
         _periodicUpdateChecksEnabled = settings.Updates.PeriodicEnabled;
         _updateIntervalHoursText = settings.Updates.IntervalHours.ToString();
-        _updateAccelerationTemplate = settings.Updates.AccelerationTemplate;
         CaptureSavedUpdateSettings();
-        RefreshUpdateCredentialStatus();
         OnPCFor(nameof(PeriodicUpdateChecksEnabled));
         OnPCFor(nameof(UpdateIntervalHoursText));
-        OnPCFor(nameof(UpdateAccelerationTemplate));
     }
 
     public void SetUpdateClient(IReleaseUpdateClient updateClient) =>
@@ -202,8 +149,11 @@ public sealed partial class HomeViewModel
         _startupUpdateTask = RunStartupUpdateCheckAsync(_updateLifetimeCts.Token);
     }
 
-    public void SetPreviewUpdateStatus() =>
+    public void SetPreviewUpdateStatus()
+    {
         UpdateStatus = "预览模式不访问网络；正式启动时检查 GitHub Release。";
+        UpdateRouteStatus = "智能线路已开启；预览模式未发起连接。";
+    }
 
     public async Task CheckForUpdatesAsync(bool automatic)
     {
@@ -211,88 +161,31 @@ public sealed partial class HomeViewModel
         _updateLifetimeCts ??= new CancellationTokenSource();
         IsCheckingForUpdates = true;
         UpdateStatus = automatic ? "正在检查 GitHub Release…" : "正在手动检查更新…";
+        UpdateRouteStatus = "正在选择可用更新线路…";
         try
         {
             var result = await _updateClient.CheckAsync(
                 SoftwareVersion,
-                UpdateAccelerationTemplate,
-                GetUpdateAccessToken(),
                 _updateLifetimeCts.Token);
             if (result.State != UpdateCheckState.Failed)
                 _availableUpdate = result.Update;
             UpdateStatus = result.Message;
+            UpdateRouteStatus = result.State == UpdateCheckState.Failed
+                ? "GitHub 官方和内置加速线路均未连接成功。"
+                : $"本次检查：{NormalizeRouteDisplayName(result.RouteDisplayName)}。";
         }
         catch (OperationCanceledException)
         {
             UpdateStatus = "更新检查已取消。";
+            UpdateRouteStatus = "线路选择已取消；稍后可以重新检查。";
         }
         finally
         {
             IsCheckingForUpdates = false;
             OnPCFor(nameof(HasAvailableUpdate));
+            OnPCFor(nameof(HasNoAvailableUpdate));
             OnPCFor(nameof(AvailableUpdateVersion));
             RaiseUpdateCommandStates();
-        }
-    }
-
-    private void SaveUpdateAccessToken()
-    {
-        if (!GitHubReleaseUpdateClient.TryNormalizeAccessToken(UpdateAccessTokenInput, out var token)
-            || token is null)
-        {
-            UpdateCredentialStatus = "令牌格式无效；请输入 20–512 个不含空格的字符。";
-            return;
-        }
-
-        try
-        {
-            _secretStore.Save(GitHubUpdateCredentialTarget, token);
-            UpdateAccessTokenInput = string.Empty;
-            HasStoredUpdateAccessToken = true;
-            UpdateCredentialStatus = "GitHub 访问令牌已安全保存到 Windows 凭据管理器。";
-            UpdateStatus = "私有仓库访问已启用；检查更新时只连接 GitHub 官方地址或系统代理。";
-        }
-        catch
-        {
-            UpdateCredentialStatus = "令牌未保存；请检查 Windows 凭据管理器是否可用。";
-        }
-    }
-
-    private void ClearUpdateAccessToken()
-    {
-        try
-        {
-            _secretStore.Delete(GitHubUpdateCredentialTarget);
-            UpdateAccessTokenInput = string.Empty;
-            HasStoredUpdateAccessToken = false;
-            UpdateCredentialStatus = "未保存 GitHub 访问令牌。";
-            UpdateStatus = "GitHub 访问令牌已清除。";
-        }
-        catch
-        {
-            UpdateCredentialStatus = "令牌未清除；请检查 Windows 凭据管理器。";
-        }
-    }
-
-    private string? GetUpdateAccessToken()
-    {
-        try { return _secretStore.Load(GitHubUpdateCredentialTarget); }
-        catch { return null; }
-    }
-
-    private void RefreshUpdateCredentialStatus()
-    {
-        try
-        {
-            HasStoredUpdateAccessToken = !string.IsNullOrWhiteSpace(_secretStore.Load(GitHubUpdateCredentialTarget));
-            UpdateCredentialStatus = HasStoredUpdateAccessToken
-                ? "已在 Windows 凭据管理器中保存 GitHub 访问令牌。"
-                : "未保存 GitHub 访问令牌。";
-        }
-        catch
-        {
-            HasStoredUpdateAccessToken = false;
-            UpdateCredentialStatus = "无法读取 Windows 凭据管理器。";
         }
     }
 
@@ -304,22 +197,14 @@ public sealed partial class HomeViewModel
             UpdateStatus = "周期必须是 1–168 小时之间的整数。";
             return;
         }
-        if (!GitHubReleaseUpdateClient.TryNormalizeAccelerationTemplate(
-                UpdateAccelerationTemplate, out var template, out var error))
-        {
-            UpdateStatus = error!;
-            return;
-        }
-
         try
         {
             var settings = _settings.Load();
             settings.Updates.PeriodicEnabled = PeriodicUpdateChecksEnabled;
             settings.Updates.IntervalHours = interval;
-            settings.Updates.AccelerationTemplate = template ?? string.Empty;
+            settings.Updates.AccelerationTemplate = string.Empty;
             _settings.Save(settings);
             UpdateIntervalHoursText = interval.ToString();
-            UpdateAccelerationTemplate = template ?? string.Empty;
             CaptureSavedUpdateSettings();
             UpdateStatus = PeriodicUpdateChecksEnabled
                 ? $"更新设置已保存；每 {interval} 小时检查一次。"
@@ -340,6 +225,7 @@ public sealed partial class HomeViewModel
         _updateDownloadProgress = 0;
         OnPCFor(nameof(UpdateDownloadLabel));
         UpdateStatus = $"正在下载 {_availableUpdate.Version.ToString(3)} 安装器…";
+        UpdateRouteStatus = "正在自动选择下载线路…";
         var progress = new Progress<int>(value =>
         {
             _updateDownloadProgress = value;
@@ -350,19 +236,21 @@ public sealed partial class HomeViewModel
             var downloadTask = _updateClient.DownloadInstallerAsync(
                 _availableUpdate,
                 Path.Combine(_settings.AppDataDir, "updates"),
-                UpdateAccelerationTemplate,
-                GetUpdateAccessToken(),
                 progress,
                 _updateLifetimeCts.Token);
             _updateDownloadTask = downloadTask;
             var result = await downloadTask;
             UpdateStatus = result.Message;
+            UpdateRouteStatus = result.Success
+                ? $"本次下载：{NormalizeRouteDisplayName(result.RouteDisplayName)}；安装包已校验。"
+                : "内置加速线路和 GitHub 官方均下载失败。";
             if (result.Success && result.InstallerPath is not null)
                 UpdateInstallerReady?.Invoke(new(result.InstallerPath, _availableUpdate.Version.ToString(3)));
         }
         catch (OperationCanceledException)
         {
             UpdateStatus = "更新下载已取消，现有版本不会改变。";
+            UpdateRouteStatus = "下载线路选择已取消。";
         }
         finally
         {
@@ -418,8 +306,6 @@ public sealed partial class HomeViewModel
     private void RaiseUpdateCommandStates()
     {
         (SaveUpdateSettingsCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (SaveUpdateAccessTokenCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (ClearUpdateAccessTokenCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (CheckForUpdatesCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (DownloadUpdateCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
@@ -428,7 +314,6 @@ public sealed partial class HomeViewModel
     {
         _savedPeriodicUpdateChecksEnabled = PeriodicUpdateChecksEnabled;
         _savedUpdateIntervalHoursText = UpdateIntervalHoursText;
-        _savedUpdateAccelerationTemplate = UpdateAccelerationTemplate;
         RaiseUpdateSettingsSaveState();
     }
 
@@ -438,4 +323,7 @@ public sealed partial class HomeViewModel
         OnPCFor(nameof(UpdateSettingsSaveLabel));
         (SaveUpdateSettingsCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
+
+    private static string NormalizeRouteDisplayName(string value) =>
+        string.IsNullOrWhiteSpace(value) ? "可用线路" : value;
 }

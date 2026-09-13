@@ -110,8 +110,28 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     public bool HasSelectedSearchOnboardingCandidates =>
         SearchOnboardingCandidates.Any(candidate => candidate.IsSelected);
     public bool HasResults => Results.Count > 0;
+    public bool HasSearchConditionsToReset =>
+        HasSearchQuery
+        || !string.Equals(Category, "全部", StringComparison.Ordinal)
+        || !string.Equals(SelectedSearchScopeId, "all", StringComparison.Ordinal);
+    public string SearchResultCountText => IsSearching
+        ? "搜索中"
+        : HasMoreResults
+            ? $"已显示 {Results.Count} 条以上"
+            : $"{Results.Count} 条";
     private bool _hasMoreResults;
-    public bool HasMoreResults { get => _hasMoreResults; private set { if (_hasMoreResults == value) return; _hasMoreResults = value; OnPC(); } }
+    public bool HasMoreResults
+    {
+        get => _hasMoreResults;
+        private set
+        {
+            if (_hasMoreResults == value) return;
+            _hasMoreResults = value;
+            OnPC();
+            OnPCFor(nameof(SearchResultCountText));
+            OnPCFor(nameof(SelectedResultSummary));
+        }
+    }
     public bool IsSearching => _isSearching;
 
     /// <summary>
@@ -146,9 +166,11 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             _query = value;
             OnPC();
             OnPCFor(nameof(HasSearchQuery));
+            OnPCFor(nameof(HasSearchConditionsToReset));
             OnPCFor(nameof(ResultEmptyMessage));
             ClearSelectedResult();
             (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ResetSearchContextCommand as RelayCommand)?.RaiseCanExecuteChanged();
             RestartSearch();
         }
     }
@@ -162,8 +184,10 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             if (_category == value) return;
             _category = value;
             OnPC();
+            OnPCFor(nameof(HasSearchConditionsToReset));
             OnPCFor(nameof(ResultEmptyMessage));
             ClearSelectedResult();
+            (ResetSearchContextCommand as RelayCommand)?.RaiseCanExecuteChanged();
             RestartSearch(immediate: true);
         }
     }
@@ -178,8 +202,10 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             _selectedSearchScopeId = value;
             OnPC();
             OnPCFor(nameof(SelectedSearchScope));
+            OnPCFor(nameof(HasSearchConditionsToReset));
             OnPCFor(nameof(ResultEmptyMessage));
             ClearSelectedResult();
+            (ResetSearchContextCommand as RelayCommand)?.RaiseCanExecuteChanged();
             SaveSearchPreferences();
             RestartSearch(immediate: true);
         }
@@ -275,6 +301,17 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             _status = value;
             OnPC();
             OnPCFor(nameof(ResultEmptyMessage));
+        }
+    }
+    private string _maintenanceStatus = "尚未执行维护操作。";
+    public string MaintenanceStatus
+    {
+        get => _maintenanceStatus;
+        private set
+        {
+            if (_maintenanceStatus == value) return;
+            _maintenanceStatus = value;
+            OnPC();
         }
     }
     private string _aiStatus = "未配置";
@@ -442,6 +479,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
 
     public ICommand SearchCommand { get; private set; } = null!;
     public ICommand ClearSearchCommand { get; private set; } = null!;
+    public ICommand ResetSearchContextCommand { get; private set; } = null!;
     public ICommand LoadMoreResultsCommand { get; private set; } = null!;
     public ICommand AddShortcutCommand { get; private set; } = null!;
     public ICommand EditShortcutCommand { get; private set; } = null!;
@@ -468,6 +506,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         InitializeSearchResultCommands();
         SearchCommand = new RelayCommand(_ => RestartSearch(immediate: true));
         ClearSearchCommand = new RelayCommand(_ => ClearSearch(), _ => HasSearchQuery);
+        ResetSearchContextCommand = new RelayCommand(_ => ResetSearchContext(), _ => HasSearchConditionsToReset);
         LoadMoreResultsCommand = new RelayCommand(async _ => await LoadMoreResultsAsync(), _ => HasMoreResults && !IsSearching);
         AddShortcutCommand = new RelayCommand(_ => AddShortcutRequested?.Invoke(this, EventArgs.Empty));
         EditShortcutCommand = new RelayCommand(p => EditShortcutRequested?.Invoke(ShortcutById(p)), p => p is Guid && _shortcuts is not null);
@@ -504,7 +543,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     {
         foreach (var command in new ICommand[]
         {
-            SearchCommand, ClearSearchCommand, AddShortcutCommand, EditShortcutCommand,
+            SearchCommand, ClearSearchCommand, ResetSearchContextCommand, AddShortcutCommand, EditShortcutCommand,
             RelocateShortcutCommand, MoveShortcutUpCommand, MoveShortcutDownCommand,
             RemoveShortcutCommand, LaunchShortcutCommand, TestConnectionCommand,
             SaveAiConfigCommand, NewAiConfigCommand, ToggleAutostartCommand, AddRangeCommand,
@@ -512,8 +551,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             ConfirmSearchOnboardingCommand, DeferSearchOnboardingCommand, OpenHelpCommand,
             SaveGlobalHotkeysCommand, SaveAutomaticBackupSettingsCommand,
             CreateAutomaticBackupNowCommand, OpenAutomaticBackupDirectoryCommand,
-            SaveUpdateSettingsCommand, SaveUpdateAccessTokenCommand, ClearUpdateAccessTokenCommand,
-            CheckForUpdatesCommand, DownloadUpdateCommand,
+            SaveUpdateSettingsCommand, CheckForUpdatesCommand, DownloadUpdateCommand,
             RebuildContentIndexCommand, DisableContentSearchCommand,
         })
         {
@@ -551,8 +589,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             Results.Clear();
             ClearSelectedResult();
             HasMoreResults = false;
-            OnPCFor(nameof(HasResults));
-            OnPCFor(nameof(ResultEmptyMessage));
+            RaiseSearchResultCollectionState();
             return;
         }
         try
@@ -587,8 +624,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             foreach (var r in rows.Take(pageSize)) Results.Add(r);
             RestoreSelectedResult(selectedRangeId, selectedPath);
             HasMoreResults = rows.Count > pageSize;
-            OnPCFor(nameof(HasResults));
-            OnPCFor(nameof(ResultEmptyMessage));
+            RaiseSearchResultCollectionState();
             Status = HasMoreResults ? $"已显示 {Results.Count} 条，可继续加载" : $"命中 {Results.Count} 条";
         }
         catch (OperationCanceledException) { }
@@ -598,8 +634,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             Status = ex.Message;
             Results.Clear();
             ClearSelectedResult();
-            OnPCFor(nameof(HasResults));
-            OnPCFor(nameof(ResultEmptyMessage));
+            HasMoreResults = false;
+            RaiseSearchResultCollectionState();
         }
         catch (Exception ex)
         {
@@ -633,6 +669,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             var rows = page.Items;
             foreach (var row in rows.Take(pageSize)) Results.Add(row);
             HasMoreResults = rows.Count > pageSize;
+            RaiseSearchResultCollectionState();
             Status = HasMoreResults ? $"已显示 {Results.Count} 条，可继续加载" : $"已显示全部 {Results.Count} 条";
         }
         catch (OperationCanceledException) { }
@@ -649,8 +686,38 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         if (_isSearching == value) return;
         _isSearching = value;
         OnPCFor(nameof(IsSearching));
+        OnPCFor(nameof(SearchResultCountText));
         OnPCFor(nameof(ResultEmptyMessage));
         (LoadMoreResultsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void ResetSearchContext()
+    {
+        if (!HasSearchConditionsToReset) return;
+        _searchCts?.Cancel();
+        _query = string.Empty;
+        _category = "全部";
+        _selectedSearchScopeId = "all";
+        OnPCFor(nameof(Query));
+        OnPCFor(nameof(HasSearchQuery));
+        OnPCFor(nameof(Category));
+        OnPCFor(nameof(SelectedSearchScopeId));
+        OnPCFor(nameof(SelectedSearchScope));
+        OnPCFor(nameof(HasSearchConditionsToReset));
+        OnPCFor(nameof(ResultEmptyMessage));
+        ClearSelectedResult();
+        (ClearSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ResetSearchContextCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        SaveSearchPreferences();
+        RestartSearch(immediate: true);
+    }
+
+    private void RaiseSearchResultCollectionState()
+    {
+        OnPCFor(nameof(HasResults));
+        OnPCFor(nameof(ResultEmptyMessage));
+        OnPCFor(nameof(SearchResultCountText));
+        OnPCFor(nameof(SelectedResultSummary));
     }
 
     private static SearchItemKind? MapCategory(string cat) => cat switch
@@ -1707,13 +1774,25 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     }
 
     public event EventHandler? MaintenanceExitRequested;
-    public DataMaintenanceService Maintenance => new(_settings?.AppDataDir ?? throw new InvalidOperationException("应用服务尚未就绪。"), Path.GetDirectoryName(ApplicationDataPaths.GetDiagnosticLogPath()));
+    public DataMaintenanceService Maintenance
+    {
+        get
+        {
+            var appDataDirectory = _settings?.AppDataDir
+                ?? throw new InvalidOperationException("应用服务尚未就绪。");
+            var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var logDirectory = string.IsNullOrWhiteSpace(localApplicationData)
+                ? Path.Combine(appDataDirectory, "logs")
+                : Path.GetDirectoryName(ApplicationDataPaths.GetDiagnosticLogPath(localApplicationData));
+            return new DataMaintenanceService(appDataDirectory, logDirectory);
+        }
+    }
 
     public string BackupLocalData(string destination, DataModule modules = DataModule.AllNonSecret & ~DataModule.SearchIndex)
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
         var path = Maintenance.Backup(destination, modules);
-        Status = "本地数据备份完成（不含 API Key）。";
+        SetMaintenanceStatus("本地数据备份完成（不含 API Key）。");
         return path;
     }
 
@@ -1721,7 +1800,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
         Maintenance.QueueRestore(source, modules);
-        Status = "备份已验证；退出后请重新启动应用完成恢复。";
+        SetMaintenanceStatus("备份已验证；退出后请重新启动应用完成恢复。");
         MaintenanceExitRequested?.Invoke(this, EventArgs.Empty);
         return new(Array.Empty<DataModule>(), Array.Empty<string>());
     }
@@ -1731,7 +1810,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
         _shortcuts?.CleanupUnreferencedIcons();
         Maintenance.QueueReset(DataModule.SearchIndex | DataModule.Logs);
-        Status = "无引用图标已清理；重启后重建索引并清理日志。";
+        SetMaintenanceStatus("无引用图标已清理；重启后重建索引并清理日志。");
         MaintenanceExitRequested?.Invoke(this, EventArgs.Empty);
         return new(Array.Empty<DataModule>(), Array.Empty<string>());
     }
@@ -1752,7 +1831,15 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             loaded.Ai.ProviderId,
             loaded.Ai.LastStatus,
             Ranges.Where(range => !string.IsNullOrWhiteSpace(range.LastError)).Select(range => range.LastError!).Distinct().ToArray()));
-        Status = "已导出白名单诊断；不含 Key、查询词、完整路径、待办内容或 AI 原文。";
+        SetMaintenanceStatus("已导出白名单诊断；不含 Key、查询词、完整路径、待办内容或 AI 原文。");
+    }
+
+    internal void ReportMaintenanceFailure(string stableMessage) => SetMaintenanceStatus(stableMessage);
+
+    private void SetMaintenanceStatus(string message)
+    {
+        MaintenanceStatus = message;
+        Status = message;
     }
 
     /// <summary>

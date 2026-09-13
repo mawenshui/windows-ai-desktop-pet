@@ -71,6 +71,8 @@ public sealed class UpdateSettings
     public int IntervalHours { get; set; } = 24;
 
     [JsonPropertyName("accelerationTemplate")]
+    // Retained for schema-5 compatibility. Since 0.20.0 update routes are
+    // built in and this legacy user-supplied value is never used.
     public string AccelerationTemplate { get; set; } = string.Empty;
 }
 
@@ -302,9 +304,7 @@ public sealed class SettingsStore
         settings.Hotkeys.QuickTodoGesture = NormalizeGestureText(settings.Hotkeys.QuickTodoGesture, "Ctrl+Alt+T");
         settings.Backup.RetentionCount = Math.Clamp(settings.Backup.RetentionCount, 1, 30);
         settings.Updates.IntervalHours = Math.Clamp(settings.Updates.IntervalHours, 1, 168);
-        settings.Updates.AccelerationTemplate = settings.Updates.AccelerationTemplate?.Trim() ?? string.Empty;
-        if (settings.Updates.AccelerationTemplate.Length > 500)
-            settings.Updates.AccelerationTemplate = string.Empty;
+        settings.Updates.AccelerationTemplate = string.Empty;
         if (settings.Appearance.Theme is not ("system" or "light" or "dark" or "high-contrast"))
             settings.Appearance.Theme = "system";
         settings.Search ??= new SearchSettings();

@@ -188,20 +188,38 @@
         </Setter>
     </Style>
 
+    <Style x:Key="CompactButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="12,6" />
+    </Style>
+
+    <Style x:Key="DangerSecondaryButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="Foreground" Value="{StaticResource Error}" />
+        <Setter Property="BorderBrush" Value="#88AE4F4F" />
+        <Setter Property="AutomationProperties.HelpText" Value="此操作会改变或清理本地数据，执行前会再次确认" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#FFFFF3F0" />
+                <Setter Property="BorderBrush" Value="{StaticResource Error}" />
+                <Setter Property="Foreground" Value="#FF8D3434" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
-        <Setter Property="Width" Value="28" />
-        <Setter Property="Height" Value="28" />
-        <Setter Property="MinHeight" Value="28" />
-        <Setter Property="Padding" Value="6" />
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="10" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
     </Style>
 
     <Style x:Key="WindowStateButton" TargetType="ToggleButton">
-        <Setter Property="Width" Value="28" />
-        <Setter Property="Height" Value="28" />
-        <Setter Property="MinHeight" Value="28" />
-        <Setter Property="Padding" Value="6" />
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="10" />
         <Setter Property="Foreground" Value="{StaticResource Muted}" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
@@ -585,7 +603,7 @@
                             <RowDefinition Height="44" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Border Background="{StaticResource Soft}" CornerRadius="13" Padding="2" Margin="0,0,100,0">
+                        <Border Background="{StaticResource Soft}" CornerRadius="13" Padding="2" Margin="0,0,124,0">
                             <TabPanel IsItemsHost="True" HorizontalAlignment="Left" />
                         </Border>
                         <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" Margin="0,14,0,0"

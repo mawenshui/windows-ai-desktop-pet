@@ -320,6 +320,7 @@ try {
     $stage = 'keyboard-navigation'
     Select-Tab '待办'
     $stage = 'inline-ai-target'
+    Expand-Element '一句话 AI 安排'
     $targetSelector=Find-Element 'AiTargetSelector'
     $targetItems=$targetSelector.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ListItem))
     if ($targetItems.Count -lt 2) { throw 'Two anonymous AI target fixtures are required.' }
@@ -332,6 +333,7 @@ try {
     Test-KeyboardChoice 'TodoFilterSelector'
 
     $stage = 'today-plan-selection'
+    Expand-Element '今日安排'
     Select-VisibleChoice 'TodayPlanCandidateSelector' '今日安排候选 UI fixture one' -SkipEvidence
     Select-VisibleChoice 'TodayPlanCandidateSelector' '今日安排候选 UI fixture two' -SkipEvidence
     $null = Wait-UiProbe { param($probe) $probe.todayPlanSelectedCount -eq 2 } 'Today plan selection did not update.'

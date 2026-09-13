@@ -120,12 +120,12 @@ public sealed class PetToolWindowLifecycleTests
             Assert.NotNull(scope);
             Assert.Equal(4, tabs.Items.Count);
             Assert.True(search.ActualHeight >= 44);
-            Assert.InRange(close.ActualWidth, 26, 30);
-            Assert.InRange(close.ActualHeight, 26, 30);
-            Assert.InRange(stayOpen.ActualWidth, 26, 30);
-            Assert.InRange(stayOpen.ActualHeight, 26, 30);
-            Assert.InRange(alwaysOnTop.ActualWidth, 26, 30);
-            Assert.InRange(alwaysOnTop.ActualHeight, 26, 30);
+            Assert.InRange(close.ActualWidth, 34, 38);
+            Assert.InRange(close.ActualHeight, 34, 38);
+            Assert.InRange(stayOpen.ActualWidth, 34, 38);
+            Assert.InRange(stayOpen.ActualHeight, 34, 38);
+            Assert.InRange(alwaysOnTop.ActualWidth, 34, 38);
+            Assert.InRange(alwaysOnTop.ActualHeight, 34, 38);
             Assert.True(scope.ActualHeight >= 44);
             Assert.True(scope.Items.Count >= 2);
             Assert.IsType<SearchScopeOption>(scope.SelectedItem);
@@ -404,6 +404,11 @@ public sealed class PetToolWindowLifecycleTests
             tabs.SelectedIndex = 1;
             PumpDispatcher();
             window.UpdateLayout();
+            var todoAiExpander = FindElement<Expander>(window, "TodoAiExpander");
+            Assert.NotNull(todoAiExpander);
+            todoAiExpander.IsExpanded = true;
+            PumpDispatcher();
+            window.UpdateLayout();
             var todoFilter = FindElement<ListBox>(window, "TodoFilterSelector");
             Assert.NotNull(todoFilter);
             todoFilter.UpdateLayout();
@@ -470,6 +475,11 @@ public sealed class PetToolWindowLifecycleTests
             var window = new PetToolWindow { AutoHideOnDeactivate = false };
             window.ShowNear(new Rect(900, 800, 176, 148), new Rect(0, 0, 1920, 1040));
             window.SelectTodoTab();
+            PumpDispatcher();
+            window.UpdateLayout();
+            var todoAiExpander = FindElement<Expander>(window, "TodoAiExpander");
+            Assert.NotNull(todoAiExpander);
+            todoAiExpander.IsExpanded = true;
             PumpDispatcher();
             window.UpdateLayout();
 
@@ -789,6 +799,33 @@ public sealed class PetToolWindowLifecycleTests
             Assert.Equal(1, FindElement<TabControl>(window, "ShellTabs")!.SelectedIndex);
             Assert.True(vm.Todo.IsEditorOpen);
             Assert.True(FindElement<TextBox>(window, "TodoTitleBox")!.IsKeyboardFocusWithin);
+            window.AllowClose();
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_resolves_the_todo_editor_before_it_hides_the_window()
+    {
+        RunSta(() =>
+        {
+            var window = new PetToolWindow { AutoHideOnDeactivate = false };
+            window.ShowNear(new Rect(900, 800, 176, 148), new Rect(0, 0, 1920, 1040));
+            window.StartQuickTodo();
+            PumpDispatcher();
+            var todo = Assert.IsType<HomeViewModel>(window.DataContext).Todo;
+            todo.EditorTitle = "保留这段草稿";
+
+            SendPreviewKey(window, Key.Escape);
+
+            Assert.True(window.IsVisible);
+            Assert.True(todo.IsEditorOpen);
+            Assert.True(todo.ShowDiscardEditorConfirmation);
+
+            todo.DiscardEditorCommand.Execute(null);
+            SendPreviewKey(window, Key.Escape);
+            Assert.False(window.IsVisible);
+
             window.AllowClose();
             window.Close();
         });

@@ -27,12 +27,13 @@ internal enum UnsavedAiDecision
 public partial class PetToolWindow : Window
 {
     private bool _suppressApiKeyEcho;
-    private bool _suppressUpdateTokenEcho;
     private bool _suppressAutoHide;
     private bool _anchorInteractionActive;
     private bool _allowClose;
     private bool _applyingWindowPreferences;
     private bool _suppressAiSelectionChange;
+    private bool _suppressSettingsSectionSelection;
+    private int _settingsSectionIndex;
     private readonly DispatcherTimer _autoHideTimer;
 
     public bool AutoHideOnDeactivate { get; set; } = true;
@@ -95,6 +96,8 @@ public partial class PetToolWindow : Window
     public void PrepareUiAutomationView()
     {
         ShellTabs.SelectedIndex = 3;
+        _settingsSectionIndex = 4;
+        SettingsSectionSelector.SelectedIndex = 4;
         AiSettingsExpander.IsExpanded = true;
         Dispatcher.BeginInvoke(new Action(() =>
         {
@@ -249,8 +252,6 @@ public partial class PetToolWindow : Window
             SyncApiKeyFromVm(vm);
         if (e.PropertyName == nameof(HomeViewModel.ThemePreference) && DataContext is HomeViewModel themeVm)
             ApplyTheme(themeVm.ThemePreference);
-        if (e.PropertyName == nameof(HomeViewModel.UpdateAccessTokenInput) && DataContext is HomeViewModel updateVm)
-            SyncUpdateTokenFromVm(updateVm);
     }
 
     private void SyncApiKeyFromVm(HomeViewModel vm)
@@ -268,21 +269,6 @@ public partial class PetToolWindow : Window
             vm.ApiKey = box.Password;
     }
 
-    private void SyncUpdateTokenFromVm(HomeViewModel vm)
-    {
-        if (GitHubUpdateTokenBox.Password == vm.UpdateAccessTokenInput) return;
-        _suppressUpdateTokenEcho = true;
-        try { GitHubUpdateTokenBox.Password = vm.UpdateAccessTokenInput ?? string.Empty; }
-        finally { _suppressUpdateTokenEcho = false; }
-    }
-
-    private void GitHubUpdateTokenBox_PasswordChanged(object sender, RoutedEventArgs e)
-    {
-        if (_suppressUpdateTokenEcho) return;
-        if (DataContext is HomeViewModel vm && sender is PasswordBox box)
-            vm.UpdateAccessTokenInput = box.Password;
-    }
-
     private void BackupData_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SaveFileDialog { Filter = "AI 桌宠备份 (*.zip)|*.zip", FileName = $"aipet-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip", AddExtension = true };
@@ -292,7 +278,12 @@ public partial class PetToolWindow : Window
             var modules = SelectMaintenanceModules(vm.Maintenance.Preview().Where(item => item.Module != DataModule.SearchIndex).Select(item => new RestorePreview(item.Module,item.DisplayName,item.Bytes,item.Bytes,item.Exists ? 1 : 0)).ToArray(), false);
             if (modules != DataModule.None) vm.BackupLocalData(dialog.FileName, modules);
         }
-        catch { MessageBox.Show(this, "备份未完成。请检查文件权限、容量和数据格式，原数据保留。", "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch
+        {
+            const string message = "备份未完成。请检查文件权限、剩余空间和数据格式；原数据仍保留。";
+            vm.ReportMaintenanceFailure(message);
+            MessageBox.Show(this, message, "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void RestoreData_Click(object sender, RoutedEventArgs e)
@@ -305,7 +296,12 @@ public partial class PetToolWindow : Window
             if (modules == DataModule.None || !TryResolveUnsavedAiChanges("退出并恢复数据")) return;
             vm.RestoreLocalData(dialog.FileName, modules);
         }
-        catch { MessageBox.Show(this, "备份未通过校验或无法排队。正式数据尚未替换，请检查备份格式、容量及权限。", "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch
+        {
+            const string message = "备份未通过校验或无法排队。当前数据尚未替换；请检查备份格式、容量和权限。";
+            vm.ReportMaintenanceFailure(message);
+            MessageBox.Show(this, message, "本地数据", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
@@ -313,15 +309,25 @@ public partial class PetToolWindow : Window
         var dialog = new SaveFileDialog { Filter = "JSON 诊断 (*.json)|*.json", FileName = $"aipet-diagnostic-{DateTime.Now:yyyyMMdd-HHmm}.json", AddExtension = true };
         if (dialog.ShowDialog(this) != true || DataContext is not HomeViewModel vm) return;
         try { vm.ExportDiagnostics(dialog.FileName); }
-        catch (Exception ex) { MessageBox.Show(this, "导出失败：" + ex.Message, "诊断", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch
+        {
+            const string message = "诊断导出失败。请检查目标文件夹权限和剩余空间；未写入敏感内容。";
+            vm.ReportMaintenanceFailure(message);
+            MessageBox.Show(this, message, "诊断", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void ResetCaches_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not HomeViewModel vm) return;
-        if (MessageBox.Show(this, "将清理无引用图标并退出。重新启动后清理索引及日志，授权范围需要重建；正在引用的自定义图标保留。", "退出并重建缓存", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK || !TryResolveUnsavedAiChanges("退出并重建缓存")) return;
+        if (!ShowResetCachesDialog() || !TryResolveUnsavedAiChanges("退出并重建缓存")) return;
         try { vm.ResetLocalCaches(); }
-        catch (Exception ex) { MessageBox.Show(this, "清理失败：" + ex.Message, "缓存清理", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch
+        {
+            const string message = "缓存重建未排队。请稍后重试；设置、待办、快捷入口和凭据保持不变。";
+            vm.ReportMaintenanceFailure(message);
+            MessageBox.Show(this, message, "缓存清理", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void ToggleSearchHistory_Click(object sender, RoutedEventArgs e)
@@ -347,11 +353,38 @@ public partial class PetToolWindow : Window
 
     private void ClearSearch_Click(object sender, RoutedEventArgs e)
     {
-        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusSearchBox));
+    }
+
+    private void OpenSearchSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TrySelectTab(3)) return;
+        SettingsSectionSelector.SelectedIndex = 3;
+    }
+
+    private void FocusSearchBox()
+    {
+        SearchBox.Focus();
+        Keyboard.Focus(SearchBox);
+    }
+
+    private bool FocusFirstSearchResult()
+    {
+        if (ResultsList.Items.Count == 0) return false;
+        if (ResultsList.SelectedIndex < 0) ResultsList.SelectedIndex = 0;
+        ResultsList.UpdateLayout();
+        if (ResultsList.ItemContainerGenerator.ContainerFromIndex(ResultsList.SelectedIndex) is ListBoxItem item)
         {
-            SearchBox.Focus();
-            Keyboard.Focus(SearchBox);
-        }));
+            item.BringIntoView();
+            item.Focus();
+            Keyboard.Focus(item);
+        }
+        else
+        {
+            ResultsList.Focus();
+            Keyboard.Focus(ResultsList);
+        }
+        return true;
     }
 
     private void ShellTab_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -367,6 +400,75 @@ public partial class PetToolWindow : Window
         }
     }
 
+    private void SettingsSectionSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSettingsSectionSelection
+            || sender is not ListBox selector
+            || selector.SelectedIndex < 0)
+            return;
+
+        var requestedIndex = selector.SelectedIndex;
+        if (requestedIndex != 4
+            && DataContext is HomeViewModel { HasUnsavedAiChanges: true }
+            && !TryResolveUnsavedAiChanges("切换设置分组"))
+        {
+            _suppressSettingsSectionSelection = true;
+            try { selector.SelectedIndex = _settingsSectionIndex; }
+            finally { _suppressSettingsSectionSelection = false; }
+            selector.Focus();
+            Keyboard.Focus(selector);
+            return;
+        }
+
+        _settingsSectionIndex = requestedIndex;
+        if (!IsLoaded) return;
+        var target = requestedIndex switch
+        {
+            0 => AppearanceSettingsSection,
+            1 => HotkeySettingsSection,
+            2 => UpdateSettingsSection,
+            3 => SearchSettingsSection,
+            4 => AiSettingsSection,
+            _ => null,
+        };
+        if (target is null) return;
+        FrameworkElement focusTarget = requestedIndex switch
+        {
+            0 => CharacterList,
+            1 => HotkeyEnabledToggle,
+            2 => PeriodicUpdateCheckToggle,
+            3 => ContentSearchToggle,
+            4 => AiTemplateSelector,
+            _ => SettingsSectionSelector,
+        };
+        if (requestedIndex == 4) AiSettingsExpander.IsExpanded = true;
+
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+        {
+            target.BringIntoView(new Rect(0, 0, Math.Max(1, target.ActualWidth), Math.Min(44, Math.Max(1, target.ActualHeight))));
+            focusTarget.Focus();
+            Keyboard.Focus(focusTarget);
+        }));
+    }
+
+    private void FocusPageEntry(int index)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            FrameworkElement? target = index switch
+            {
+                0 => SearchBox,
+                1 => NewTodoButton,
+                2 => MaintenancePrimaryButton,
+                3 => SettingsSectionSelector,
+                _ => null,
+            };
+            if (target is null) return;
+            target.Focus();
+            Keyboard.Focus(target);
+        }));
+    }
+
     private void TodoAiInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || DataContext is not HomeViewModel vm) return;
@@ -374,19 +476,28 @@ public partial class PetToolWindow : Window
         e.Handled = true;
     }
 
-    private void DeleteTodo_Click(object sender, RoutedEventArgs e)
+    private void NewTodo_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { DataContext: TodoRowViewModel row }
-            || DataContext is not HomeViewModel vm)
-            return;
-        var answer = MessageBox.Show(
-            this,
-            $"删除待办“{row.Title}”？\n这会删除待办本身；如果只想停止通知，请选择“仅取消提醒”。",
-            "删除待办",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-        if (answer == MessageBoxResult.Yes) vm.Todo.DeleteTodo(row.Id);
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            if (DataContext is HomeViewModel { Todo.IsEditorOpen: true })
+            {
+                TodoTitleBox.Focus();
+                Keyboard.Focus(TodoTitleBox);
+            }
+        }));
+    }
+
+    private void TodoEditorClose_Click(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            if (DataContext is HomeViewModel { Todo.IsEditorOpen: false })
+            {
+                NewTodoButton.Focus();
+                Keyboard.Focus(NewTodoButton);
+            }
+        }));
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)
@@ -541,6 +652,48 @@ public partial class PetToolWindow : Window
         _suppressAutoHide = true;
         try { dialog.ShowDialog(); }
         finally { _suppressAutoHide = false; }
+        return confirmed;
+    }
+
+    private bool ShowResetCachesDialog()
+    {
+        var confirmed = false;
+        var dialog = CreateDecisionWindow("退出并重建缓存", width: 410);
+        var panel = (StackPanel)dialog.Content;
+        panel.Children.Add(new TextBlock
+        {
+            Text = "退出应用并重建可恢复缓存？",
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "应用会立即退出；下次启动时清理并重建搜索索引、无引用图标和诊断日志。设置、待办、快捷入口、正在引用的自定义图标和凭据不会删除。",
+            Foreground = (Brush)FindResource("Muted"),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 6, 0, 0),
+        });
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 18, 0, 0),
+        };
+        var rebuild = DecisionButton("退出并重建", "PrimaryButton");
+        rebuild.Background = (Brush)FindResource("Error");
+        rebuild.BorderBrush = (Brush)FindResource("Error");
+        rebuild.Click += (_, _) => { confirmed = true; dialog.DialogResult = true; };
+        var cancel = DecisionButton("保留并返回", "SecondaryButton", isCancel: true, isDefault: true);
+        cancel.Margin = new Thickness(8, 0, 0, 0);
+        actions.Children.Add(rebuild);
+        actions.Children.Add(cancel);
+        panel.Children.Add(actions);
+        var previous = _suppressAutoHide;
+        _suppressAutoHide = true;
+        try { dialog.ShowDialog(); }
+        finally { _suppressAutoHide = previous; }
         return confirmed;
     }
 
@@ -972,21 +1125,86 @@ public partial class PetToolWindow : Window
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
-        if (e.Key == Key.Escape)
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var modifiers = Keyboard.Modifiers;
+
+        if (modifiers == ModifierKeys.Alt && key is >= Key.D1 and <= Key.D4)
         {
-            if (TryResolveUnsavedAiChanges("收起工具窗口")) HideToTray();
+            var index = ShellNavigation.DirectTabIndex((int)key - (int)Key.D0, ShellTabs.Items.Count);
+            if (index >= 0 && TrySelectTab(index)) FocusPageEntry(index);
             e.Handled = true;
         }
-        else if (e.Key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        else if (key == Key.L && modifiers == ModifierKeys.Control)
+        {
+            if (TrySelectTab(0)) Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusSearchBox));
+            e.Handled = true;
+        }
+        else if (key == Key.N && modifiers == ModifierKeys.Control)
+        {
+            StartQuickTodo();
+            e.Handled = true;
+        }
+        else if (key == Key.F1 && modifiers == ModifierKeys.None)
+        {
+            if (DataContext is HomeViewModel home && home.OpenHelpCommand.CanExecute(null))
+                home.OpenHelpCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (key == Key.Enter && modifiers == ModifierKeys.Control
+                 && ShellTabs.SelectedIndex == 1
+                 && DataContext is HomeViewModel { Todo.IsEditorOpen: true } todoHome
+                 && todoHome.Todo.SaveEditorCommand.CanExecute(null))
+        {
+            todoHome.Todo.SaveEditorCommand.Execute(null);
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+            {
+                if (!todoHome.Todo.IsEditorOpen)
+                {
+                    NewTodoButton.Focus();
+                    Keyboard.Focus(NewTodoButton);
+                }
+            }));
+            e.Handled = true;
+        }
+        else if (key == Key.Escape)
+        {
+            if (ShellTabs.SelectedIndex == 1
+                && DataContext is HomeViewModel { Todo.IsEditorOpen: true } escapeTodoHome)
+            {
+                if (escapeTodoHome.Todo.CancelEditorCommand.CanExecute(null))
+                    escapeTodoHome.Todo.CancelEditorCommand.Execute(null);
+            }
+            else if (ShellTabs.SelectedIndex == 0
+                && SearchBox.IsKeyboardFocusWithin
+                && DataContext is HomeViewModel { HasSearchQuery: true } home
+                && home.ClearSearchCommand.CanExecute(null))
+            {
+                home.ClearSearchCommand.Execute(null);
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusSearchBox));
+            }
+            else if (TryResolveUnsavedAiChanges("收起工具窗口")) HideToTray();
+            e.Handled = true;
+        }
+        else if (key == Key.Down && ShellTabs.SelectedIndex == 0 && SearchBox.IsKeyboardFocusWithin)
+        {
+            e.Handled = FocusFirstSearchResult();
+        }
+        else if (key == Key.Up && ShellTabs.SelectedIndex == 0
+                 && ResultsList.IsKeyboardFocusWithin && ResultsList.SelectedIndex <= 0)
+        {
+            FocusSearchBox();
+            e.Handled = true;
+        }
+        else if (key == Key.Tab && modifiers.HasFlag(ModifierKeys.Control))
         {
             var next = ShellNavigation.NextTabIndex(
                 ShellTabs.SelectedIndex,
                 ShellTabs.Items.Count,
-                Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+                modifiers.HasFlag(ModifierKeys.Shift));
             TrySelectTab(next);
             e.Handled = true;
         }
-        else if (e.Key == Key.Enter && ShellTabs.SelectedIndex == 0
+        else if (key == Key.Enter && ShellTabs.SelectedIndex == 0
                  && (SearchBox.IsKeyboardFocusWithin || ResultsList.IsKeyboardFocusWithin)
                  && DataContext is HomeViewModel vm
                  && (ResultsList.SelectedItem ?? (ResultsList.Items.Count > 0 ? ResultsList.Items[0] : null)) is SearchItem item)

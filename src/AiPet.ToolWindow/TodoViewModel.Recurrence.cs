@@ -26,21 +26,40 @@ public sealed partial class TodoViewModel
     public IReadOnlyList<WeekdayChoice> Weekdays { get; } = new[] { 1, 2, 3, 4, 5, 6, 0 }.Select(day => new WeekdayChoice { Day = (DayOfWeek)day }).ToArray();
     public IReadOnlyList<string> TimeZones { get; } = TimeZoneInfo.GetSystemTimeZones().Select(zone => zone.Id).ToArray();
     private RecurrenceOption? _editorRecurrence;
-    public RecurrenceOption? EditorRecurrence { get => _editorRecurrence ?? RecurrenceOptions[0]; set { _editorRecurrence = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); } }
+    public RecurrenceOption? EditorRecurrence
+    {
+        get => _editorRecurrence ?? RecurrenceOptions[0];
+        set
+        {
+            if (Equals(_editorRecurrence, value)) return;
+            _editorRecurrence = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(EditorRecurrencePreview));
+            MarkEditorChanged();
+        }
+    }
     private int _editorInterval = 1;
-    public int EditorInterval { get => _editorInterval; set { _editorInterval = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); } }
+    public int EditorInterval { get => _editorInterval; set { if (_editorInterval == value) return; _editorInterval = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); MarkEditorChanged(); } }
     private DateTime? _editorEndsOn;
-    public DateTime? EditorEndsOn { get => _editorEndsOn; set { _editorEndsOn = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); } }
+    public DateTime? EditorEndsOn { get => _editorEndsOn; set { if (_editorEndsOn == value) return; _editorEndsOn = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); MarkEditorChanged(); } }
     private string _editorTimeZoneId = TimeZoneInfo.Local.Id;
-    public string EditorTimeZoneId { get => _editorTimeZoneId; set { _editorTimeZoneId = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); } }
+    public string EditorTimeZoneId { get => _editorTimeZoneId; set { if (_editorTimeZoneId == value) return; _editorTimeZoneId = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); MarkEditorChanged(); } }
     private string _editorAdditionalTimes = string.Empty;
-    public string EditorAdditionalTimes { get => _editorAdditionalTimes; set { _editorAdditionalTimes = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); } }
-    public bool EditorOnlyThis { get; set; }
+    public string EditorAdditionalTimes { get => _editorAdditionalTimes; set { if (_editorAdditionalTimes == value) return; _editorAdditionalTimes = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); MarkEditorChanged(); } }
+    private bool _editorOnlyThis;
+    public bool EditorOnlyThis { get => _editorOnlyThis; set { if (_editorOnlyThis == value) return; _editorOnlyThis = value; OnPropertyChanged(); MarkEditorChanged(); } }
     public ICommand SkipOccurrenceCommand => new RelayCommand(parameter =>
     {
         var item = Find(parameter);
         if (_store is null || item is null) return;
-        try { _store.SkipOccurrence(item.Id); Status = "已跳过此次，后续规则保留。"; Reload(); }
+        try
+        {
+            var updated = _store.SkipOccurrence(item.Id);
+            _undoRecord = new UndoRecord("跳过此次提醒", item.Id, item, updated.UpdatedAt, ExpectedMissing: false);
+            Status = "已跳过此次，后续规则保留。";
+            Reload();
+            RaiseUndoStateChanged();
+        }
         catch (TodoValidationException ex) { Status = ex.Message; }
     });
 
@@ -66,9 +85,12 @@ public sealed partial class TodoViewModel
         }
         EditorAdditionalTimes = string.Join(Environment.NewLine, (item?.AdditionalReminderTimes ?? Array.Empty<DateTimeOffset>()).Select(time => TimeZoneInfo.ConvertTime(time, zone).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)));
         EditorOnlyThis = false;
-        OnPropertyChanged(nameof(EditorOnlyThis));
     }
-    private void WeekdayChanged(object? sender, PropertyChangedEventArgs e) => OnPropertyChanged(nameof(EditorRecurrencePreview));
+    private void WeekdayChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(EditorRecurrencePreview));
+        MarkEditorChanged();
+    }
     private RecurrenceRule ReadEditorRule()
     {
         var rule = new RecurrenceRule { Kind = EditorRecurrence?.Kind ?? RecurrenceKind.None, Interval = EditorInterval,

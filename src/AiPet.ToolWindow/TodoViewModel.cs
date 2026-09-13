@@ -70,6 +70,10 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private AiTodoDraft? _aiDraft;
     private TodoItem? _aiTarget;
     private UndoRecord? _undoRecord;
+    private EditorDraftSnapshot? _editorBaseline;
+    private bool _loadingEditor;
+    private bool _showDiscardEditorConfirmation;
+    private int _totalPendingCount;
     private TodoItem? _reminderAlertItem;
     private CancellationTokenSource? _aiParseCts;
     private Task? _aiParseTask;
@@ -104,7 +108,12 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     };
 
     public bool HasItems => Items.Count > 0;
-    public int TotalPendingCount => _store?.Load().Count(item => item.Status == TodoStatus.Pending) ?? 0;
+    public int TotalPendingCount => _totalPendingCount;
+    public string FilterSummary =>
+        $"当前：{SelectedFilter?.DisplayName ?? "待处理"} {Items.Count} 条 · 待处理总计 {TotalPendingCount} 条";
+    public string EmptyActionLabel => string.Equals(SelectedFilterId, "pending", StringComparison.Ordinal)
+        ? "新建第一条待办"
+        : "返回待处理";
     public string EmptyMessage => SelectedFilterId switch
     {
         "completed" => "还没有已完成待办，完成事项后会保留在这里。",
@@ -125,6 +134,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             _selectedFilterId = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedFilter));
+            OnPropertyChanged(nameof(EmptyActionLabel));
             Reload();
         }
     }
@@ -160,6 +170,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             _isEditorOpen = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(CanSaveEditor));
+            OnPropertyChanged(nameof(HasUnsavedEditorChanges));
+            OnPropertyChanged(nameof(EditorStateHint));
             (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
@@ -174,6 +186,16 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         : (EditorIsReminder ? "创建提醒项" : "创建待办");
     public bool CanSaveEditor =>
         IsEditorOpen && _store is not null && !string.IsNullOrWhiteSpace(EditorTitle);
+    public bool HasUnsavedEditorChanges =>
+        IsEditorOpen
+        && _editorBaseline is not null
+        && !_editorBaseline.Equals(CaptureEditorDraft());
+    public bool ShowDiscardEditorConfirmation => _showDiscardEditorConfirmation;
+    public string EditorStateHint => ShowDiscardEditorConfirmation
+        ? "有未保存修改。选择继续编辑或放弃修改。"
+        : HasUnsavedEditorChanges
+            ? "有未保存修改"
+            : "修改会保留在当前窗口，保存后写入本机。";
 
     private string _editorTitle = string.Empty;
     public string EditorTitle
@@ -187,6 +209,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(CanSaveEditor));
             (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            MarkEditorChanged();
         }
     }
 
@@ -199,6 +222,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             if (_editorNotes == value) return;
             _editorNotes = value;
             OnPropertyChanged();
+            MarkEditorChanged();
         }
     }
 
@@ -211,6 +235,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             if (_editorDueDate == value) return;
             _editorDueDate = value;
             OnPropertyChanged();
+            MarkEditorChanged();
         }
     }
 
@@ -223,6 +248,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             if (_editorDueTime == value) return;
             _editorDueTime = value;
             OnPropertyChanged();
+            MarkEditorChanged();
         }
     }
 
@@ -236,6 +262,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             _editorReminderDate = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(EditorRecurrencePreview));
+            MarkEditorChanged();
         }
     }
 
@@ -249,6 +276,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             _editorReminderTime = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(EditorRecurrencePreview));
+            MarkEditorChanged();
         }
     }
 
@@ -269,6 +297,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(EditorReminderOptionsVisible));
             OnPropertyChanged(nameof(EditorHeading));
             OnPropertyChanged(nameof(EditorSaveLabel));
+            MarkEditorChanged();
         }
     }
 
@@ -283,6 +312,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             if (_editorReminderRoamEnabled == value) return;
             _editorReminderRoamEnabled = value;
             OnPropertyChanged();
+            MarkEditorChanged();
         }
     }
 
@@ -295,6 +325,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             if (_editorReminderBubbleEnabled == value) return;
             _editorReminderBubbleEnabled = value;
             OnPropertyChanged();
+            MarkEditorChanged();
         }
     }
 
@@ -423,6 +454,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     }
 
     public bool CanUndoAiAction => _undoRecord is not null;
+    public bool CanUndoLastAction => _undoRecord is not null;
     public string UndoLabel => _undoRecord is null ? "撤销" : $"撤销：{_undoRecord.Label}";
 
     public bool HasReminderAlert => _reminderAlertItem is not null;
@@ -432,17 +464,22 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     public ICommand NewTodoCommand { get; private set; } = null!;
     public ICommand EditTodoCommand { get; private set; } = null!;
     public ICommand CancelEditorCommand { get; private set; } = null!;
+    public ICommand KeepEditingCommand { get; private set; } = null!;
+    public ICommand DiscardEditorCommand { get; private set; } = null!;
+    public ICommand EmptyStateCommand { get; private set; } = null!;
     public ICommand SaveEditorCommand { get; private set; } = null!;
     public ICommand CompleteTodoCommand { get; private set; } = null!;
     public ICommand RestoreTodoCommand { get; private set; } = null!;
     public ICommand CancelReminderCommand { get; private set; } = null!;
     public ICommand SnoozeTodoCommand { get; private set; } = null!;
+    public ICommand DeleteTodoCommand { get; private set; } = null!;
     public ICommand ParseAiCommand { get; private set; } = null!;
     public ICommand ConfirmAiCommand { get; private set; } = null!;
     public ICommand CancelAiCommand { get; private set; } = null!;
     public ICommand UseManualCommand { get; private set; } = null!;
     public ICommand ClearAiCommand { get; private set; } = null!;
     public ICommand UndoAiCommand { get; private set; } = null!;
+    public ICommand UndoLastActionCommand => UndoAiCommand;
     public ICommand CompleteReminderAlertCommand { get; private set; } = null!;
     public ICommand SnoozeReminderAlertCommand { get; private set; } = null!;
     public ICommand OpenReminderAlertCommand { get; private set; } = null!;
@@ -498,11 +535,13 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         {
             var deleted = _store.Delete(id);
             if (deleted is null) return false;
+            _undoRecord = new UndoRecord("删除待办", deleted.Id, deleted, null, ExpectedMissing: true);
             _notifications?.HandleForTodo(id);
             RefreshNotifications();
             if (_reminderAlertItem?.Id == id) DismissReminderAlert();
             Reload();
-            Status = "待办已删除。";
+            Status = "待办已删除；可撤销最近一次删除。";
+            RaiseUndoStateChanged();
             return true;
         }
         catch
@@ -516,7 +555,10 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     {
         NewTodoCommand = new RelayCommand(_ => OpenNewEditor());
         EditTodoCommand = new RelayCommand(parameter => OpenEditor(Find(parameter)), parameter => Find(parameter) is not null);
-        CancelEditorCommand = new RelayCommand(_ => CloseEditor());
+        CancelEditorCommand = new RelayCommand(_ => RequestCloseEditor(), _ => IsEditorOpen);
+        KeepEditingCommand = new RelayCommand(_ => SetDiscardEditorConfirmation(false), _ => ShowDiscardEditorConfirmation);
+        DiscardEditorCommand = new RelayCommand(_ => DiscardEditor(), _ => ShowDiscardEditorConfirmation);
+        EmptyStateCommand = new RelayCommand(_ => ActivateEmptyStateAction());
         SaveEditorCommand = new RelayCommand(_ => SaveEditor(), _ => CanSaveEditor);
         CompleteTodoCommand = new RelayCommand(parameter => Complete(Find(parameter)), parameter => Find(parameter)?.Status == TodoStatus.Pending);
         RestoreTodoCommand = new RelayCommand(parameter => Restore(Find(parameter)), parameter =>
@@ -524,6 +566,9 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         CancelReminderCommand = new RelayCommand(parameter => CancelReminder(Find(parameter)), parameter =>
             Find(parameter) is { Status: TodoStatus.Pending, ReminderAt: not null });
         SnoozeTodoCommand = new RelayCommand(parameter => Snooze(Find(parameter)), parameter => Find(parameter)?.Status == TodoStatus.Pending);
+        DeleteTodoCommand = new RelayCommand(
+            parameter => DeleteTodo(parameter is Guid id ? id : Guid.Empty),
+            parameter => parameter is Guid id && Find(id) is not null);
         ParseAiCommand = new RelayCommand(async _ => await RunParseAiAsync(), _ => CanParseAi());
         ConfirmAiCommand = new RelayCommand(_ => ConfirmAi(), _ => CanConfirmAi());
         CancelAiCommand = new RelayCommand(_ => ClearAiResult(keepInput: true));
@@ -541,6 +586,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         Items.Clear();
         if (_store is null)
         {
+            _totalPendingCount = 0;
             RaiseItemStateChanged();
             return;
         }
@@ -548,7 +594,9 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         var now = _now().ToLocalTime();
         var today = now.Date;
         var nextWeek = today.AddDays(7);
-        IEnumerable<TodoItem> query = _store.Load();
+        var allItems = _store.Load();
+        _totalPendingCount = allItems.Count(item => item.Status == TodoStatus.Pending);
+        IEnumerable<TodoItem> query = allItems;
         query = SelectedFilterId switch
         {
             "completed" => query.Where(item => item.Status == TodoStatus.Completed),
@@ -582,18 +630,28 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
 
     private void OpenNewEditor()
     {
-        _editingId = null;
-        EditorTitle = string.Empty;
-        EditorNotes = string.Empty;
-        EditorDueDate = null;
-        EditorDueTime = "18:00";
-        EditorReminderDate = null;
-        EditorReminderTime = "09:00";
-        EditorIsReminder = false;
-        EditorReminderRoamEnabled = false;
-        EditorReminderBubbleEnabled = true;
-        LoadRuleEditor(null);
-        EditorError = string.Empty;
+        _loadingEditor = true;
+        try
+        {
+            _editingId = null;
+            EditorTitle = string.Empty;
+            EditorNotes = string.Empty;
+            EditorDueDate = null;
+            EditorDueTime = "18:00";
+            EditorReminderDate = null;
+            EditorReminderTime = "09:00";
+            EditorIsReminder = false;
+            EditorReminderRoamEnabled = false;
+            EditorReminderBubbleEnabled = true;
+            LoadRuleEditor(null);
+            EditorError = string.Empty;
+        }
+        finally
+        {
+            _loadingEditor = false;
+        }
+        _editorBaseline = CaptureEditorDraft();
+        SetDiscardEditorConfirmation(false);
         IsEditorOpen = true;
         RaiseEditorStateChanged();
     }
@@ -601,18 +659,28 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private void OpenEditor(TodoItem? item)
     {
         if (item is null) return;
-        _editingId = item.Id;
-        EditorTitle = item.Title;
-        EditorNotes = item.Notes;
-        EditorDueDate = item.DueAt?.ToLocalTime().DateTime.Date;
-        EditorDueTime = item.DueAt?.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) ?? "18:00";
-        EditorReminderDate = item.ReminderAt?.ToLocalTime().DateTime.Date;
-        EditorReminderTime = item.ReminderAt?.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) ?? "09:00";
-        EditorIsReminder = item.IsReminder;
-        EditorReminderRoamEnabled = item.ReminderRoamEnabled;
-        EditorReminderBubbleEnabled = item.IsReminder ? item.ReminderBubbleEnabled : true;
-        LoadRuleEditor(item);
-        EditorError = string.Empty;
+        _loadingEditor = true;
+        try
+        {
+            _editingId = item.Id;
+            EditorTitle = item.Title;
+            EditorNotes = item.Notes;
+            EditorDueDate = item.DueAt?.ToLocalTime().DateTime.Date;
+            EditorDueTime = item.DueAt?.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) ?? "18:00";
+            EditorReminderDate = item.ReminderAt?.ToLocalTime().DateTime.Date;
+            EditorReminderTime = item.ReminderAt?.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) ?? "09:00";
+            EditorIsReminder = item.IsReminder;
+            EditorReminderRoamEnabled = item.ReminderRoamEnabled;
+            EditorReminderBubbleEnabled = item.IsReminder ? item.ReminderBubbleEnabled : true;
+            LoadRuleEditor(item);
+            EditorError = string.Empty;
+        }
+        finally
+        {
+            _loadingEditor = false;
+        }
+        _editorBaseline = CaptureEditorDraft();
+        SetDiscardEditorConfirmation(false);
         IsEditorOpen = true;
         RaiseEditorStateChanged();
     }
@@ -621,7 +689,74 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     {
         IsEditorOpen = false;
         EditorError = string.Empty;
+        _editorBaseline = null;
+        SetDiscardEditorConfirmation(false);
+        RaiseEditorStateChanged();
     }
+
+    private void RequestCloseEditor()
+    {
+        if (!IsEditorOpen) return;
+        if (HasUnsavedEditorChanges)
+        {
+            SetDiscardEditorConfirmation(true);
+            Status = "编辑内容尚未保存；请选择继续编辑或放弃修改。";
+            return;
+        }
+        CloseEditor();
+    }
+
+    private void DiscardEditor()
+    {
+        if (!ShowDiscardEditorConfirmation) return;
+        CloseEditor();
+        Status = "未保存的编辑已放弃。";
+    }
+
+    private void ActivateEmptyStateAction()
+    {
+        if (string.Equals(SelectedFilterId, "pending", StringComparison.Ordinal))
+            OpenNewEditor();
+        else
+            SelectedFilterId = "pending";
+    }
+
+    private void SetDiscardEditorConfirmation(bool value)
+    {
+        if (_showDiscardEditorConfirmation == value) return;
+        _showDiscardEditorConfirmation = value;
+        OnPropertyChanged(nameof(ShowDiscardEditorConfirmation));
+        OnPropertyChanged(nameof(EditorStateHint));
+        (KeepEditingCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (DiscardEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void MarkEditorChanged()
+    {
+        if (_loadingEditor) return;
+        if (ShowDiscardEditorConfirmation) SetDiscardEditorConfirmation(false);
+        OnPropertyChanged(nameof(HasUnsavedEditorChanges));
+        OnPropertyChanged(nameof(EditorStateHint));
+    }
+
+    private EditorDraftSnapshot CaptureEditorDraft() => new(
+        _editingId,
+        EditorTitle,
+        EditorNotes,
+        EditorDueDate,
+        EditorDueTime,
+        EditorReminderDate,
+        EditorReminderTime,
+        EditorIsReminder,
+        EditorReminderRoamEnabled,
+        EditorReminderBubbleEnabled,
+        EditorRecurrence?.Kind ?? RecurrenceKind.None,
+        EditorInterval,
+        EditorEndsOn,
+        EditorTimeZoneId,
+        EditorAdditionalTimes,
+        string.Join(",", Weekdays.Where(day => day.IsSelected).Select(day => (int)day.Day).Order()),
+        EditorOnlyThis);
 
     private void SaveEditor()
     {
@@ -648,7 +783,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
 
             if (existing is null)
             {
-                _store.Create(new TodoItem
+                var created = _store.Create(new TodoItem
                 {
                     Title = EditorTitle,
                     Notes = EditorNotes,
@@ -662,6 +797,12 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                     ReminderRoamEnabled = EditorIsReminder && EditorReminderRoamEnabled,
                     ReminderBubbleEnabled = EditorIsReminder && EditorReminderBubbleEnabled,
                 });
+                _undoRecord = new UndoRecord(
+                    EditorIsReminder ? "创建提醒项" : "创建待办",
+                    created.Id,
+                    null,
+                    created.UpdatedAt,
+                    ExpectedMissing: false);
                 Status = EditorIsReminder ? "提醒项已创建。" : "待办已创建。";
             }
             else
@@ -671,7 +812,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                     : existing.ReminderAt == reminderAt
                         ? existing.ReminderState
                         : ReminderState.Scheduled;
-                _store.Update(existing with
+                var updated = _store.Update(existing with
                 {
                     Title = EditorOnlyThis ? existing.Title : EditorTitle,
                     Notes = EditorOnlyThis ? existing.Notes : EditorNotes,
@@ -687,10 +828,17 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                     ReminderRoamEnabled = EditorOnlyThis ? existing.ReminderRoamEnabled : EditorIsReminder && EditorReminderRoamEnabled,
                     ReminderBubbleEnabled = EditorOnlyThis ? existing.ReminderBubbleEnabled : EditorIsReminder && EditorReminderBubbleEnabled,
                 });
+                _undoRecord = new UndoRecord(
+                    EditorIsReminder ? "修改提醒项" : "修改待办",
+                    existing.Id,
+                    existing,
+                    updated.UpdatedAt,
+                    ExpectedMissing: false);
                 Status = EditorIsReminder ? "提醒项已更新。" : "待办已更新。";
             }
             CloseEditor();
             Reload();
+            RaiseUndoStateChanged();
         }
         catch (TodoValidationException ex)
         {
@@ -850,7 +998,12 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                         IsReminder = createsReminder,
                         ReminderBubbleEnabled = createsReminder,
                     });
-                    _undoRecord = new UndoRecord(createsReminder ? "创建提醒项" : "创建待办", created.Id, null);
+                    _undoRecord = new UndoRecord(
+                        createsReminder ? "创建提醒项" : "创建待办",
+                        created.Id,
+                        null,
+                        created.UpdatedAt,
+                        ExpectedMissing: false);
                     break;
                 }
                 case AiTodoOperation.Update:
@@ -864,7 +1017,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                         : _aiDraft.ReminderAt is not null
                             ? ReminderState.Scheduled
                             : target.ReminderState;
-                    _store.Update(target with
+                    var updated = _store.Update(target with
                     {
                         Title = _aiDraft.Title ?? target.Title,
                         Notes = _aiDraft.Notes ?? target.Notes,
@@ -876,21 +1029,21 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                         RecurrenceAnchorAt = _aiDraft.Recurrence is null ? target.RecurrenceAnchorAt : updatedReminder,
                         ReminderState = reminderState,
                     });
-                    _undoRecord = new UndoRecord("修改待办", target.Id, target);
+                    _undoRecord = new UndoRecord("修改待办", target.Id, target, updated.UpdatedAt, ExpectedMissing: false);
                     break;
                 }
                 case AiTodoOperation.Complete:
                 {
                     var target = RequireAiTarget();
-                    _store.Complete(target.Id);
-                    _undoRecord = new UndoRecord("完成待办", target.Id, target);
+                    var completed = _store.Complete(target.Id);
+                    _undoRecord = new UndoRecord("完成待办", target.Id, target, completed.UpdatedAt, ExpectedMissing: false);
                     break;
                 }
                 case AiTodoOperation.Delete:
                 {
                     var target = RequireAiTarget();
                     _store.Delete(target.Id);
-                    _undoRecord = new UndoRecord("删除待办", target.Id, target);
+                    _undoRecord = new UndoRecord("删除待办", target.Id, target, null, ExpectedMissing: true);
                     break;
                 }
                 case AiTodoOperation.Snooze:
@@ -898,8 +1051,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
                     var target = RequireAiTarget();
                     var next = _aiDraft.ReminderAt
                         ?? _now().AddMinutes(_aiDraft.SnoozeMinutes ?? 10);
-                    _store.Snooze(target.Id, next);
-                    _undoRecord = new UndoRecord("稍后提醒", target.Id, target);
+                    var snoozed = _store.Snooze(target.Id, next);
+                    _undoRecord = new UndoRecord("稍后提醒", target.Id, target, snoozed.UpdatedAt, ExpectedMissing: false);
                     break;
                 }
             }
@@ -964,8 +1117,22 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         if (_store is null || _undoRecord is null) return;
         try
         {
-            if (_undoRecord.Before is null) _store.Delete(_undoRecord.Id);
-            else _store.UpsertSnapshot(_undoRecord.Before);
+            var current = _store.Load().FirstOrDefault(item => item.Id == _undoRecord.Id);
+            if (_undoRecord.ExpectedMissing)
+            {
+                if (current is not null)
+                    throw new TodoValidationException("目标已重新出现，不能覆盖当前内容。");
+                if (_undoRecord.Before is null)
+                    throw new TodoValidationException("缺少可恢复的待办快照。");
+                _store.UpsertSnapshot(_undoRecord.Before);
+            }
+            else
+            {
+                if (current is null || current.UpdatedAt != _undoRecord.ExpectedUpdatedAt)
+                    throw new TodoValidationException("待办已再次修改，不能用旧撤销覆盖。");
+                if (_undoRecord.Before is null) _store.Delete(_undoRecord.Id);
+                else _store.UpsertSnapshot(_undoRecord.Before);
+            }
             Status = $"已撤销：{_undoRecord.Label}。";
             _undoRecord = null;
             Reload();
@@ -982,12 +1149,14 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         if (item is null || _store is null) return;
         try
         {
-            _store.Complete(item.Id);
+            var updated = _store.Complete(item.Id);
+            _undoRecord = new UndoRecord("完成待办", item.Id, item, updated.UpdatedAt, ExpectedMissing: false);
             _notifications?.HandleForTodo(item.Id);
             RefreshNotifications();
             if (_reminderAlertItem?.Id == item.Id) DismissReminderAlert();
             Status = "待办已完成；原提醒不会继续触发。";
             Reload();
+            RaiseUndoStateChanged();
         }
         catch { Status = "完成状态保存失败，请重试。"; }
     }
@@ -997,9 +1166,11 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         if (item is null || _store is null) return;
         try
         {
-            _store.Restore(item.Id);
+            var updated = _store.Restore(item.Id);
+            _undoRecord = new UndoRecord("恢复待办", item.Id, item, updated.UpdatedAt, ExpectedMissing: false);
             Status = "待办已恢复；已取消或已投递的提醒不会自动恢复。";
             Reload();
+            RaiseUndoStateChanged();
         }
         catch { Status = "恢复失败，请重试。"; }
     }
@@ -1009,12 +1180,14 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         if (item is null || _store is null) return;
         try
         {
-            _store.CancelReminder(item.Id);
+            var updated = _store.CancelReminder(item.Id);
+            _undoRecord = new UndoRecord("取消提醒", item.Id, item, updated.UpdatedAt, ExpectedMissing: false);
             _notifications?.HandleForTodo(item.Id);
             RefreshNotifications();
             if (_reminderAlertItem?.Id == item.Id) DismissReminderAlert();
             Status = item.IsReminder ? "整个提醒规则已取消。" : "整个提醒规则已取消，待办仍保留。";
             Reload();
+            RaiseUndoStateChanged();
         }
         catch { Status = "取消提醒失败，请重试。"; }
     }
@@ -1024,10 +1197,12 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         if (item is null || _store is null) return;
         try
         {
-            _store.Snooze(item.Id, _now().AddMinutes(10));
+            var updated = _store.Snooze(item.Id, _now().AddMinutes(10));
+            _undoRecord = new UndoRecord("稍后提醒", item.Id, item, updated.UpdatedAt, ExpectedMissing: false);
             if (_reminderAlertItem?.Id == item.Id) DismissReminderAlert();
             Status = "已稍后 10 分钟提醒，完成状态未改变。";
             Reload();
+            RaiseUndoStateChanged();
         }
         catch { Status = "稍后提醒保存失败，请重试。"; }
     }
@@ -1149,7 +1324,10 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private void RaiseItemStateChanged()
     {
         OnPropertyChanged(nameof(HasItems));
+        OnPropertyChanged(nameof(TotalPendingCount));
+        OnPropertyChanged(nameof(FilterSummary));
         OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(EmptyActionLabel));
         RaiseAllCommands();
     }
 
@@ -1159,7 +1337,11 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(EditorHeading));
         OnPropertyChanged(nameof(EditorSaveLabel));
         OnPropertyChanged(nameof(CanSaveEditor));
+        OnPropertyChanged(nameof(HasUnsavedEditorChanges));
+        OnPropertyChanged(nameof(ShowDiscardEditorConfirmation));
+        OnPropertyChanged(nameof(EditorStateHint));
         (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CancelEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void RaiseAiStateChanged()
@@ -1188,6 +1370,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private void RaiseUndoStateChanged()
     {
         OnPropertyChanged(nameof(CanUndoAiAction));
+        OnPropertyChanged(nameof(CanUndoLastAction));
         OnPropertyChanged(nameof(UndoLabel));
         (UndoAiCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
@@ -1209,6 +1392,10 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             RestoreTodoCommand,
             CancelReminderCommand,
             SnoozeTodoCommand,
+            DeleteTodoCommand,
+            CancelEditorCommand,
+            KeepEditingCommand,
+            DiscardEditorCommand,
         }.OfType<RelayCommand>()) command.RaiseCanExecuteChanged();
         RaiseAiCommands();
         RaiseUndoStateChanged();
@@ -1219,5 +1406,29 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-    private sealed record UndoRecord(string Label, Guid Id, TodoItem? Before);
+    private sealed record UndoRecord(
+        string Label,
+        Guid Id,
+        TodoItem? Before,
+        DateTimeOffset? ExpectedUpdatedAt,
+        bool ExpectedMissing);
+
+    private sealed record EditorDraftSnapshot(
+        Guid? EditingId,
+        string Title,
+        string Notes,
+        DateTime? DueDate,
+        string DueTime,
+        DateTime? ReminderDate,
+        string ReminderTime,
+        bool IsReminder,
+        bool ReminderRoamEnabled,
+        bool ReminderBubbleEnabled,
+        RecurrenceKind RecurrenceKind,
+        int Interval,
+        DateTime? EndsOn,
+        string TimeZoneId,
+        string AdditionalTimes,
+        string Weekdays,
+        bool OnlyThis);
 }

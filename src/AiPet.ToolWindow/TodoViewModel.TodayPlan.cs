@@ -92,6 +92,7 @@ public sealed partial class TodoViewModel
     private CancellationTokenSource? _todayPlanCts;
     private Task? _todayPlanTask;
     private bool _isTodayPlanGenerating;
+    private bool _changingTodayPlanSelection;
     private string _todayPlanMessage = "勾选待处理事项后，可生成今天的时间块草稿。";
     private string _todayPlanError = string.Empty;
     private TodayPlanUndoRecord? _todayPlanUndo;
@@ -136,6 +137,8 @@ public sealed partial class TodoViewModel
     public ICommand ApplyTodayPlanCommand { get; private set; } = null!;
     public ICommand CancelTodayPlanCommand { get; private set; } = null!;
     public ICommand UndoTodayPlanCommand { get; private set; } = null!;
+    public ICommand SelectFirstTodayPlanCandidatesCommand { get; private set; } = null!;
+    public ICommand ClearTodayPlanSelectionCommand { get; private set; } = null!;
 
     private void InitializeTodayPlanCommands()
     {
@@ -148,6 +151,12 @@ public sealed partial class TodoViewModel
         ApplyTodayPlanCommand = new RelayCommand(_ => ApplyTodayPlan(), _ => CanApplyTodayPlan());
         CancelTodayPlanCommand = new RelayCommand(_ => ClearTodayPlanDraft("安排草稿已取消，待办未改变。"), _ => HasTodayPlanDraft);
         UndoTodayPlanCommand = new RelayCommand(_ => UndoTodayPlan(), _ => CanUndoTodayPlan);
+        SelectFirstTodayPlanCandidatesCommand = new RelayCommand(
+            _ => SelectFirstTodayPlanCandidates(),
+            _ => HasTodayPlanCandidates && TodayPlanSelectedCount != Math.Min(12, TodayPlanCandidates.Count));
+        ClearTodayPlanSelectionCommand = new RelayCommand(
+            _ => ClearTodayPlanSelection(),
+            _ => TodayPlanSelectedCount > 0);
     }
 
     public void SetTodayPlanClient(ITodayPlanAiClient client)
@@ -379,6 +388,7 @@ public sealed partial class TodoViewModel
 
     private void OnTodayPlanSelectionChanged()
     {
+        if (_changingTodayPlanSelection) return;
         if (HasTodayPlanDraft) ClearTodayPlanDraft("选择已改变，请重新生成安排。", clearError: true);
         if (TodayPlanSelectedCount > 12)
             TodayPlanError = "一次最多选择 12 条事项，请取消多余勾选。";
@@ -392,7 +402,25 @@ public sealed partial class TodoViewModel
 
     private void ClearTodayPlanSelection()
     {
-        foreach (var item in TodayPlanCandidates) item.IsSelected = false;
+        ChangeTodayPlanSelection((_, _) => false);
+    }
+
+    private void SelectFirstTodayPlanCandidates() =>
+        ChangeTodayPlanSelection((_, index) => index < 12);
+
+    private void ChangeTodayPlanSelection(Func<TodayPlanCandidateViewModel, int, bool> selector)
+    {
+        _changingTodayPlanSelection = true;
+        try
+        {
+            for (var index = 0; index < TodayPlanCandidates.Count; index++)
+                TodayPlanCandidates[index].IsSelected = selector(TodayPlanCandidates[index], index);
+        }
+        finally
+        {
+            _changingTodayPlanSelection = false;
+        }
+        OnTodayPlanSelectionChanged();
     }
 
     private void ClearTodayPlanDraft(string message, bool clearError = false)
@@ -430,6 +458,8 @@ public sealed partial class TodoViewModel
         (ApplyTodayPlanCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (CancelTodayPlanCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (UndoTodayPlanCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (SelectFirstTodayPlanCandidatesCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ClearTodayPlanSelectionCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private sealed record TodayPlanUndoRecord(IReadOnlyList<TodoBatchUpdate> Entries)

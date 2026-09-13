@@ -1,5 +1,4 @@
 using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -21,41 +20,39 @@ public sealed record ReleaseUpdate(
     Uri ReleasePage,
     string InstallerAssetName,
     Uri InstallerAssetUrl,
-    Uri ChecksumAssetUrl);
+    Uri ChecksumAssetUrl,
+    string? InstallerSha256 = null);
 
 public sealed record UpdateCheckResult(
     UpdateCheckState State,
     ReleaseUpdate? Update,
-    string Message);
+    string Message,
+    string RouteDisplayName = "");
 
 public sealed record UpdateDownloadResult(
     bool Success,
     string? InstallerPath,
-    string Message);
+    string Message,
+    string RouteDisplayName = "");
 
 public interface IReleaseUpdateClient
 {
     Task<UpdateCheckResult> CheckAsync(
         string currentVersion,
-        string? accelerationTemplate,
-        string? accessToken,
         CancellationToken cancellationToken);
 
     Task<UpdateDownloadResult> DownloadInstallerAsync(
         ReleaseUpdate update,
         string destinationRoot,
-        string? accelerationTemplate,
-        string? accessToken,
         IProgress<int>? progress,
         CancellationToken cancellationToken);
 }
 
 /// <summary>
 /// Reads GitHub Release metadata and downloads the exact installer listed by
-/// the release. HttpClient uses the Windows/system proxy by default. Private
-/// repositories may use a token supplied by the caller.
-/// An optional HTTPS template such as https://trusted.example/{url} may be
-/// supplied for networks that need a user-selected GitHub accelerator.
+/// the release. HttpClient uses the Windows/system proxy by default and falls
+/// back through anonymous, built-in GitHub acceleration routes. No credential
+/// or user-supplied proxy address is accepted by this client.
 /// </summary>
 public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
 {
@@ -64,6 +61,30 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
     public const int MaximumMetadataBytes = 1024 * 1024;
     public const int MaximumChecksumBytes = 1024 * 1024;
     public const long MaximumInstallerBytes = 200L * 1024 * 1024;
+
+    private sealed record UpdateRoute(string DisplayName, string? Template)
+    {
+        public Uri Resolve(Uri official) => Template is null
+            ? official
+            : new Uri(Template.Replace("{url}", official.AbsoluteUri, StringComparison.Ordinal));
+    }
+
+    private sealed record UpdateRouteCandidate(Uri Uri, string DisplayName);
+    private sealed record ReleaseAsset(Uri BrowserUrl, long Size, string? Sha256);
+
+    private static readonly UpdateRoute[] MetadataRoutes =
+    [
+        new("GitHub 官方", null),
+        new("智能加速线路", "https://gh-proxy.com/{url}"),
+    ];
+
+    private static readonly UpdateRoute[] DownloadRoutes =
+    [
+        new("智能加速线路", "https://gh-proxy.com/{url}"),
+        new("智能加速线路", "https://ghfast.top/{url}"),
+        new("智能加速线路", "https://ghproxy.net/{url}"),
+        new("GitHub 官方", null),
+    ];
 
     private static readonly Uri LatestReleaseApi = new(
         $"https://api.github.com/repos/{RepositoryOwner}/{RepositoryName}/releases/latest");
@@ -80,29 +101,21 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
 
     public async Task<UpdateCheckResult> CheckAsync(
         string currentVersion,
-        string? accelerationTemplate,
-        string? accessToken,
         CancellationToken cancellationToken)
     {
         if (!TryParseStableVersion(currentVersion, out var installed))
             return new(UpdateCheckState.Failed, null, "当前应用版本无效，无法安全比较更新。");
-        if (!TryNormalizeAccessToken(accessToken, out var token))
-            return new(UpdateCheckState.Failed, null, "GitHub 访问令牌格式无效。");
-        string? template = null;
-        if (token is null
-            && !TryNormalizeAccelerationTemplate(accelerationTemplate, out template, out var templateError))
-            return new(UpdateCheckState.Failed, null, templateError!);
 
-        var failureMessage = "暂时无法连接 GitHub Release。请检查网络、系统代理或更新加速地址；私有仓库需保存只读访问令牌。";
-        foreach (var uri in BuildCandidateUris(LatestReleaseApi, token is null ? template : null))
+        var failureMessage = "暂时无法检查更新。应用已自动尝试 GitHub 官方和内置加速线路，请稍后重试。";
+        foreach (var route in BuildCandidateRoutes(LatestReleaseApi, MetadataRoutes))
         {
             try
             {
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeout.CancelAfter(TimeSpan.FromSeconds(15));
-                var json = await GetBoundedBytesAsync(uri, MaximumMetadataBytes, token, asset: false, cancellationToken: timeout.Token)
+                timeout.CancelAfter(TimeSpan.FromSeconds(6));
+                var json = await GetBoundedBytesAsync(route.Uri, MaximumMetadataBytes, asset: false, cancellationToken: timeout.Token)
                     .ConfigureAwait(false);
-                return ParseLatestRelease(json, installed);
+                return ParseLatestRelease(json, installed) with { RouteDisplayName = route.DisplayName };
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -118,8 +131,8 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
             }
             catch
             {
-                // Try the next user-configured/direct route. Error details are
-                // intentionally not surfaced because proxy responses may contain secrets.
+                // Try the next built-in/direct route. Third-party response details
+                // are intentionally not surfaced in UI or logs.
             }
         }
 
@@ -132,8 +145,6 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
     public async Task<UpdateDownloadResult> DownloadInstallerAsync(
         ReleaseUpdate update,
         string destinationRoot,
-        string? accelerationTemplate,
-        string? accessToken,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
@@ -141,19 +152,17 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
         if (string.IsNullOrWhiteSpace(destinationRoot))
             throw new ArgumentException("下载目录不能为空。", nameof(destinationRoot));
         var expectedInstallerName = $"windows-ai-desktop-pet-v{update.Version.ToString(3)}-setup.exe";
-        if (!string.Equals(update.InstallerAssetName, expectedInstallerName, StringComparison.Ordinal)
-            || !IsSafeHttpsUri(update.InstallerAssetUrl)
-            || !IsSafeHttpsUri(update.ChecksumAssetUrl))
+        var expectedTagName = "v" + update.Version.ToString(3);
+        if (!string.Equals(update.TagName, expectedTagName, StringComparison.Ordinal)
+            || !IsExpectedReleasePage(update.ReleasePage, expectedTagName)
+            || !string.Equals(update.InstallerAssetName, expectedInstallerName, StringComparison.Ordinal)
+            || !IsExpectedAssetUri(update.InstallerAssetUrl, update.TagName, expectedInstallerName)
+            || !IsExpectedAssetUri(update.ChecksumAssetUrl, update.TagName, "SHA256SUMS.txt")
+            || !IsSha256OrNull(update.InstallerSha256))
             return new(false, null, "Release 资产地址或文件名无效，已停止下载。");
-        if (!TryNormalizeAccessToken(accessToken, out var token))
-            return new(false, null, "GitHub 访问令牌格式无效。");
-        string? template = null;
-        if (token is null
-            && !TryNormalizeAccelerationTemplate(accelerationTemplate, out template, out var templateError))
-            return new(false, null, templateError!);
 
-        var checksumRoutes = BuildCandidateUris(update.ChecksumAssetUrl, token is null ? template : null);
-        var installerRoutes = BuildCandidateUris(update.InstallerAssetUrl, token is null ? template : null);
+        var checksumRoutes = BuildCandidateRoutes(update.ChecksumAssetUrl, DownloadRoutes);
+        var installerRoutes = BuildCandidateRoutes(update.InstallerAssetUrl, DownloadRoutes);
         var routeCount = Math.Min(checksumRoutes.Count, installerRoutes.Count);
         var versionDirectory = Path.Combine(destinationRoot, "v" + update.Version.ToString(3));
         Directory.CreateDirectory(versionDirectory);
@@ -167,26 +176,29 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeout.CancelAfter(TimeSpan.FromMinutes(10));
                 var checksumBytes = await GetBoundedBytesAsync(
-                    checksumRoutes[route], MaximumChecksumBytes, token, asset: true, cancellationToken: timeout.Token).ConfigureAwait(false);
+                    checksumRoutes[route].Uri, MaximumChecksumBytes, asset: true, cancellationToken: timeout.Token).ConfigureAwait(false);
                 var expected = ReadExpectedChecksum(
                     Encoding.UTF8.GetString(checksumBytes), update.InstallerAssetName);
+                if (update.InstallerSha256 is not null
+                    && !string.Equals(expected, update.InstallerSha256, StringComparison.Ordinal))
+                    throw new InvalidDataException("Release digest and checksum manifest do not match.");
 
                 if (File.Exists(destination)
                     && string.Equals(await HashFileAsync(destination, timeout.Token).ConfigureAwait(false), expected, StringComparison.Ordinal))
                 {
                     progress?.Report(100);
-                    return new(true, destination, "更新安装器已下载并通过 SHA-256 校验。");
+                    return new(true, destination, "更新安装器已下载并通过 SHA-256 校验。", installerRoutes[route].DisplayName);
                 }
 
                 if (File.Exists(temporary)) File.Delete(temporary);
-                await DownloadFileAsync(installerRoutes[route], temporary, token, progress, timeout.Token)
+                await DownloadFileAsync(installerRoutes[route].Uri, temporary, progress, timeout.Token)
                     .ConfigureAwait(false);
                 var actual = await HashFileAsync(temporary, timeout.Token).ConfigureAwait(false);
                 if (!string.Equals(actual, expected, StringComparison.Ordinal))
                     throw new InvalidDataException("Downloaded installer checksum mismatch.");
                 File.Move(temporary, destination, true);
                 progress?.Report(100);
-                return new(true, destination, "更新安装器已下载并通过 SHA-256 校验。");
+                return new(true, destination, "更新安装器已下载并通过 SHA-256 校验。", installerRoutes[route].DisplayName);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -200,45 +212,6 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
         }
 
         return new(false, null, "更新下载失败或校验未通过，现有版本不会改变。");
-    }
-
-    public static bool TryNormalizeAccelerationTemplate(
-        string? value,
-        out string? normalized,
-        out string? error)
-    {
-        normalized = null;
-        error = null;
-        if (string.IsNullOrWhiteSpace(value)) return true;
-        var candidate = value.Trim();
-        if (candidate.Length > 500 || candidate.Count('{') != 1 || candidate.Count('}') != 1
-            || !candidate.Contains("{url}", StringComparison.Ordinal))
-        {
-            error = "更新加速地址必须包含且只包含一个 {url} 占位符。";
-            return false;
-        }
-
-        var probeText = candidate.Replace("{url}", LatestReleaseApi.AbsoluteUri, StringComparison.Ordinal);
-        if (!Uri.TryCreate(probeText, UriKind.Absolute, out var probe)
-            || probe.Scheme != Uri.UriSchemeHttps
-            || !string.IsNullOrEmpty(probe.UserInfo))
-        {
-            error = "更新加速地址必须是无账号信息的 HTTPS 地址。";
-            return false;
-        }
-
-        normalized = candidate;
-        return true;
-    }
-
-    public static bool TryNormalizeAccessToken(string? value, out string? normalized)
-    {
-        normalized = null;
-        if (string.IsNullOrWhiteSpace(value)) return true;
-        var candidate = value.Trim();
-        if (candidate.Length is < 20 or > 512 || candidate.Any(char.IsWhiteSpace)) return false;
-        normalized = candidate;
-        return true;
     }
 
     internal static UpdateCheckResult ParseLatestRelease(byte[] json, Version installed)
@@ -257,20 +230,24 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
         var tag = tagProperty.GetString() ?? string.Empty;
         if (!TryParseStableVersion(tag, out var releaseVersion))
             throw new InvalidDataException("Release tag is not a stable SemVer.");
-        if (releaseVersion <= installed)
-            return new(UpdateCheckState.UpToDate, null, $"当前已是最新版本 {installed.ToString(3)}。");
-
+        if (!string.Equals(tag, "v" + releaseVersion.ToString(3), StringComparison.Ordinal))
+            throw new InvalidDataException("Release tag does not use the required version format.");
         if (ReadBoolean(root, "draft") || ReadBoolean(root, "prerelease"))
             throw new InvalidDataException("Latest release is not stable.");
-        if (!TryReadHttpsUri(root, "html_url", out var releasePage))
+        if (!TryReadHttpsUri(root, "html_url", out var releasePage)
+            || !IsExpectedReleasePage(releasePage!, tag))
             throw new InvalidDataException("Release page URL is invalid.");
+        if (releaseVersion <= installed)
+            return new(UpdateCheckState.UpToDate, null, $"当前已是最新版本 {installed.ToString(3)}。");
 
         var installerName = $"windows-ai-desktop-pet-v{releaseVersion.ToString(3)}-setup.exe";
         if (!root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
             throw new InvalidDataException("Release metadata is missing assets.");
-        var installerUrl = FindAssetUrl(assets, installerName);
-        var checksumUrl = FindAssetUrl(assets, "SHA256SUMS.txt");
-        if (installerUrl is null || checksumUrl is null)
+        var installer = FindAsset(assets, installerName, MaximumInstallerBytes);
+        var checksum = FindAsset(assets, "SHA256SUMS.txt", MaximumChecksumBytes);
+        if (installer is null || checksum is null
+            || !IsExpectedAssetUri(installer.BrowserUrl, tag, installerName)
+            || !IsExpectedAssetUri(checksum.BrowserUrl, tag, "SHA256SUMS.txt"))
             throw new InvalidDataException("Release does not contain the required installer and checksum assets.");
 
         var update = new ReleaseUpdate(
@@ -278,35 +255,38 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
             tag,
             releasePage!,
             installerName,
-            installerUrl,
-            checksumUrl);
+            installer.BrowserUrl,
+            checksum.BrowserUrl,
+            installer.Sha256);
         return new(UpdateCheckState.UpdateAvailable, update, $"发现新版本 {releaseVersion.ToString(3)}。");
     }
 
-    private static IReadOnlyList<Uri> BuildCandidateUris(Uri official, string? template)
+    private static IReadOnlyList<UpdateRouteCandidate> BuildCandidateRoutes(
+        Uri official,
+        IReadOnlyList<UpdateRoute> routes)
     {
-        var routes = new List<Uri>(2);
-        if (!string.IsNullOrWhiteSpace(template))
+        var candidates = new List<UpdateRouteCandidate>(routes.Count);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var route in routes)
         {
-            var accelerated = template.Replace("{url}", official.AbsoluteUri, StringComparison.Ordinal);
-            if (Uri.TryCreate(accelerated, UriKind.Absolute, out var acceleratedUri)) routes.Add(acceleratedUri);
+            var uri = route.Resolve(official);
+            if (IsSafeHttpsUri(uri) && seen.Add(uri.AbsoluteUri))
+                candidates.Add(new(uri, route.DisplayName));
         }
-        routes.Add(official);
-        return routes.Distinct().ToArray();
+        return candidates;
     }
 
     private async Task<byte[]> GetBoundedBytesAsync(
         Uri uri,
         int maximumBytes,
-        string? accessToken,
         bool asset,
         CancellationToken cancellationToken)
     {
-        using var request = CreateRequest(uri, accessToken, asset);
+        using var request = CreateRequest(uri, asset);
         using var response = await _httpClient.SendAsync(
             request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        if (response.RequestMessage?.RequestUri is { } finalUri && !IsSafeHttpsUri(finalUri))
+        if (response.RequestMessage?.RequestUri is { } finalUri && !IsAllowedFinalUri(uri, finalUri))
             throw new InvalidDataException("Response was redirected to an unsafe address.");
         if (response.Content.Headers.ContentLength is > 0 and var length && length > maximumBytes)
             throw new InvalidDataException("Response exceeds size limit.");
@@ -326,15 +306,14 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
     private async Task DownloadFileAsync(
         Uri uri,
         string path,
-        string? accessToken,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
-        using var request = CreateRequest(uri, accessToken, asset: true);
+        using var request = CreateRequest(uri, asset: true);
         using var response = await _httpClient.SendAsync(
             request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        if (response.RequestMessage?.RequestUri is { } finalUri && !IsSafeHttpsUri(finalUri))
+        if (response.RequestMessage?.RequestUri is { } finalUri && !IsAllowedFinalUri(uri, finalUri))
             throw new InvalidDataException("Installer was redirected to an unsafe address.");
         var length = response.Content.Headers.ContentLength;
         if (length is > MaximumInstallerBytes) throw new InvalidDataException("Installer exceeds size limit.");
@@ -354,19 +333,17 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
         await output.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static HttpRequestMessage CreateRequest(Uri uri, string? accessToken, bool asset)
+    private static HttpRequestMessage CreateRequest(Uri uri, bool asset)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("WindowsAiDesktopPet", "1.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(
             asset ? "application/octet-stream" : "application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
-        if (accessToken is not null)
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return request;
     }
 
-    private static Uri? FindAssetUrl(JsonElement assets, string expectedName)
+    private static ReleaseAsset? FindAsset(JsonElement assets, string expectedName, long maximumBytes)
     {
         foreach (var asset in assets.EnumerateArray())
         {
@@ -374,9 +351,22 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
                 || !asset.TryGetProperty("name", out var name)
                 || name.ValueKind != JsonValueKind.String
                 || !string.Equals(name.GetString(), expectedName, StringComparison.Ordinal)
-                || !TryReadHttpsUri(asset, "url", out var uri))
+                || !asset.TryGetProperty("size", out var sizeProperty)
+                || !sizeProperty.TryGetInt64(out var size)
+                || size is <= 0
+                || size > maximumBytes
+                || !TryReadHttpsUri(asset, "browser_download_url", out var uri))
                 continue;
-            return uri;
+
+            string? sha256 = null;
+            if (asset.TryGetProperty("digest", out var digestProperty)
+                && digestProperty.ValueKind is not JsonValueKind.Null)
+            {
+                if (digestProperty.ValueKind != JsonValueKind.String
+                    || !TryParseSha256Digest(digestProperty.GetString(), out sha256))
+                    throw new InvalidDataException("Release asset digest is invalid.");
+            }
+            return new(uri!, size, sha256);
         }
         return null;
     }
@@ -391,11 +381,58 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
             && string.IsNullOrEmpty(uri.UserInfo);
     }
 
+    private static bool IsExpectedReleasePage(Uri uri, string tagName) =>
+        IsSafeHttpsUri(uri)
+        && string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase)
+        && string.IsNullOrEmpty(uri.Query)
+        && string.IsNullOrEmpty(uri.Fragment)
+        && string.Equals(
+            Uri.UnescapeDataString(uri.AbsolutePath),
+            $"/{RepositoryOwner}/{RepositoryName}/releases/tag/{tagName}",
+            StringComparison.Ordinal);
+
+    private static bool IsExpectedAssetUri(Uri uri, string tagName, string assetName) =>
+        IsSafeHttpsUri(uri)
+        && string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase)
+        && string.IsNullOrEmpty(uri.Query)
+        && string.IsNullOrEmpty(uri.Fragment)
+        && string.Equals(
+            Uri.UnescapeDataString(uri.AbsolutePath),
+            $"/{RepositoryOwner}/{RepositoryName}/releases/download/{tagName}/{assetName}",
+            StringComparison.Ordinal);
+
+    private static bool IsAllowedFinalUri(Uri requested, Uri final) =>
+        IsSafeHttpsUri(final)
+        && (string.Equals(requested.Host, final.Host, StringComparison.OrdinalIgnoreCase)
+            || IsOfficialGitHubDeliveryHost(final.Host));
+
+    private static bool IsOfficialGitHubDeliveryHost(string host) =>
+        host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
+        || host.Equals("api.github.com", StringComparison.OrdinalIgnoreCase)
+        || host.Equals("objects.githubusercontent.com", StringComparison.OrdinalIgnoreCase)
+        || host.Equals("raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase)
+        || host.Equals("release-assets.githubusercontent.com", StringComparison.OrdinalIgnoreCase)
+        || host.Equals("github-releases.githubusercontent.com", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsSafeHttpsUri(Uri? uri) =>
         uri is not null
         && uri.IsAbsoluteUri
         && uri.Scheme == Uri.UriSchemeHttps
         && string.IsNullOrEmpty(uri.UserInfo);
+
+    private static bool TryParseSha256Digest(string? value, out string? sha256)
+    {
+        sha256 = null;
+        const string prefix = "sha256:";
+        if (value is null || !value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+        var candidate = value[prefix.Length..].ToLowerInvariant();
+        if (candidate.Length != 64 || !candidate.All(Uri.IsHexDigit)) return false;
+        sha256 = candidate;
+        return true;
+    }
+
+    private static bool IsSha256OrNull(string? value) =>
+        value is null || (value.Length == 64 && value.All(Uri.IsHexDigit));
 
     private static bool ReadBoolean(JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out var property)

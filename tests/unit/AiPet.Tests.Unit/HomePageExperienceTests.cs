@@ -410,6 +410,76 @@ public sealed class HomePageExperienceTests : IDisposable
         Assert.True(fallbackIcon.IsFrozen);
     }
 
+    [Fact]
+    public void Reset_search_context_clears_query_category_scope_and_selection_together()
+    {
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "reset-context-shortcuts")),
+            new OpenAiCompatibleClient(),
+            new SettingsStore(Path.Combine(_root, "reset-context-settings")));
+        var target = Path.Combine(_root, "reset-target.txt");
+        File.WriteAllText(target, "reset");
+
+        vm.Query = "report";
+        vm.Category = "文档";
+        vm.SelectedSearchScopeId = Guid.NewGuid().ToString("D");
+        vm.SelectedResult = SearchItemFor(target);
+
+        Assert.True(vm.HasSearchConditionsToReset);
+        Assert.True(vm.ResetSearchContextCommand.CanExecute(null));
+        vm.ResetSearchContextCommand.Execute(null);
+
+        Assert.Equal(string.Empty, vm.Query);
+        Assert.Equal("全部", vm.Category);
+        Assert.Equal("all", vm.SelectedSearchScopeId);
+        Assert.Null(vm.SelectedResult);
+        Assert.False(vm.HasSearchConditionsToReset);
+        Assert.False(vm.ResetSearchContextCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void Result_count_and_selected_ordinal_are_independent_of_status_copy()
+    {
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "result-count-shortcuts")),
+            new OpenAiCompatibleClient(),
+            new SettingsStore(Path.Combine(_root, "result-count-settings")));
+        var firstPath = Path.Combine(_root, "first-result.txt");
+        var secondPath = Path.Combine(_root, "second-result.txt");
+        File.WriteAllText(firstPath, "first");
+        File.WriteAllText(secondPath, "second");
+        var first = SearchItemFor(firstPath);
+        var second = SearchItemFor(secondPath) with { Id = 2 };
+        vm.Results.Add(first);
+        vm.Results.Add(second);
+        vm.SelectedResult = second;
+
+        Assert.Equal("2 条", vm.SearchResultCountText);
+        Assert.Contains("已选 2/2", vm.SelectedResultSummary, StringComparison.Ordinal);
+        Assert.Contains("second-result.txt", vm.SelectedResultSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Successful_maintenance_operation_updates_a_privacy_safe_status_channel()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "maintenance-settings"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "maintenance-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings);
+        var destination = Path.Combine(_root, "maintenance-backup.zip");
+
+        vm.BackupLocalData(destination, DataModule.Settings);
+
+        Assert.True(File.Exists(destination));
+        Assert.Equal("本地数据备份完成（不含 API Key）。", vm.MaintenanceStatus);
+        Assert.Equal(vm.MaintenanceStatus, vm.Status);
+        Assert.DoesNotContain(destination, vm.MaintenanceStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> predicate)
     {
         for (var i = 0; i < 60 && !predicate(); i++)
