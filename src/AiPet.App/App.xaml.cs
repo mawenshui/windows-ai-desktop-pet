@@ -46,6 +46,7 @@ public partial class App : System.Windows.Application
     private OpenAiCompatibleClient? _ai;
     private OpenAiCompatibleTodoClient? _todoAi;
     private TodoStore? _todoStore;
+    private DailyJournalStore? _dailyJournalStore;
     private ReminderScheduler? _reminderScheduler;
     private GlobalHotkeyService? _globalHotkeys;
     private SettingsStore? _settingsStore;
@@ -186,6 +187,7 @@ public partial class App : System.Windows.Application
         _ai = new OpenAiCompatibleClient();
         _todoAi = new OpenAiCompatibleTodoClient();
         _todoStore = new TodoStore(_settingsStore.AppDataDir);
+        _dailyJournalStore = new DailyJournalStore(_settingsStore.AppDataDir);
         // _homeVm is attached after the XAML resource graph is built
         // (see TryAttachHomeViewModel below) so the resource lookup
         // can find the XAML-declared instance instead of us creating
@@ -245,7 +247,8 @@ public partial class App : System.Windows.Application
                 _settingsStore,
                 todoStore: _todoStore,
                 todoAiClient: _todoAi,
-                todoNow: todoNow);
+                todoNow: todoNow,
+                journalStore: _dailyJournalStore);
             fromXaml.CharacterChanged += character => _pet?.SetCharacter(character);
             fromXaml.AppearanceChanged += appearance =>
             {
@@ -684,11 +687,23 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
-    private void OnSystemTimeChanged(object? sender, EventArgs e) => _reminderScheduler?.Reschedule();
-
-    private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    private async void OnSystemTimeChanged(object? sender, EventArgs e)
     {
-        if (e.Mode == PowerModes.Resume) _reminderScheduler?.Reschedule();
+        _reminderScheduler?.Reschedule();
+        await RefreshJournalDateSafelyAsync();
+    }
+
+    private async void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode != PowerModes.Resume) return;
+        _reminderScheduler?.Reschedule();
+        await RefreshJournalDateSafelyAsync();
+    }
+
+    private async Task RefreshJournalDateSafelyAsync()
+    {
+        try { if (_homeVm is not null) await _homeVm.Todo.RefreshJournalDateAsync(); }
+        catch { DebugLog("[Journal] date refresh failed"); }
     }
 
     // ============== --smoke mode ==============

@@ -164,6 +164,7 @@ public partial class PetToolWindow : Window
     public void StartQuickTodo()
     {
         if (!TrySelectTab(1) || DataContext is not HomeViewModel vm) return;
+        vm.Todo.SelectedTodoPageMode = vm.Todo.TodoPageModes[0];
         if (vm.Todo.NewTodoCommand.CanExecute(null)) vm.Todo.NewTodoCommand.Execute(null);
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
@@ -356,6 +357,11 @@ public partial class PetToolWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusSearchBox));
     }
 
+    private void ClearTodoSearch_Click(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusTodoSearchBox));
+    }
+
     private void OpenSearchSettings_Click(object sender, RoutedEventArgs e)
     {
         if (!TrySelectTab(3)) return;
@@ -366,6 +372,58 @@ public partial class PetToolWindow : Window
     {
         SearchBox.Focus();
         Keyboard.Focus(SearchBox);
+    }
+
+    private void FocusTodoSearchBox()
+    {
+        TodoSearchBox.Focus();
+        Keyboard.Focus(TodoSearchBox);
+        TodoSearchBox.SelectAll();
+    }
+
+    private void TodoPageModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || DataContext is not HomeViewModel vm) return;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            FrameworkElement target = vm.Todo.IsJournalMode ? JournalNoteBox : NewTodoButton;
+            target.Focus();
+            Keyboard.Focus(target);
+        }));
+    }
+
+    private async void ExportJournal_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel vm) return;
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Markdown 复盘 (*.md)|*.md",
+            FileName = $"{vm.Todo.SelectedJournalDate:yyyy-MM-dd}.md",
+            AddExtension = true,
+            DefaultExt = ".md",
+            OverwritePrompt = true,
+        };
+        if (ShowMaintenanceFileDialog(dialog) != true) return;
+        try { await vm.Todo.ExportSelectedJournalAsync(dialog.FileName); }
+        catch
+        {
+            MessageBox.Show(this, "复盘导出失败。请检查目标文件夹权限和剩余空间；原复盘仍保留。", "每日复盘", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void TodoItems_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ListBox || DataContext is not HomeViewModel vm) return;
+        if (vm.Todo.EditSelectedTodoCommand.CanExecute(null))
+            vm.Todo.EditSelectedTodoCommand.Execute(null);
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            if (vm.Todo.IsEditorOpen)
+            {
+                TodoTitleBox.Focus();
+                Keyboard.Focus(TodoTitleBox);
+            }
+        }));
     }
 
     private bool FocusFirstSearchResult()
@@ -1139,6 +1197,16 @@ public partial class PetToolWindow : Window
             if (TrySelectTab(0)) Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusSearchBox));
             e.Handled = true;
         }
+        else if (key == Key.F && modifiers == ModifierKeys.Control && ShellTabs.SelectedIndex == 1)
+        {
+            if (DataContext is HomeViewModel { Todo.IsJournalMode: true })
+                return;
+            if (NotificationInboxControl.IsKeyboardFocusWithin)
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(NotificationInboxControl.FocusQuery));
+            else
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusTodoSearchBox));
+            e.Handled = true;
+        }
         else if (key == Key.N && modifiers == ModifierKeys.Control)
         {
             StartQuickTodo();
@@ -1166,9 +1234,55 @@ public partial class PetToolWindow : Window
             }));
             e.Handled = true;
         }
+        else if (ShellTabs.SelectedIndex == 1
+                 && TodoItemsList.IsKeyboardFocusWithin
+                 && DataContext is HomeViewModel listHome
+                 && key == Key.Enter
+                 && modifiers == ModifierKeys.Control)
+        {
+            if (listHome.Todo.ToggleSelectedTodoCompletionCommand.CanExecute(null))
+                listHome.Todo.ToggleSelectedTodoCompletionCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (ShellTabs.SelectedIndex == 1
+                 && TodoItemsList.IsKeyboardFocusWithin
+                 && DataContext is HomeViewModel deleteHome
+                 && key == Key.Delete
+                 && modifiers == ModifierKeys.None)
+        {
+            if (deleteHome.Todo.DeleteSelectedTodoCommand.CanExecute(null))
+                deleteHome.Todo.DeleteSelectedTodoCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (ShellTabs.SelectedIndex == 1
+                 && TodoItemsList.IsKeyboardFocusWithin
+                 && DataContext is HomeViewModel editHome
+                 && key is Key.Enter or Key.F2
+                 && modifiers == ModifierKeys.None)
+        {
+            if (editHome.Todo.EditSelectedTodoCommand.CanExecute(null))
+                editHome.Todo.EditSelectedTodoCommand.Execute(null);
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+            {
+                if (editHome.Todo.IsEditorOpen)
+                {
+                    TodoTitleBox.Focus();
+                    Keyboard.Focus(TodoTitleBox);
+                }
+            }));
+            e.Handled = true;
+        }
         else if (key == Key.Escape)
         {
             if (ShellTabs.SelectedIndex == 1
+                && DataContext is HomeViewModel journalHome
+                && journalHome.Todo.HandleJournalEscape())
+            {
+                FrameworkElement target = journalHome.Todo.IsJournalMode ? JournalNoteBox : NewTodoButton;
+                target.Focus();
+                Keyboard.Focus(target);
+            }
+            else if (ShellTabs.SelectedIndex == 1
                 && DataContext is HomeViewModel { Todo.IsEditorOpen: true } escapeTodoHome)
             {
                 if (escapeTodoHome.Todo.CancelEditorCommand.CanExecute(null))

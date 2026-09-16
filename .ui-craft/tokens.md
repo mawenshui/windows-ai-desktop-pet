@@ -1,4 +1,4 @@
-> 2026-09-13 文档核对：当前基线为 0.21.0。主页结果操作、快捷入口与状态分行；搜索空态、待办未保存与维护状态带复用 `accent.tint`/`accent.soft`；错误和删除只复用既有危险次要样式。所有紧凑文字按钮至少 36 DIP，状态用可见文字与 polite live region 表达，不引入新颜色、字体或动效。当前实现与验证边界见 [技术设计](../docs/TECHNICAL_DESIGN.md) 和 [当前状态](../docs/CURRENT_STATUS.md)。
+> 2026-09-15 文档核对：当前基线为 0.24.0。每日复盘复用 `paper`/`card`、`accent.tint`/`accent.soft`、`ink`/`muted` 与既有危险次要样式；日期导航、编辑、导出和删除按钮至少 36 DIP，保存/错误与统计使用文字和 polite live region，不新增色值、字体或动效。当前实现与验证边界见 [技术设计](../docs/TECHNICAL_DESIGN.md) 和 [当前状态](../docs/CURRENT_STATUS.md)。
 
 # 多功能 AI 桌宠 · 设计令牌
 
@@ -54,3 +54,4 @@
 - Progressive disclosure: section-card or accent-tint surface with a visible Expander header and short consequence text; collapsed state never mutates business data.
 - Settings directory: five equal-width visible choices using the existing underline, weight, and accent selected markers; selection scrolls and focuses the named section.
 - Smart update route: `accent.tint` status strip with a visible “自动” badge, one concise route/status sentence, polite live-region updates, and no user-editable proxy or credential fields.
+- Notification focus: visible inline query and segmented filters precede the native single-select list; the selected target uses one `accent.tint` action strip. Quiet-hour fields and presets remain drafts until explicit save, while validation, save state, history count, and delivery feedback stay visible in text.

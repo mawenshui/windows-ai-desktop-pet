@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.21.0，2026-09-13；测试结果以[本次报告](release/0.21.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
+基线：0.24.0，2026-09-15；测试结果以[本次报告](release/0.24.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -26,9 +26,10 @@
 | PET/WIN/NAV/SET | PetWindowPositioner、PetPopoverPositioner、PetToolWindowLifecycle、HomePageLayout、HomeViewModel、GitHubReleaseUpdate、ShellNavigation；未保存导航取消保留、`Alt+1`～`Alt+4`/`Ctrl+L`/`Ctrl+N`/`Ctrl+Enter`/`F1`、Esc 层级、页签帮助文本、设置五项目录、渲染与管理窗 |
 | SRCH-01～11 / EXT-04 | SearchService、SearchIndex、SearchLifecycle、ContentSearch、SearchResultActions、HomeViewModel/HomePageLayout；授权撤销竞争、重启监听、稳定分页、固定/清历史、正文边界、安全结果动作、选择生命周期、单次重置三个条件、可操作空态、数量/序号与 live region |
 | QCK-01～09 / EXT-05 | ShortcutStore、ShortcutOrganization、HomePageLayout；重复 ID、100 项排序/分组、选择数量、固定区边界、扫描互斥、Delete 预览、批量撤销图标、静止管理入口、失效非颜色线索及含目标名的 UIA 语义 |
-| TODO-01～14 / EXT-01 | TodoStore、TodoViewModel、ReminderRule、ReminderScheduler、PetToolWindowLifecycle/HomePageLayout；筛选/总数摘要、上下文空态、全字段未保存基线、页内放弃确认、手动新建/修改/完成/恢复/稍后/取消提醒/删除统一撤销和并发拒绝 |
+| TODO-01～19 / EXT-01 | TodoStore、TodoViewModel、ReminderRule、ReminderScheduler、PetToolWindowLifecycle/HomePageLayout；筛选/总数摘要、上下文空态、全字段未保存基线、页内放弃确认、统一撤销和并发拒绝；待办标题/备注查找、六筛选计数、三排序、稳定选择、统一操作带、列表快捷键、紧迫度、快捷时间、200/4000 计数与实时校验；提醒标题查找、三筛选计数、两排序、通知 ID 选择恢复、目标动作、静默草稿/预设/校验和提醒区焦点分流 |
+| JOURNAL-01～08 | DailyJournal、TodoViewModel、MaintenanceTransaction、EssentialFeature、HomePageLayout；500 ms 自动保存、单调 revision/过期写拒绝、损坏保护、当天四时间字段投影、跨日一次冻结、历史编辑/删除隔离、UTF-8 无 BOM/LF Markdown、标题净化、扩展名/链接路径边界、手动/自动备份恢复、二级视图、`Ctrl+S`、Esc、状态与 UIA 语义；时区/DST、系统覆盖确认和 200% 缩放另列真实 Windows 验收 |
 | TODAY-01～06 | TodayPlan、TodoStore、TodoViewModel、HomePageLayout；只发送选中项正文、未选项匿名占用时间、AI/本地冲突避让、精确刻钟边界、过期整批拒绝、前 12 条批量选择/清除与旧草稿失效 |
-| EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离 |
+| EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离；提醒投影的待处理/历史语义、失效目标和清理保留边界 |
 | AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留 |
 | AI-06 / EXT-11 | EncryptedAiConfigurationBundle、HomeViewModel；全字段加密往返、密文无 Key/端点、错误口令/篡改拒绝、跨数据目录导入后即用、自定义 Provider 迁移、凭据中途失败回滚 |
 | DATA-01/02/04/05 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile、HomePageLayout/HomePageExperience；路径/容量/schema/hash、中途失败/中断回滚、真实模块成组恢复、损坏后写保护、危险层级/明确确认、独立状态通道、成功不泄露路径与失败不拼接原异常 |
@@ -45,6 +46,6 @@
 
 七组 gate：automated、ui、system、performance、package-smoke、signatures、hardware。输入指纹覆盖源码/测试/脚本/资源/配置/离线手册及版本构建元数据，报告必须来自当前提交且不超过 72 小时。缺少必需检查、FAIL/SKIP、错资产或 dirty 都拒绝。
 
-系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.21.0 还需在解锁的同桌面会话验证新快捷键、Esc 层级、可操作空态、页内放弃、直接删除/撤销、动态播报和维护反馈，并回归 0.19.0/0.20.0 的主页布局、搜索焦点、待办渐进披露、设置未保存保护、智能更新线路、正文开关、今日安排、全局快捷键、自动备份和完整 AI 迁移。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
+系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.24.0 还需在解锁的同桌面会话验证清单/复盘切换、日期导航、500 ms 保存反馈、`Ctrl+S`、Esc 两级退出、历史只读/编辑、删除确认、保存/覆盖/取消 Markdown 对话框、跨午夜/手动改时/时区/DST/休眠恢复和 200% 缩放，并回归 0.23.0 的提醒中心、0.22.0 的待办录入及 0.19.0～0.21.0 的主页布局、搜索焦点、设置保护、更新、正文、今日安排、快捷键、自动备份和 AI 迁移。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
 
 NotifyIcon/桌宠提交无法证明展示，需实测专注助手、隐藏桌宠、动画关闭和中心处理。UI 无法获取前台或运行失败不应降低测试条件、替换为属性赋值并声称真实输入 PASS。完整门禁不齐只保留候选，不创建正式 Release。

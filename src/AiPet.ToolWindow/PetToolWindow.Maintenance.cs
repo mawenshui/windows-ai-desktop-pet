@@ -25,7 +25,7 @@ public partial class PetToolWindow
             MinHeight = 36,
         })).ToArray();
         foreach (var (_, check) in choices) panel.Children.Add(check);
-        panel.Children.Add(new TextBlock { Text = "快捷入口包含自定义图标；待办与提醒队列成组处理。搜索索引在本机重建；备份不含 API Key。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,12) });
+        panel.Children.Add(new TextBlock { Text = "快捷入口包含自定义图标；待办与提醒队列成组处理；每日复盘独立选择。搜索索引在本机重建；备份不含 API Key。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,12) });
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var cancel = new Button { Content = "取消", IsCancel = true, MinWidth = 80, Margin = new Thickness(0,0,8,0), MinHeight = 36 };
         var confirm = new Button { Content = restore ? "确认并退出" : "导出所选", MinWidth = 100, MinHeight = 36 };

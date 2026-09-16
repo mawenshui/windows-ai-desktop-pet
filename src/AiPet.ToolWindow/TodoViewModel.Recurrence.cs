@@ -48,9 +48,10 @@ public sealed partial class TodoViewModel
     public string EditorAdditionalTimes { get => _editorAdditionalTimes; set { if (_editorAdditionalTimes == value) return; _editorAdditionalTimes = value; OnPropertyChanged(); OnPropertyChanged(nameof(EditorRecurrencePreview)); MarkEditorChanged(); } }
     private bool _editorOnlyThis;
     public bool EditorOnlyThis { get => _editorOnlyThis; set { if (_editorOnlyThis == value) return; _editorOnlyThis = value; OnPropertyChanged(); MarkEditorChanged(); } }
-    public ICommand SkipOccurrenceCommand => new RelayCommand(parameter =>
+    public ICommand SkipOccurrenceCommand { get; private set; } = null!;
+
+    private void SkipOccurrence(TodoItem? item)
     {
-        var item = Find(parameter);
         if (_store is null || item is null) return;
         try
         {
@@ -61,7 +62,7 @@ public sealed partial class TodoViewModel
             RaiseUndoStateChanged();
         }
         catch (TodoValidationException ex) { Status = ex.Message; }
-    });
+    }
 
     private void LoadRuleEditor(TodoItem? item)
     {

@@ -10,6 +10,10 @@ public sealed partial class DataMaintenanceService
         static bool Text(JsonElement value,string property,int max,bool required=false) =>
             value.TryGetProperty(property,out var text) ? (text.ValueKind==JsonValueKind.String && text.GetString()!.Length<=max && (!required || !string.IsNullOrWhiteSpace(text.GetString()))) : !required;
         static bool Date(JsonElement value,string property) => !value.TryGetProperty(property,out var date) || date.ValueKind==JsonValueKind.Null || (date.ValueKind==JsonValueKind.String && date.TryGetDateTimeOffset(out _));
+        static bool Day(JsonElement value,string property,bool required=false) =>
+            value.TryGetProperty(property,out var day)
+                ? day.ValueKind==JsonValueKind.Null && !required || day.ValueKind==JsonValueKind.String && DateOnly.TryParseExact(day.GetString(),"yyyy-MM-dd",out _)
+                : !required;
         static bool EnumValue(JsonElement value,string property,string[] names) => !value.TryGetProperty(property,out var entry) ||
             (entry.ValueKind==JsonValueKind.Number && entry.TryGetInt32(out var number) && number>=0 && number<names.Length) ||
             (entry.ValueKind==JsonValueKind.String && names.Contains(entry.GetString()));
@@ -71,6 +75,31 @@ public sealed partial class DataMaintenanceService
             }
         }
         if(name=="provider-presets.json") Require(root.TryGetProperty("providers",out var providers) && providers.ValueKind==JsonValueKind.Array && providers.GetArrayLength()<=32 && providers.EnumerateArray().All(provider=>provider.ValueKind==JsonValueKind.Object));
+        if(name=="journal.json")
+        {
+            Require(Day(root,"activeDate"));
+            Require(root.TryGetProperty("entries",out var entries) && entries.ValueKind==JsonValueKind.Array && entries.GetArrayLength()<=3650);
+            var days=new HashSet<DateOnly>();
+            foreach(var entry in entries.EnumerateArray())
+            {
+                Require(entry.ValueKind==JsonValueKind.Object && Day(entry,"date",true));
+                Require(days.Add(DateOnly.ParseExact(entry.GetProperty("date").GetString()!,"yyyy-MM-dd")));
+                Require(Text(entry,"note",4000));
+                Require(entry.TryGetProperty("revision",out var revision) && revision.TryGetInt64(out var revisionNumber) && revisionNumber>=0);
+                Require(entry.TryGetProperty("updatedAt",out var updatedAt) && updatedAt.ValueKind==JsonValueKind.String && updatedAt.TryGetDateTimeOffset(out _));
+                Require(Date(entry,"finalizedAt"));
+                Require(entry.TryGetProperty("snapshot",out var snapshot) && snapshot.ValueKind==JsonValueKind.Array && snapshot.GetArrayLength()<=256);
+                var ids=new HashSet<Guid>();
+                foreach(var item in snapshot.EnumerateArray())
+                {
+                    Require(item.ValueKind==JsonValueKind.Object && item.TryGetProperty("id",out var id) && id.TryGetGuid(out var guid) && guid!=Guid.Empty && ids.Add(guid));
+                    Require(Text(item,"title",200,true));
+                    Require(item.TryGetProperty("isCompleted",out var isCompleted) && isCompleted.ValueKind is JsonValueKind.True or JsonValueKind.False);
+                    Require(item.TryGetProperty("wasPlanned",out var wasPlanned) && wasPlanned.ValueKind is JsonValueKind.True or JsonValueKind.False);
+                    Require(Date(item,"relevantAt"));
+                }
+            }
+        }
         if(name=="layout.json") foreach(var property in root.EnumerateObject()) Require(property.Value.ValueKind is JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False or JsonValueKind.Null);
     }
 }

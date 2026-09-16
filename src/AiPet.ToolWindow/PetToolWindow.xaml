@@ -302,8 +302,8 @@
                     </TabItem>
 
                     <TabItem Style="{StaticResource ShellTab}" Header="待办" PreviewMouseDown="ShellTab_PreviewMouseDown"
-                             ToolTip="待办 · Alt+2 · Ctrl+N 快速新建"
-                             AutomationProperties.HelpText="按 Alt+2 打开待办，按 Ctrl+N 快速新建待办">
+                             ToolTip="待办 · Alt+2 · Ctrl+N 新建 · Ctrl+F 查找"
+                             AutomationProperties.HelpText="按 Alt+2 打开待办，按 Ctrl+N 快速新建，按 Ctrl+F 查找待办">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
                                       DataContext="{Binding Todo}" AutomationProperties.Name="待办与提醒页">
                             <Grid Margin="0,0,8,4">
@@ -314,10 +314,25 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <Border Grid.Row="3" Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,0,0,10">
+                                     <RowDefinition Height="Auto" />
+                                     <RowDefinition Height="Auto" />
+                                     <RowDefinition Height="Auto" />
+                                 </Grid.RowDefinitions>
+                                 <Border Grid.Row="0" Margin="1,0,0,10" Style="{StaticResource InlineSegmentGroup}">
+                                     <ListBox x:Name="TodoPageModeSelector"
+                                              Style="{StaticResource InlineChoiceList}"
+                                              ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}"
+                                              ItemsSource="{Binding TodoPageModes}" DisplayMemberPath="DisplayName"
+                                              SelectedItem="{Binding SelectedTodoPageMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              SelectionChanged="TodoPageModeSelector_SelectionChanged"
+                                              AutomationProperties.AutomationId="TodoPageModeSelector"
+                                              AutomationProperties.Name="待办页清单与复盘视图">
+                                         <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                     </ListBox>
+                                 </Border>
+
+                                 <Border Grid.Row="4" Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,0,0,10"
+                                         Visibility="{Binding IsTodoListMode, Converter={StaticResource BoolToVisibility}}">
                                     <Expander x:Name="TodoAiExpander" AutomationProperties.Name="一句话 AI 安排">
                                         <Expander.Style>
                                             <Style TargetType="Expander">
@@ -413,10 +428,24 @@
                                     </Expander>
                                 </Border>
 
-                                <local:NotificationInbox Grid.Row="4" Margin="0,0,0,12" />
-                                <Border Grid.Row="5" Background="#FFF2F7F3" BorderBrush="#554F7A60" BorderThickness="1" CornerRadius="10" Padding="11" Margin="0,0,0,10"
-                                        Visibility="{Binding HasReminderAlert, Converter={StaticResource BoolToVisibility}}"
-                                        AutomationProperties.Name="到期待办提醒" AutomationProperties.LiveSetting="Polite">
+                                 <local:NotificationInbox x:Name="NotificationInboxControl" Grid.Row="5" Margin="0,0,0,12"
+                                                          Visibility="{Binding IsTodoListMode, Converter={StaticResource BoolToVisibility}}" />
+                                 <Border Grid.Row="6" Background="#FFF2F7F3" BorderBrush="#554F7A60" BorderThickness="1" CornerRadius="10" Padding="11" Margin="0,0,0,10"
+                                         AutomationProperties.Name="到期待办提醒" AutomationProperties.LiveSetting="Polite">
+                                     <Border.Style>
+                                         <Style TargetType="Border">
+                                             <Setter Property="Visibility" Value="Collapsed" />
+                                             <Style.Triggers>
+                                                 <MultiDataTrigger>
+                                                     <MultiDataTrigger.Conditions>
+                                                         <Condition Binding="{Binding IsTodoListMode}" Value="True" />
+                                                         <Condition Binding="{Binding HasReminderAlert}" Value="True" />
+                                                     </MultiDataTrigger.Conditions>
+                                                     <Setter Property="Visibility" Value="Visible" />
+                                                 </MultiDataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </Border.Style>
                                     <StackPanel>
                                         <TextBlock Text="提醒到期" Foreground="{StaticResource Success}" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding ReminderAlertTitle}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,3,0,0" />
@@ -429,8 +458,14 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Grid Grid.Row="0" Margin="1,0,0,9">
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                 <Grid Grid.Row="1" Margin="1,0,0,9" Visibility="{Binding IsTodoListMode, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
                                     <DockPanel>
                                         <Button x:Name="NewTodoButton" DockPanel.Dock="Right" Content="＋ 新建待办" Style="{StaticResource PrimaryButton}" MinHeight="38" Padding="12,7" Command="{Binding NewTodoCommand}" Click="NewTodo_Click" AutomationProperties.Name="新建待办" />
                                         <StackPanel>
@@ -442,7 +477,7 @@
                                         <ListBox x:Name="TodoFilterSelector"
                                                  Style="{StaticResource InlineChoiceList}"
                                                  ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}"
-                                                 ItemsSource="{Binding Filters}" DisplayMemberPath="DisplayName"
+                                                 ItemsSource="{Binding Filters}" DisplayMemberPath="DisplayText"
                                                  SelectedItem="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                  AutomationProperties.AutomationId="TodoFilterSelector"
                                                  AutomationProperties.Name="待办日期筛选选项">
@@ -451,10 +486,34 @@
                                             </ListBox.ItemsPanel>
                                         </ListBox>
                                     </Border>
-                                    <TextBlock Grid.Row="2" Text="{Binding FilterSummary}" Foreground="{StaticResource Muted}" FontSize="11" Margin="1,6,0,0" AutomationProperties.Name="当前待办筛选数量" AutomationProperties.LiveSetting="Polite" />
+                                    <Grid Grid.Row="2" Margin="0,7,0,0">
+                                        <TextBox x:Name="TodoSearchBox" Height="40" Style="{StaticResource Field}" Padding="32,0,42,0"
+                                                 Text="{Binding TodoListQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="只在本机匹配当前筛选中的待办标题和备注 · Ctrl+F"
+                                                 AutomationProperties.Name="查找待办标题或备注" />
+                                        <Path Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="11,0,0,0"
+                                              Data="M10.5,10.5 L15,15 M7.5,12 A4.5,4.5 0 1 1 7.5,3 A4.5,4.5 0 1 1 7.5,12"
+                                              Stroke="{StaticResource Muted}" StrokeThickness="1.5" IsHitTestVisible="False" />
+                                        <Button Width="36" Height="36" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,2,0"
+                                                Style="{StaticResource IconButton}" Content="×" FontSize="18" Padding="0"
+                                                Command="{Binding ClearTodoListQueryCommand}" Click="ClearTodoSearch_Click"
+                                                Visibility="{Binding HasTodoListQuery, Converter={StaticResource BoolToVisibility}}"
+                                                ToolTip="清空待办查找" AutomationProperties.Name="清空待办查找" />
+                                    </Grid>
+                                    <Border Grid.Row="3" Margin="0,7,0,0" Style="{StaticResource InlineSegmentGroup}">
+                                        <ListBox x:Name="TodoSortSelector"
+                                                 Style="{StaticResource InlineChoiceList}"
+                                                 ItemContainerStyle="{StaticResource SegmentInlineChoiceItem}"
+                                                 ItemsSource="{Binding TodoSortOptions}" DisplayMemberPath="DisplayName"
+                                                 SelectedItem="{Binding SelectedTodoSort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="待办排序选项">
+                                            <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                        </ListBox>
+                                    </Border>
+                                    <TextBlock Grid.Row="4" Text="{Binding FilterSummary}" Foreground="{StaticResource Muted}" FontSize="11" Margin="1,6,0,0" AutomationProperties.Name="当前待办筛选和查找数量" AutomationProperties.LiveSetting="Polite" />
                                 </Grid>
 
-                                <Border Grid.Row="6" Style="{StaticResource SectionCard}" Margin="0,0,0,10">
+                                 <Border Grid.Row="7" Style="{StaticResource SectionCard}" Margin="0,0,0,10" Visibility="{Binding IsTodoListMode, Converter={StaticResource BoolToVisibility}}">
                                     <Expander x:Name="TodayPlanExpander" AutomationProperties.Name="今日安排">
                                         <Expander.Style>
                                             <Style TargetType="Expander">
@@ -537,17 +596,37 @@
                                     </Expander>
                                 </Border>
 
-                                <Border Grid.Row="1" Style="{StaticResource SectionCard}" Margin="0,0,0,10" Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibility}}">
-                                    <StackPanel>
+                                 <Border Grid.Row="2" Margin="0,0,0,10">
+                                     <Border.Style>
+                                         <Style TargetType="Border" BasedOn="{StaticResource SectionCard}">
+                                             <Setter Property="Visibility" Value="Collapsed" />
+                                             <Style.Triggers>
+                                                 <MultiDataTrigger>
+                                                     <MultiDataTrigger.Conditions>
+                                                         <Condition Binding="{Binding IsTodoListMode}" Value="True" />
+                                                         <Condition Binding="{Binding IsEditorOpen}" Value="True" />
+                                                     </MultiDataTrigger.Conditions>
+                                                     <Setter Property="Visibility" Value="Visible" />
+                                                 </MultiDataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </Border.Style>
+                                     <StackPanel>
                                         <DockPanel>
                                             <TextBlock DockPanel.Dock="Right" Text="{Binding EditorStateHint}" Foreground="{StaticResource Muted}" FontSize="10" Margin="8,2,0,0" MaxWidth="205" TextWrapping="Wrap" TextAlignment="Right" AutomationProperties.Name="待办编辑状态" AutomationProperties.LiveSetting="Polite" />
                                             <TextBlock Text="{Binding EditorHeading}" FontSize="15" FontWeight="SemiBold" />
                                         </DockPanel>
-                                        <TextBlock Text="标题" Style="{StaticResource SectionLabel}" Margin="0,10,0,7" />
-                                        <TextBox x:Name="TodoTitleBox" Style="{StaticResource Field}" Text="{Binding EditorTitle, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办标题" />
-                                        <TextBlock Text="备注（可选）" Style="{StaticResource SectionLabel}" Margin="0,10,0,7" />
-                                        <TextBox Style="{StaticResource Field}" MinHeight="58" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
-                                                 Text="{Binding EditorNotes, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办备注" />
+                                        <DockPanel Margin="0,10,0,7">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding EditorTitleCountText}" Foreground="{StaticResource Muted}" FontSize="10" AutomationProperties.Name="待办标题字符数" />
+                                            <TextBlock Text="标题" Style="{StaticResource SectionLabel}" Margin="0" />
+                                        </DockPanel>
+                                        <TextBox x:Name="TodoTitleBox" Style="{StaticResource Field}" MaxLength="200" Text="{Binding EditorTitle, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办标题，最多二百个字符" />
+                                        <DockPanel Margin="0,10,0,7">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding EditorNotesCountText}" Foreground="{StaticResource Muted}" FontSize="10" AutomationProperties.Name="待办备注字符数" />
+                                            <TextBlock Text="备注（可选）" Style="{StaticResource SectionLabel}" Margin="0" />
+                                        </DockPanel>
+                                        <TextBox Style="{StaticResource Field}" MinHeight="58" MaxLength="4000" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                                                 Text="{Binding EditorNotes, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="待办备注，最多四千个字符" />
                                         <CheckBox x:Name="EditorIsReminderToggle" Content="这是提醒项（最后一次投递后自动完成）"
                                                   IsChecked="{Binding EditorIsReminder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                   Margin="0,10,0,0" AutomationProperties.Name="设置为提醒项" />
@@ -566,6 +645,18 @@
                                             <DatePicker Grid.Row="1" Grid.Column="3" Height="40" SelectedDate="{Binding EditorReminderDate, Mode=TwoWay}" Background="{StaticResource Card}" BorderBrush="{StaticResource Line}" AutomationProperties.Name="提醒日期" />
                                             <TextBox Grid.Row="1" Grid.Column="4" Height="40" Style="{StaticResource Field}" Margin="6,0,0,0" Text="{Binding EditorReminderTime, UpdateSourceTrigger=PropertyChanged}" ToolTip="HH:mm" AutomationProperties.Name="提醒时间" />
                                         </Grid>
+                                        <WrapPanel Margin="0,7,0,0">
+                                            <TextBlock Text="截止快捷" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,7,5" />
+                                            <Button Content="今天 18:00" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,6,5" Command="{Binding SetDueTodayCommand}" AutomationProperties.Name="把截止时间设为今天十八点" />
+                                            <Button Content="明天 18:00" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,6,5" Command="{Binding SetDueTomorrowCommand}" AutomationProperties.Name="把截止时间设为明天十八点" />
+                                            <Button Content="清除截止" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,0,5" Command="{Binding ClearDueCommand}" AutomationProperties.Name="清除截止日期和时间" />
+                                        </WrapPanel>
+                                        <WrapPanel Margin="0,1,0,0">
+                                            <TextBlock Text="提醒快捷" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,7,5" />
+                                            <Button Content="30 分钟后" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,6,5" Command="{Binding SetReminderInThirtyMinutesCommand}" AutomationProperties.Name="把提醒时间设为三十分钟后" />
+                                            <Button Content="明天 09:00" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,6,5" Command="{Binding SetReminderTomorrowCommand}" AutomationProperties.Name="把提醒时间设为明天九点" />
+                                            <Button Content="清除提醒" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,0,5" Command="{Binding ClearReminderDateCommand}" AutomationProperties.Name="清除提醒日期和时间" />
+                                        </WrapPanel>
                                         <TextBlock Text="时间使用 24 小时 HH:mm；提醒按下方时区解释，截止时间使用当前时区。不选择日期表示不设置。" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,7,0,0" TextWrapping="Wrap" AutomationProperties.Name="日期和时间填写说明" />
                                         <Expander Header="重复与额外提醒" Margin="0,10,0,0">
                                             <StackPanel>
@@ -588,7 +679,8 @@
                                                 <TextBlock Text="{Binding EditorRecurrencePreview}" TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,8" AutomationProperties.Name="下次提醒预览" />
                                             </StackPanel>
                                         </Expander>
-                                        <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource Error}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+                                        <TextBlock Text="{Binding EditorValidationHint}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" AutomationProperties.Name="待办编辑有效性" AutomationProperties.LiveSetting="Polite" />
+                                        <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource Error}" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="待办保存错误" AutomationProperties.LiveSetting="Polite" />
                                         <Border Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,9,0,0"
                                                 Visibility="{Binding ShowDiscardEditorConfirmation, Converter={StaticResource BoolToVisibility}}"
                                                 AutomationProperties.Name="确认放弃未保存的待办修改" AutomationProperties.LiveSetting="Polite">
@@ -607,71 +699,189 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Row="2" Padding="18" Margin="0,0,0,10">
-                                    <StackPanel HorizontalAlignment="Center" MaxWidth="280">
-                                        <Path Width="28" Height="28" Data="M4,7 H20 V21 H4 Z M8,3 V9 M16,3 V9 M8,13 H16 M8,17 H13" Stroke="{StaticResource Accent}" StrokeThickness="1.5" Stretch="Uniform" />
-                                        <TextBlock Text="{Binding EmptyMessage}" Foreground="{StaticResource Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
-                                        <Button Content="{Binding EmptyActionLabel}" Style="{StaticResource SecondaryButton}" Margin="0,10,0,0" Command="{Binding EmptyStateCommand}" Click="NewTodo_Click" AutomationProperties.Name="待办空状态主要操作" />
-                                    </StackPanel>
-                                    <Border.Style>
-                                        <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers><DataTrigger Binding="{Binding HasItems}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
+                                 <StackPanel Grid.Row="3" Margin="0,0,0,10" Visibility="{Binding IsTodoListMode, Converter={StaticResource BoolToVisibility}}">
+                                    <Border Padding="18">
+                                        <StackPanel HorizontalAlignment="Center" MaxWidth="280">
+                                            <Path Width="28" Height="28" Data="M4,7 H20 V21 H4 Z M8,3 V9 M16,3 V9 M8,13 H16 M8,17 H13" Stroke="{StaticResource Accent}" StrokeThickness="1.5" Stretch="Uniform" />
+                                            <TextBlock Text="{Binding EmptyMessage}" Foreground="{StaticResource Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                            <Button Content="{Binding EmptyActionLabel}" Style="{StaticResource SecondaryButton}" MinHeight="36" Margin="0,10,0,0" Command="{Binding EmptyStateCommand}" Click="NewTodo_Click" AutomationProperties.Name="待办空状态主要操作" />
+                                        </StackPanel>
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource EmptyState}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers><DataTrigger Binding="{Binding HasItems}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
 
-                                <ItemsControl Grid.Row="2" ItemsSource="{Binding Items}" Visibility="{Binding HasItems, Converter={StaticResource BoolToVisibility}}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Background="{StaticResource Card}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="11" Padding="11" Margin="0,0,0,8">
+                                    <ListBox x:Name="TodoItemsList" MaxHeight="312"
+                                             ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedTodo, Mode=TwoWay}"
+                                             Style="{StaticResource InlineChoiceList}"
+                                             Visibility="{Binding HasItems, Converter={StaticResource BoolToVisibility}}"
+                                             MouseDoubleClick="TodoItems_MouseDoubleClick"
+                                             AutomationProperties.AutomationId="TodoItemsList"
+                                             AutomationProperties.Name="待办列表"
+                                             AutomationProperties.HelpText="方向键、Home 或 End 选择；Enter 或 F2 编辑，Ctrl+Enter 完成或恢复，Delete 删除并可撤销">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource InlineChoiceRowItem}">
+                                                <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
                                                 <StackPanel>
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding StateText}" Foreground="{StaticResource Muted}" FontSize="11" Margin="8,1,0,0" />
                                                         <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                     </DockPanel>
-                                                    <TextBlock Text="{Binding ItemTypeText}" Foreground="{StaticResource AccentPressed}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                                    <WrapPanel Margin="0,2,0,0">
+                                                        <TextBlock Text="{Binding ItemTypeText}" Foreground="{StaticResource AccentPressed}" FontSize="11" FontWeight="SemiBold" Margin="0,0,8,0" />
+                                                        <TextBlock Text="{Binding UrgencyText, StringFormat=时间状态：{0}}" Foreground="{StaticResource Ink}" FontSize="11" FontWeight="SemiBold" />
+                                                    </WrapPanel>
                                                     <TextBlock Text="{Binding PlannedBlockText}" Foreground="{StaticResource Success}" FontSize="11" FontWeight="SemiBold" Margin="0,2,0,0" Visibility="{Binding HasPlannedBlock, Converter={StaticResource BoolToVisibility}}" />
                                                     <TextBlock Text="{Binding Notes}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" MaxHeight="40" Margin="0,3,0,0" />
-                                                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
-                                                        <TextBlock Text="{Binding DueText}" Foreground="{StaticResource Muted}" FontSize="11" />
-                                                        <TextBlock Text=" · " Foreground="{StaticResource Muted}" FontSize="11" />
-                                                        <TextBlock Text="{Binding ReminderText}" Foreground="{StaticResource Muted}" FontSize="11" />
-                                                        <TextBlock Text="{Binding RepeatText, StringFormat= · {0}}" Foreground="{StaticResource Muted}" FontSize="11" />
-                                                    </StackPanel>
-                                                    <TextBlock Text="{Binding ReminderChannelText}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" Visibility="{Binding IsReminder, Converter={StaticResource BoolToVisibility}}" />
-                                                    <WrapPanel Margin="0,9,0,0">
-                                                        <Button Content="完成" MinHeight="36" Padding="11,5" Margin="0,0,6,5"
-                                                                Command="{Binding DataContext.Todo.CompleteTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" AutomationProperties.Name="完成待办">
-                                                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding IsCompleted}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style>
-                                                        </Button>
-                                                        <Button Content="恢复" MinHeight="36" Padding="11,5" Margin="0,0,6,5"
-                                                                Command="{Binding DataContext.Todo.RestoreTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" AutomationProperties.Name="恢复已完成待办">
-                                                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanRestore}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Button.Style>
-                                                        </Button>
-                                                        <Button Content="编辑" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Command="{Binding DataContext.Todo.EditTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" AutomationProperties.Name="编辑待办" />
-                                                        <Button Content="10 分钟后" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Command="{Binding DataContext.Todo.SnoozeTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" AutomationProperties.Name="将待办提醒推迟十分钟">
-                                                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Style.Triggers><DataTrigger Binding="{Binding IsCompleted}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style>
-                                                        </Button>
-                                                        <Button Content="跳过此次" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Style="{StaticResource SecondaryButton}" Visibility="{Binding CanSkipOccurrence, Converter={StaticResource BoolToVisibility}}" Command="{Binding DataContext.Todo.SkipOccurrenceCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" AutomationProperties.Name="跳过本次待办提醒" />
-                                                        <Button Content="取消整个提醒规则" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Command="{Binding DataContext.Todo.CancelReminderCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}" AutomationProperties.Name="取消整个待办提醒规则">
-                                                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanCancelReminder}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Button.Style>
-                                                        </Button>
-                                                        <Button Content="删除" Style="{StaticResource DangerSecondaryButton}" MinHeight="36" Padding="11,5" Margin="0,0,6,5"
-                                                                Command="{Binding DataContext.Todo.DeleteTodoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Id}"
-                                                                AutomationProperties.Name="删除待办，可在本次运行中撤销" />
+                                                    <WrapPanel Margin="0,7,0,0">
+                                                        <TextBlock Text="{Binding DueText}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,6,0" />
+                                                        <TextBlock Text="{Binding ReminderText}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,6,0" />
+                                                        <TextBlock Text="{Binding RepeatText}" Foreground="{StaticResource Muted}" FontSize="11" />
                                                     </WrapPanel>
+                                                    <TextBlock Text="{Binding ReminderChannelText}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" Visibility="{Binding IsReminder, Converter={StaticResource BoolToVisibility}}" />
                                                 </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
 
-                                <DockPanel Grid.Row="7" Margin="1,4,0,0">
+                                    <Border x:Name="TodoSelectedActionBar" Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="10" Padding="10,8" Margin="0,8,0,0"
+                                            Visibility="{Binding HasSelectedTodo, Converter={StaticResource BoolToVisibility}}"
+                                            AutomationProperties.Name="所选待办操作">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding SelectedTodoSummary}" Foreground="{StaticResource Ink}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" AutomationProperties.LiveSetting="Polite" />
+                                            <WrapPanel Margin="0,7,0,0">
+                                                <Button Content="{Binding SelectedCompletionLabel}" MinHeight="36" Padding="11,5" Margin="0,0,6,5"
+                                                        Command="{Binding ToggleSelectedTodoCompletionCommand}" AutomationProperties.Name="{Binding SelectedTodo.CompletionAutomationName}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding SelectedTodo.IsCompleted}" Value="True" />
+                                                                        <Condition Binding="{Binding SelectedTodo.CanRestore}" Value="False" />
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="编辑" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Command="{Binding EditSelectedTodoCommand}" AutomationProperties.Name="{Binding SelectedTodo.EditAutomationName}" />
+                                                <Button Content="10 分钟后" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Command="{Binding SnoozeSelectedTodoCommand}" AutomationProperties.Name="{Binding SelectedTodo.SnoozeAutomationName}">
+                                                    <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Style.Triggers><DataTrigger Binding="{Binding SelectedTodo.IsCompleted}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style>
+                                                </Button>
+                                                <Button Content="跳过此次" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Visibility="{Binding SelectedTodo.CanSkipOccurrence, Converter={StaticResource BoolToVisibility}}" Command="{Binding SkipSelectedTodoOccurrenceCommand}" AutomationProperties.Name="{Binding SelectedTodo.SkipAutomationName}" />
+                                                <Button Content="取消整个提醒规则" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Margin="0,0,6,5" Visibility="{Binding SelectedTodo.CanCancelReminder, Converter={StaticResource BoolToVisibility}}" Command="{Binding CancelSelectedTodoReminderCommand}" AutomationProperties.Name="{Binding SelectedTodo.CancelReminderAutomationName}" />
+                                                <Button Content="删除" Style="{StaticResource DangerSecondaryButton}" MinHeight="36" Padding="11,5" Margin="0,0,0,5" Command="{Binding DeleteSelectedTodoCommand}" AutomationProperties.Name="{Binding SelectedTodo.DeleteAutomationName}" />
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                 <DockPanel Grid.Row="8" Margin="1,4,0,0" Visibility="{Binding IsTodoListMode, Converter={StaticResource BoolToVisibility}}">
                                     <Button DockPanel.Dock="Right" Content="{Binding UndoLabel}" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Command="{Binding UndoLastActionCommand}" Visibility="{Binding CanUndoLastAction, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="撤销最近一次待办操作" />
                                     <TextBlock Text="{Binding Status}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.Name="待办操作状态" AutomationProperties.LiveSetting="Polite" />
-                                </DockPanel>
-                            </Grid>
+                                 </DockPanel>
+
+                                 <Border Grid.Row="1" Grid.RowSpan="8" Style="{StaticResource SectionCard}" Margin="0,0,0,4"
+                                         Visibility="{Binding IsJournalMode, Converter={StaticResource BoolToVisibility}}"
+                                         AutomationProperties.Name="每日复盘">
+                                     <StackPanel>
+                                         <DockPanel>
+                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0">
+                                                 <Button Content="上一天" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,6,0" Command="{Binding PreviousJournalDateCommand}" AutomationProperties.Name="查看上一天复盘" />
+                                                 <Button Content="今天" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Margin="0,0,6,0" Command="{Binding TodayJournalDateCommand}" AutomationProperties.Name="返回今天复盘" />
+                                                 <Button Content="下一天" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Command="{Binding NextJournalDateCommand}" AutomationProperties.Name="查看下一天复盘" />
+                                             </StackPanel>
+                                             <StackPanel>
+                                                 <TextBlock Text="每日复盘" FontSize="16" FontWeight="SemiBold" />
+                                                 <TextBlock Text="{Binding JournalDateText}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" AutomationProperties.Name="当前复盘日期" />
+                                             </StackPanel>
+                                         </DockPanel>
+
+                                         <Border Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="10" Padding="11,9" Margin="0,11,0,0">
+                                             <StackPanel>
+                                                 <TextBlock Text="今日轨迹" Foreground="{StaticResource AccentPressed}" FontSize="11" FontWeight="SemiBold" />
+                                                 <TextBlock Text="{Binding JournalSummaryText}" FontSize="14" FontWeight="SemiBold" Margin="0,3,0,0" AutomationProperties.Name="复盘待办统计" AutomationProperties.LiveSetting="Polite" />
+                                             </StackPanel>
+                                         </Border>
+
+                                         <TextBlock Text="相关事项（只读）" Style="{StaticResource SectionLabel}" Margin="0,12,0,6" />
+                                         <Border Style="{StaticResource InlineChoiceSurface}">
+                                             <ScrollViewer MaxHeight="218" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                             <ItemsControl ItemsSource="{Binding JournalItems}" AutomationProperties.Name="复盘相关待办快照">
+                                                 <ItemsControl.ItemTemplate>
+                                                     <DataTemplate>
+                                                         <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="8,7">
+                                                             <DockPanel>
+                                                                 <WrapPanel DockPanel.Dock="Right" Margin="8,0,0,0">
+                                                                     <TextBlock Text="{Binding PlanText}" Foreground="{StaticResource AccentPressed}" FontSize="11" Margin="0,0,7,0" />
+                                                                     <TextBlock Text="{Binding StateText}" Foreground="{StaticResource Muted}" FontSize="11" />
+                                                                 </WrapPanel>
+                                                                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                             </DockPanel>
+                                                         </Border>
+                                                     </DataTemplate>
+                                                 </ItemsControl.ItemTemplate>
+                                             </ItemsControl>
+                                             </ScrollViewer>
+                                         </Border>
+                                         <TextBlock Text="当天没有相关待办；仍可记录复盘。" Foreground="{StaticResource Muted}" FontSize="11" Margin="1,6,0,0">
+                                             <TextBlock.Style>
+                                                 <Style TargetType="TextBlock">
+                                                     <Setter Property="Visibility" Value="Collapsed" />
+                                                     <Style.Triggers><DataTrigger Binding="{Binding HasJournalItems}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                                                 </Style>
+                                             </TextBlock.Style>
+                                         </TextBlock>
+
+                                         <DockPanel Margin="0,12,0,6">
+                                             <TextBlock DockPanel.Dock="Right" Text="{Binding JournalCharacterCountText}" Foreground="{StaticResource Muted}" FontSize="10" AutomationProperties.Name="复盘字符数" />
+                                             <TextBlock Text="复盘记录" Style="{StaticResource SectionLabel}" Margin="0" />
+                                         </DockPanel>
+                                         <TextBox x:Name="JournalNoteBox" Style="{StaticResource Field}" MinHeight="150" MaxHeight="260" MaxLength="4000"
+                                                  AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto"
+                                                  IsReadOnly="{Binding IsJournalReadOnly}"
+                                                  Text="{Binding JournalNote, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="停止输入 500 毫秒后自动保存；Ctrl+S 立即保存"
+                                                  AutomationProperties.Name="复盘记录，最多四千个字符">
+                                             <TextBox.InputBindings>
+                                                 <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveJournalCommand}" />
+                                             </TextBox.InputBindings>
+                                         </TextBox>
+                                         <DockPanel Margin="1,7,0,0">
+                                             <TextBlock DockPanel.Dock="Right" Text="本地 journal.json" Foreground="{StaticResource Muted}" FontSize="10" />
+                                             <TextBlock Text="{Binding JournalSaveStatus}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" AutomationProperties.Name="复盘保存状态" AutomationProperties.LiveSetting="Polite" />
+                                         </DockPanel>
+
+                                         <WrapPanel Margin="0,11,0,0">
+                                             <Button Content="编辑历史复盘" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="0,0,7,7" Command="{Binding EditHistoricalJournalCommand}" Visibility="{Binding CanEditHistoricalJournal, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="允许编辑当前历史复盘" />
+                                             <Button Content="完成历史编辑" Style="{StaticResource PrimaryButton}" MinHeight="36" Padding="12,6" Margin="0,0,7,7" Command="{Binding StopEditingHistoricalJournalCommand}" Visibility="{Binding IsHistoricalJournalEditing, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="保存并结束历史复盘编辑" />
+                                             <Button Content="导出 Markdown" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="12,6" Margin="0,0,7,7" Click="ExportJournal_Click" AutomationProperties.Name="导出当前日期复盘为 Markdown" />
+                                             <Button Content="删除这天复盘" Style="{StaticResource DangerSecondaryButton}" MinHeight="36" Padding="12,6" Margin="0,0,0,7" Command="{Binding RequestDeleteJournalCommand}" AutomationProperties.Name="删除当前日期复盘，不删除待办" />
+                                         </WrapPanel>
+
+                                         <Border Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,4,0,0"
+                                                 Visibility="{Binding ShowDeleteJournalConfirmation, Converter={StaticResource BoolToVisibility}}"
+                                                 AutomationProperties.Name="确认删除当前日期复盘" AutomationProperties.LiveSetting="Polite">
+                                             <DockPanel>
+                                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0">
+                                                     <Button Content="取消" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Command="{Binding CancelDeleteJournalCommand}" />
+                                                     <Button Content="仅删除复盘" Style="{StaticResource DangerSecondaryButton}" MinHeight="36" Padding="11,5" Margin="7,0,0,0" Command="{Binding ConfirmDeleteJournalCommand}" AutomationProperties.Name="确认仅删除当前复盘" />
+                                                 </StackPanel>
+                                                 <TextBlock Text="只删除这一天的复盘文字和快照；不会修改待办。" Foreground="{StaticResource Ink}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                             </DockPanel>
+                                         </Border>
+                                     </StackPanel>
+                                 </Border>
+                             </Grid>
                         </ScrollViewer>
                     </TabItem>
 
@@ -682,11 +892,11 @@
                             <StackPanel Margin="0,8,9,4">
                                 <TextBlock Text="本地数据与诊断" FontSize="20" FontWeight="SemiBold" />
                                 <TextBlock Text="所有操作均在本机完成；备份与诊断不会导出 API Key。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,14" />
-                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="备份与恢复" Style="{StaticResource SectionLabel}" /><TextBlock Text="可选择设置、窗口位置、待办/提醒、快捷入口/图标、Provider 预设与诊断日志；不含 API Key 和可重建索引。恢复前会明确确认，不会操作快捷项指向的原文件。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><WrapPanel><Button x:Name="MaintenancePrimaryButton" Content="导出备份" Style="{StaticResource PrimaryButton}" Click="BackupData_Click" Margin="0,0,8,8" AutomationProperties.Name="导出本地数据备份" /><Button Content="选择备份恢复" Style="{StaticResource SecondaryButton}" Click="RestoreData_Click" Margin="0,0,0,8" AutomationProperties.Name="选择并验证本地数据备份以恢复" /></WrapPanel></StackPanel></Border>
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="备份与恢复" Style="{StaticResource SectionLabel}" /><TextBlock Text="可选择设置、窗口位置、待办/提醒、每日复盘、快捷入口/图标、Provider 预设与诊断日志；不含 API Key 和可重建索引。恢复前会明确确认，不会操作快捷项指向的原文件。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><WrapPanel><Button x:Name="MaintenancePrimaryButton" Content="导出备份" Style="{StaticResource PrimaryButton}" Click="BackupData_Click" Margin="0,0,8,8" AutomationProperties.Name="导出本地数据备份" /><Button Content="选择备份恢复" Style="{StaticResource SecondaryButton}" Click="RestoreData_Click" Margin="0,0,0,8" AutomationProperties.Name="选择并验证本地数据备份以恢复" /></WrapPanel></StackPanel></Border>
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
                                     <StackPanel>
                                         <TextBlock Text="每日自动备份" Style="{StaticResource SectionLabel}" />
-                                        <TextBlock Text="每天最多创建一次本地备份；包含设置、窗口位置、待办、提醒和快捷入口，不含 API Key、搜索索引或日志。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                        <TextBlock Text="每天最多创建一次本地备份；包含设置、窗口位置、待办、提醒、每日复盘和快捷入口，不含 API Key、搜索索引或日志。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
                                         <CheckBox Content="启用每日自动备份" IsChecked="{Binding AutomaticBackupEnabled, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="启用每日自动备份" />
                                         <Grid Margin="0,4,0,8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -703,7 +913,7 @@
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12"><StackPanel><TextBlock Text="隐私安全诊断" Style="{StaticResource SectionLabel}" /><TextBlock Text="只包含版本、系统、主题、模块数量、Provider 标识、连接状态和稳定错误代码。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><Button Content="导出诊断 JSON" Style="{StaticResource SecondaryButton}" Click="ExportDiagnostics_Click" HorizontalAlignment="Left" AutomationProperties.Name="导出不含敏感正文的诊断 JSON" /></StackPanel></Border>
-                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10"><StackPanel><TextBlock Text="缓存清理" Style="{StaticResource SectionLabel}" /><TextBlock Text="清理可重建的搜索索引、无引用图标缓存与诊断日志；应用会退出并在下次启动时重建。设置、待办、快捷入口和凭据不受影响。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><Button Content="退出并重建缓存" Style="{StaticResource DangerSecondaryButton}" Click="ResetCaches_Click" HorizontalAlignment="Left" AutomationProperties.Name="退出应用并重建可恢复缓存" /></StackPanel></Border>
+                                <Border Style="{StaticResource SectionCard}" Margin="0,0,0,10"><StackPanel><TextBlock Text="缓存清理" Style="{StaticResource SectionLabel}" /><TextBlock Text="清理可重建的搜索索引、无引用图标缓存与诊断日志；应用会退出并在下次启动时重建。设置、待办、每日复盘、快捷入口和凭据不受影响。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10" /><Button Content="退出并重建缓存" Style="{StaticResource DangerSecondaryButton}" Click="ResetCaches_Click" HorizontalAlignment="Left" AutomationProperties.Name="退出应用并重建可恢复缓存" /></StackPanel></Border>
                                 <Border Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="10" Padding="10,8" AutomationProperties.Name="维护操作状态">
                                     <TextBlock Text="{Binding MaintenanceStatus}" Foreground="{StaticResource Ink}" FontSize="11" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                                 </Border>

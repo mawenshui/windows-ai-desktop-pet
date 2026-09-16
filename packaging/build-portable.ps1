@@ -32,8 +32,8 @@ if ([string]::IsNullOrWhiteSpace($StagingDirectory)) {
 }
 $buildDir   = [System.IO.Path]::GetFullPath($StagingDirectory)
 $buildRoot  = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'build'))
-$relativeBuildDir = [System.IO.Path]::GetRelativePath($buildRoot, $buildDir)
-if ([System.IO.Path]::IsPathRooted($relativeBuildDir) -or $relativeBuildDir.StartsWith('..')) {
+$buildRootPrefix = $buildRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+if (-not $buildDir.StartsWith($buildRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Portable staging must stay under the repository build directory: $buildDir"
 }
 $assetRoot  = Join-Path $projectRoot 'assets\pets'

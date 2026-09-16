@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using AiPet.AI;
@@ -10,13 +11,46 @@ namespace AiPet.ToolWindow;
 
 public sealed record TodoAiConnection(string Endpoint, string Model, string ApiKey);
 
-public sealed record TodoFilterOption(string Id, string DisplayName)
+public sealed class TodoFilterOption : INotifyPropertyChanged
 {
+    private int _count;
+
+    public TodoFilterOption(string id, string displayName)
+    {
+        Id = id;
+        DisplayName = displayName;
+    }
+
+    public string Id { get; }
+    public string DisplayName { get; }
+    public int Count
+    {
+        get => _count;
+        internal set
+        {
+            if (_count == value) return;
+            _count = value;
+            PropertyChanged?.Invoke(this, new(nameof(Count)));
+            PropertyChanged?.Invoke(this, new(nameof(DisplayText)));
+        }
+    }
+    public string DisplayText => $"{DisplayName} {Count}";
     public override string ToString() => DisplayName;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
-public sealed record TodoRowViewModel(TodoItem Item)
+public sealed class TodoRowViewModel
 {
+    private readonly DateTimeOffset _now;
+
+    public TodoRowViewModel(TodoItem item, DateTimeOffset? now = null)
+    {
+        Item = item;
+        _now = now ?? DateTimeOffset.Now;
+    }
+
+    public TodoItem Item { get; }
     public Guid Id => Item.Id;
     public string Title => Item.Title;
     public string Notes => Item.Notes;
@@ -56,6 +90,30 @@ public sealed record TodoRowViewModel(TodoItem Item)
         : "普通待办提醒";
     public string RepeatText => RecurrenceCalculator.Describe(Item.Recurrence) + (Item.AdditionalReminderTimes.Count > 0 ? $" · 另有 {Item.AdditionalReminderTimes.Count} 次" : string.Empty);
     public string TargetChoiceText => $"{Title} · {DueText} · 创建于 {Item.CreatedAt.ToLocalTime():MM-dd HH:mm}";
+    public string UrgencyText
+    {
+        get
+        {
+            if (IsCompleted) return "已完成";
+            var now = _now.ToLocalTime();
+            if (Item.DueAt is { } due && due.ToLocalTime() < now
+                || Item.ReminderAt is { } reminder && reminder.ToLocalTime() < now)
+                return "已逾期";
+            var relevant = Item.PlannedStartAt ?? Item.DueAt ?? Item.ReminderAt;
+            if (relevant is null) return "未安排";
+            var date = relevant.Value.ToLocalTime().Date;
+            if (date == now.Date) return "今天";
+            if (date == now.Date.AddDays(1)) return "明天";
+            return date > now.Date ? "未来" : "已逾期";
+        }
+    }
+    public string AutomationName => $"{Title}，{ItemTypeText}，{UrgencyText}，{StateText}";
+    public string EditAutomationName => $"编辑待办：{Title}";
+    public string CompletionAutomationName => IsCompleted ? $"恢复待办：{Title}" : $"完成待办：{Title}";
+    public string SnoozeAutomationName => $"将待办推迟十分钟：{Title}";
+    public string SkipAutomationName => $"跳过本次提醒：{Title}";
+    public string CancelReminderAutomationName => $"取消整个提醒规则：{Title}";
+    public string DeleteAutomationName => $"删除待办：{Title}，可在本次运行中撤销";
     public override string ToString() => $"{Title} · {DueText}";
 }
 
@@ -74,6 +132,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private bool _loadingEditor;
     private bool _showDiscardEditorConfirmation;
     private int _totalPendingCount;
+    private int _selectedFilterTotal;
     private TodoItem? _reminderAlertItem;
     private CancellationTokenSource? _aiParseCts;
     private Task? _aiParseTask;
@@ -88,10 +147,11 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         TodoStore store,
         ITodoAiClient todoAiClient,
         Func<TodoAiConnection?> connectionProvider,
-        Func<DateTimeOffset>? now = null)
+        Func<DateTimeOffset>? now = null,
+        DailyJournalStore? journalStore = null)
         : this()
     {
-        Attach(store, todoAiClient, connectionProvider, now);
+        Attach(store, todoAiClient, connectionProvider, now, journalStore);
     }
 
     public ObservableCollection<TodoRowViewModel> Items { get; } = new();
@@ -109,20 +169,31 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
 
     public bool HasItems => Items.Count > 0;
     public int TotalPendingCount => _totalPendingCount;
-    public string FilterSummary =>
-        $"当前：{SelectedFilter?.DisplayName ?? "待处理"} {Items.Count} 条 · 待处理总计 {TotalPendingCount} 条";
-    public string EmptyActionLabel => string.Equals(SelectedFilterId, "pending", StringComparison.Ordinal)
-        ? "新建第一条待办"
-        : "返回待处理";
-    public string EmptyMessage => SelectedFilterId switch
+    public string FilterSummary => HasTodoListQuery
+        ? $"当前：{SelectedFilter?.DisplayName ?? "待处理"} 匹配 {Items.Count}/{_selectedFilterTotal} 条 · 待处理总计 {TotalPendingCount} 条"
+        : $"当前：{SelectedFilter?.DisplayName ?? "待处理"} {Items.Count} 条 · 待处理总计 {TotalPendingCount} 条";
+    public string EmptyActionLabel => HasTodoListQuery
+        ? "清空待办查找"
+        : string.Equals(SelectedFilterId, "pending", StringComparison.Ordinal)
+            ? "新建第一条待办"
+            : "返回待处理";
+    public string EmptyMessage
     {
-        "completed" => "还没有已完成待办，完成事项后会保留在这里。",
-        "today" => "今天没有待办或提醒，可以放心安排下一件事。",
-        "overdue" => "没有已逾期事项。",
-        "unscheduled" => "所有待处理事项都已有时间。",
-        "upcoming" => "未来 7 天没有已安排时间的待办。",
-        _ => "还没有待办。可以手动新建，或用一句话让 AI 生成草稿。",
-    };
+        get
+        {
+            if (HasTodoListQuery)
+                return $"当前筛选中没有标题或备注匹配“{TodoListQuery.Trim()}”的事项。";
+            return SelectedFilterId switch
+            {
+                "completed" => "还没有已完成待办，完成事项后会保留在这里。",
+                "today" => "今天没有待办或提醒，可以放心安排下一件事。",
+                "overdue" => "没有已逾期事项。",
+                "unscheduled" => "所有待处理事项都已有时间。",
+                "upcoming" => "未来 7 天没有已安排时间的待办。",
+                _ => "还没有待办。可以手动新建，或用一句话让 AI 生成草稿。",
+            };
+        }
+    }
 
     private string _selectedFilterId = "pending";
     public string SelectedFilterId
@@ -135,6 +206,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedFilter));
             OnPropertyChanged(nameof(EmptyActionLabel));
+            OnPropertyChanged(nameof(EmptyMessage));
             Reload();
         }
     }
@@ -184,8 +256,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     public string EditorSaveLabel => IsEditing
         ? "保存修改"
         : (EditorIsReminder ? "创建提醒项" : "创建待办");
-    public bool CanSaveEditor =>
-        IsEditorOpen && _store is not null && !string.IsNullOrWhiteSpace(EditorTitle);
+    public bool CanSaveEditor => IsEditorOpen && _store is not null && IsEditorDraftValid();
     public bool HasUnsavedEditorChanges =>
         IsEditorOpen
         && _editorBaseline is not null
@@ -207,6 +278,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             _editorTitle = value;
             EditorError = string.Empty;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(EditorTitleCountText));
             OnPropertyChanged(nameof(CanSaveEditor));
             (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
             MarkEditorChanged();
@@ -222,6 +294,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             if (_editorNotes == value) return;
             _editorNotes = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(EditorNotesCountText));
             MarkEditorChanged();
         }
     }
@@ -490,13 +563,15 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         TodoStore store,
         ITodoAiClient todoAiClient,
         Func<TodoAiConnection?> connectionProvider,
-        Func<DateTimeOffset>? now = null)
+        Func<DateTimeOffset>? now = null,
+        DailyJournalStore? journalStore = null)
     {
         _store = store;
         _todoAiClient = todoAiClient;
         _todayPlanAiClient = todoAiClient as ITodayPlanAiClient;
         _connectionProvider = connectionProvider;
         _now = now ?? _defaultNow;
+        AttachJournal(journalStore ?? new DailyJournalStore(Path.GetDirectoryName(store.TodoPath), _now));
         Reload();
         RaiseAllCommands();
     }
@@ -578,15 +653,22 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         CompleteReminderAlertCommand = new RelayCommand(_ => CompleteReminderAlert(), _ => HasReminderAlert);
         SnoozeReminderAlertCommand = new RelayCommand(_ => SnoozeReminderAlert(), _ => HasReminderAlert);
         OpenReminderAlertCommand = new RelayCommand(_ => OpenReminderAlert(), _ => HasReminderAlert);
+        InitializeListExperienceCommands();
         InitializeTodayPlanCommands();
+        InitializeNotificationCommands();
+        InitializeJournalCommands();
     }
 
     private void Reload()
     {
+        var selectedId = SelectedTodo?.Id;
         Items.Clear();
+        SelectedTodo = null;
         if (_store is null)
         {
             _totalPendingCount = 0;
+            _selectedFilterTotal = 0;
+            foreach (var filter in Filters) filter.Count = 0;
             RaiseItemStateChanged();
             return;
         }
@@ -596,35 +678,27 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         var nextWeek = today.AddDays(7);
         var allItems = _store.Load();
         _totalPendingCount = allItems.Count(item => item.Status == TodoStatus.Pending);
-        IEnumerable<TodoItem> query = allItems;
-        query = SelectedFilterId switch
-        {
-            "completed" => query.Where(item => item.Status == TodoStatus.Completed),
-            "today" => query.Where(item => item.Status == TodoStatus.Pending)
-                .Where(item => item.PlannedStartAt?.ToLocalTime().Date == today
-                    || item.DueAt?.ToLocalTime().Date == today
-                    || item.ReminderAt?.ToLocalTime().Date == today),
-            "overdue" => query.Where(item => item.Status == TodoStatus.Pending)
-                .Where(item => item.DueAt is { } due && due < now
-                    || item.ReminderAt is { } reminder && reminder < now),
-            "unscheduled" => query.Where(item => item.Status == TodoStatus.Pending)
-                .Where(item => item.DueAt is null && item.ReminderAt is null && item.PlannedStartAt is null),
-            "upcoming" => query.Where(item => item.Status == TodoStatus.Pending)
-                .Where(item =>
-                {
-                    var relevant = item.ReminderAt ?? item.DueAt;
-                    return relevant is not null
-                        && relevant.Value.ToLocalTime().Date >= today
-                        && relevant.Value.ToLocalTime().Date <= nextWeek;
-                }),
-            _ => query.Where(item => item.Status == TodoStatus.Pending),
-        };
+        foreach (var filter in Filters)
+            filter.Count = allItems.Count(item => MatchesTodoFilter(item, filter.Id, now, today, nextWeek));
 
-        foreach (var item in query
-            .OrderBy(item => item.DueAt ?? item.ReminderAt ?? DateTimeOffset.MaxValue)
-            .ThenBy(item => item.CreatedAt))
-            Items.Add(new TodoRowViewModel(item));
+        var filtered = allItems
+            .Where(item => MatchesTodoFilter(item, SelectedFilterId, now, today, nextWeek))
+            .ToArray();
+        _selectedFilterTotal = filtered.Length;
+        var queryText = TodoListQuery.Trim();
+        IEnumerable<TodoItem> visible = filtered;
+        if (queryText.Length > 0)
+            visible = visible.Where(item =>
+                item.Title.Contains(queryText, StringComparison.CurrentCultureIgnoreCase)
+                || item.Notes.Contains(queryText, StringComparison.CurrentCultureIgnoreCase));
+
+        foreach (var item in ApplyTodoSort(visible))
+            Items.Add(new TodoRowViewModel(item, now));
+        SelectedTodo = selectedId is { } id
+            ? Items.FirstOrDefault(item => item.Id == id)
+            : null;
         RefreshTodayPlanCandidates();
+        RefreshJournalProjection();
         RaiseItemStateChanged();
     }
 
@@ -715,7 +789,9 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
 
     private void ActivateEmptyStateAction()
     {
-        if (string.Equals(SelectedFilterId, "pending", StringComparison.Ordinal))
+        if (HasTodoListQuery)
+            ClearTodoListQuery();
+        else if (string.Equals(SelectedFilterId, "pending", StringComparison.Ordinal))
             OpenNewEditor();
         else
             SelectedFilterId = "pending";
@@ -734,9 +810,13 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     private void MarkEditorChanged()
     {
         if (_loadingEditor) return;
+        if (HasEditorError) EditorError = string.Empty;
         if (ShowDiscardEditorConfirmation) SetDiscardEditorConfirmation(false);
         OnPropertyChanged(nameof(HasUnsavedEditorChanges));
         OnPropertyChanged(nameof(EditorStateHint));
+        OnPropertyChanged(nameof(EditorValidationHint));
+        OnPropertyChanged(nameof(CanSaveEditor));
+        (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private EditorDraftSnapshot CaptureEditorDraft() => new(
@@ -924,6 +1004,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
     {
         _aiParseCts?.Cancel();
         CancelTodayPlanWork();
+        CancelJournalBackgroundWork();
     }
 
     public async Task WaitForBackgroundWorkAsync(TimeSpan timeout)
@@ -931,6 +1012,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         var tasks = new List<Task>();
         if (_aiParseTask is { IsCompleted: false } parseTask) tasks.Add(parseTask);
         AddTodayPlanBackgroundTask(tasks);
+        AddJournalBackgroundTask(tasks);
         if (tasks.Count == 0) return;
         await Task.WhenAny(Task.WhenAll(tasks), Task.Delay(timeout));
     }
@@ -1328,6 +1410,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(FilterSummary));
         OnPropertyChanged(nameof(EmptyMessage));
         OnPropertyChanged(nameof(EmptyActionLabel));
+        OnPropertyChanged(nameof(SelectedTodoSummary));
         RaiseAllCommands();
     }
 
@@ -1340,6 +1423,9 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasUnsavedEditorChanges));
         OnPropertyChanged(nameof(ShowDiscardEditorConfirmation));
         OnPropertyChanged(nameof(EditorStateHint));
+        OnPropertyChanged(nameof(EditorTitleCountText));
+        OnPropertyChanged(nameof(EditorNotesCountText));
+        OnPropertyChanged(nameof(EditorValidationHint));
         (SaveEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (CancelEditorCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
@@ -1401,6 +1487,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         RaiseUndoStateChanged();
         RaiseReminderCommands();
         RaiseTodayPlanCommands();
+        RaiseListExperienceCommands();
+        RaiseNotificationCommands();
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

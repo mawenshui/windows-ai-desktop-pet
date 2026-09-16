@@ -55,6 +55,8 @@ public sealed class EssentialFeatureTests : IDisposable
         Directory.CreateDirectory(logs);
         File.WriteAllText(Path.Combine(logs, "aipet-debug.log"), "private-log");
         var now = DateTimeOffset.UtcNow;
+        new AiPet.Todos.DailyJournalStore(_root, () => now)
+            .SaveNote(DateOnly.FromDateTime(now.ToLocalTime().Date), "本地复盘", 0);
         var service = new AutomaticBackupService(_root, logs, () => now);
 
         var first = service.Run(enabled: true, retentionCount: 2);
@@ -78,6 +80,7 @@ public sealed class EssentialFeatureTests : IDisposable
         Assert.Equal(2, archives.Length);
         using var zip = ZipFile.OpenRead(archives[0]);
         Assert.Contains(zip.Entries, entry => entry.FullName == "settings.json");
+        Assert.Contains(zip.Entries, entry => entry.FullName == "journal.json");
         Assert.DoesNotContain(zip.Entries, entry => entry.FullName == "index.db");
         Assert.DoesNotContain(zip.Entries, entry => entry.FullName.StartsWith("logs/", StringComparison.Ordinal));
     }

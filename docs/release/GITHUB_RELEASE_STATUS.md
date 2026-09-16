@@ -1,6 +1,6 @@
 # GitHub Release 状态
 
-日期：2026-09-13。此清单按最近一次已核对的 GitHub 远端实际状态记录。维护者已明确要求把现有 GitHub Release 全部转为正式发布；转换只修改 Release 状态和标题，不改变历史报告中的 PASS、FAIL、SKIP、未签名事实、标签或资产字节。
+日期：2026-09-15。此清单按最近一次已核对的 GitHub 远端实际状态记录。维护者已明确要求把现有 GitHub Release 全部转为正式发布；转换只修改 Release 状态和标题，不改变历史报告中的 PASS、FAIL、SKIP、未签名事实、标签或资产字节。
 
 ## 已发布版本
 
@@ -22,7 +22,19 @@
 | [v0.16.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
 | [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) | 正式 Release（历史转换，Latest） | 便携 ZIP、安装 EXE、SHA-256 |
 
-## 当前 0.21.0 本地状态
+## 当前 0.24.0 本地状态
+
+0.24.0 已按 JOURNAL-01～08 完成每日复盘候选实现，349/349 自动化、候选打包、哈希复核、系统边界和 package-smoke 通过；真实前台 UI、性能、签名及完整物理矩阵仍未通过门禁，且 provenance 为 dirty/unsigned。本轮没有提交、推送、打标签或创建远端 Release，因此不得写入上方“已发布版本”。完整结果见 [0.24.0 验证报告](0.24.0-test-report.md)。
+
+## 0.23.0 状态
+
+0.23.0 已按 UX-230-01～18 完成提醒中心聚焦处理、统一操作与静默草稿优化，338/338 自动化、本地打包、system 和 package-smoke PASS。独立 UI/强制性能因宿主无法前台激活应用而 FAIL；签名和物理矩阵为 SKIP。候选资产来自 dirty 工作区，`verify-release.ps1` 已阻断稳定发布；本轮未创建标签或远端 Release，因此不得写入上方“已发布版本”。完整结果与哈希见 [0.23.0 验证报告](0.23.0-test-report.md)。
+
+## 0.22.0 状态
+
+0.22.0 已按 UX-220-01～19 完成待办聚焦浏览、统一操作与低摩擦录入优化，334/334 自动化和本地打包 PASS。独立 UI/强制性能因宿主无法前台激活应用而 FAIL；系统与候选包 smoke 因当前登录会话无法访问安全存储而 FAIL；签名和多数物理矩阵为 SKIP。候选资产来自 dirty 工作区，本轮未创建标签或远端 Release，因此不得写入上方“已发布版本”。完整结果与哈希见 [0.22.0 验证报告](0.22.0-test-report.md)。
+
+## 0.21.0 状态
 
 0.21.0 已按 UX-210-01～19 完成键盘、搜索恢复、待办可撤销与可访问状态优化，327/327 自动化和本地打包 PASS。独立 UI/强制性能因宿主无法前台激活应用而 FAIL；系统与候选包 smoke 因当前登录会话无法访问安全存储而 FAIL；签名和多数物理矩阵为 SKIP。候选资产来自 dirty 工作区，本轮未创建标签或远端 Release，因此不得写入上方“已发布版本”。完整结果与哈希见 [0.21.0 验证报告](0.21.0-test-report.md)。
 

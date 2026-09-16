@@ -59,7 +59,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         ITodoAiClient? todoAiClient = null,
         IReadOnlyList<SearchRangeCandidateOption>? searchOnboardingCandidates = null,
         Func<DateTimeOffset>? todoNow = null,
-        ISearchResultActions? searchResultActions = null)
+        ISearchResultActions? searchResultActions = null,
+        DailyJournalStore? journalStore = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -86,7 +87,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         ReloadAi();
         ReloadAutostart();
         if (todoStore is not null && todoAiClient is not null)
-            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow);
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow, journalStore);
     }
 
     public ObservableCollection<SearchItem> Results { get; } = new();
@@ -1796,7 +1797,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         return path;
     }
 
-    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache)
+    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache | DataModule.Notifications | DataModule.ProviderPresets | DataModule.Journal)
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
         Maintenance.QueueRestore(source, modules);
@@ -1853,7 +1854,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         IAiSecretStore? secretStore = null,
         TodoStore? todoStore = null,
         ITodoAiClient? todoAiClient = null,
-        Func<DateTimeOffset>? todoNow = null)
+        Func<DateTimeOffset>? todoNow = null,
+        DailyJournalStore? journalStore = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -1895,7 +1897,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         ReloadAutostart();
         RaiseCommandStates();
         if (todoStore is not null && todoAiClient is not null)
-            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow);
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow, journalStore);
     }
 
     private TodoAiConnection? CreateTodoAiConnection()

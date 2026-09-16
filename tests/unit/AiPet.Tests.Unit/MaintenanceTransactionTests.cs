@@ -102,13 +102,15 @@ public sealed class MaintenanceTransactionTests : IDisposable
         var icon=Path.Combine(shortcuts.IconsDir,"fixture.png"); File.WriteAllBytes(icon,new byte[]{1,2,3});
         shortcuts.Add(new AiPet.Shortcuts.ShortcutItem {DisplayName="fixture",TargetPath=Path.Combine(_root,"referenced.txt"),IconPath=icon});
         File.WriteAllText(Path.Combine(_root,"provider-presets.json"),"{\"schemaVersion\":1,\"providers\":[]}");
-        var archive=new DataMaintenanceService(_root).Backup(Path.Combine(_root,"full.zip"),DataModule.Todos|DataModule.Shortcuts|DataModule.ProviderPresets);
-        var target=Path.Combine(_root,"restored"); var result=new DataMaintenanceService(target).Restore(archive,DataModule.Todos|DataModule.Shortcuts|DataModule.ProviderPresets);
+        new AiPet.Todos.DailyJournalStore(_root,()=>clock).SaveNote(DateOnly.FromDateTime(clock.LocalDateTime),"anonymous journal",0);
+        var archive=new DataMaintenanceService(_root).Backup(Path.Combine(_root,"full.zip"),DataModule.Todos|DataModule.Shortcuts|DataModule.ProviderPresets|DataModule.Journal);
+        var target=Path.Combine(_root,"restored"); var result=new DataMaintenanceService(target).Restore(archive,DataModule.Todos|DataModule.Shortcuts|DataModule.ProviderPresets|DataModule.Journal);
         Assert.Empty(result.Errors); Assert.Equal(AiPet.Todos.ReminderState.Queued,Assert.Single(new AiPet.Todos.TodoStore(target).Load()).ReminderState);
         Assert.Single(new AiPet.Todos.NotificationCenter(target).Entries);
         var restoredIcon=Assert.Single(new AiPet.Shortcuts.ShortcutStore(target).Load()).IconPath;
         Assert.Equal(Path.Combine(target,"icons","fixture.png"),restoredIcon); Assert.True(File.Exists(restoredIcon));
         Assert.True(File.Exists(Path.Combine(target,"provider-presets.json")));
+        Assert.Equal("anonymous journal",Assert.Single(new AiPet.Todos.DailyJournalStore(target).Load().Entries).Note);
     }
     [Fact]
     public void Interrupted_restore_recovers_the_pre_operation_snapshot()

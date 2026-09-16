@@ -80,6 +80,7 @@ $report = [pscustomobject]@{
     results = $results
 }
 $reportPath = Join-Path $reportDirectory 'system-e2e-report.json'
-$report | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $reportPath -Encoding utf8NoBOM
+$reportJson = $report | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText($reportPath, $reportJson, [System.Text.UTF8Encoding]::new($false))
 Write-Output "Report: $reportPath"
 if ($results.Status -contains 'FAIL') { exit 1 }

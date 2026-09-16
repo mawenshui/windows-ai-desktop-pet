@@ -805,6 +805,63 @@ public sealed class PetToolWindowLifecycleTests
     }
 
     [Fact]
+    public void Todo_focus_surface_binds_search_sort_selection_and_action_bar()
+    {
+        RunSta(() =>
+        {
+            var root = Path.Combine(Path.GetTempPath(), "aipet-todo-focus-ui-" + Guid.NewGuid().ToString("N"));
+            var now = new DateTimeOffset(2026, 9, 14, 9, 0, 0, TimeSpan.FromHours(8));
+            var store = new TodoStore(root, () => now);
+            store.Create(new TodoItem { Title = "Alpha", DueAt = now.AddHours(2) });
+            store.Create(new TodoItem { Title = "Beta", Notes = "searchable note" });
+            var window = new PetToolWindow { AutoHideOnDeactivate = false };
+            window.ShowNear(new Rect(900, 800, 176, 148), new Rect(0, 0, 1920, 1040));
+            window.SelectTodoTab();
+            var todo = Assert.IsType<HomeViewModel>(window.DataContext).Todo;
+            todo.Attach(store, new UnusedTodoAiClient(), () => null, () => now);
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var query = FindElement<TextBox>(window, "TodoSearchBox");
+            var sort = FindElement<ListBox>(window, "TodoSortSelector");
+            var list = FindElement<ListBox>(window, "TodoItemsList");
+            var actionBar = FindElement<Border>(window, "TodoSelectedActionBar");
+            Assert.NotNull(query);
+            Assert.NotNull(sort);
+            Assert.NotNull(list);
+            Assert.NotNull(actionBar);
+            Assert.Equal(3, sort.Items.Count);
+            Assert.Equal(2, list.Items.Count);
+            Assert.False(actionBar.IsVisible);
+
+            list.SelectedIndex = 0;
+            PumpDispatcher();
+            window.UpdateLayout();
+            Assert.Same(list.SelectedItem, todo.SelectedTodo);
+            Assert.True(actionBar.IsVisible);
+            Assert.Contains("已选 1/2", todo.SelectedTodoSummary);
+
+            query.Text = "searchable";
+            PumpDispatcher();
+            window.UpdateLayout();
+            Assert.Single(list.Items);
+            Assert.Equal("Beta", Assert.IsType<TodoRowViewModel>(list.Items[0]).Title);
+            Assert.Null(todo.SelectedTodo);
+
+            todo.NewTodoCommand.Execute(null);
+            PumpDispatcher();
+            window.UpdateLayout();
+            var title = FindElement<TextBox>(window, "TodoTitleBox");
+            Assert.NotNull(title);
+            Assert.Equal(200, title.MaxLength);
+
+            window.AllowClose();
+            window.Close();
+            Directory.Delete(root, true);
+        });
+    }
+
+    [Fact]
     public void Escape_resolves_the_todo_editor_before_it_hides_the_window()
     {
         RunSta(() =>

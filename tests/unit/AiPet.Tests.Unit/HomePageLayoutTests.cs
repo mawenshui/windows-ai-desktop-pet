@@ -142,6 +142,24 @@ public sealed class HomePageLayoutTests
     }
 
     [Fact]
+    public void Todo_page_exposes_local_journal_without_a_new_primary_page_or_agent_status()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var journalCode = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "TodoViewModel.Journal.cs"));
+
+        Assert.Contains("x:Name=\"TodoPageModeSelector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("DisplayMemberPath=\"DisplayName\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"JournalNoteBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("MaxLength=\"4000\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Key=\"S\" Modifiers=\"Control\" Command=\"{Binding SaveJournalCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"导出当前日期复盘为 Markdown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("只删除这一天的复盘文字和快照；不会修改待办", xaml, StringComparison.Ordinal);
+        Assert.Contains("MinHeight=\"36\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Codex", journalCode, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Claude", journalCode, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Update_settings_use_builtin_routes_without_professional_inputs()
     {
         var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
@@ -286,10 +304,12 @@ public sealed class HomePageLayoutTests
 
         Assert.Contains("x:Name=\"NewTodoButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"TodoAiExpander\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<Grid Grid.Row=\"0\" Margin=\"1,0,0,9\">", xaml, StringComparison.Ordinal);
-        Assert.Contains("<Border Grid.Row=\"1\" Style=\"{StaticResource SectionCard}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<ItemsControl Grid.Row=\"2\" ItemsSource=\"{Binding Items}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<Border Grid.Row=\"3\" Background=\"{StaticResource AccentTint}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TodoPageModeSelector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Grid Grid.Row=\"1\" Margin=\"1,0,0,9\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Border Grid.Row=\"2\" Margin=\"0,0,0,10\">", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TodoItemsList\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding Items}\" SelectedItem=\"{Binding SelectedTodo, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Border Grid.Row=\"4\" Background=\"{StaticResource AccentTint}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Click=\"NewTodo_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Click=\"TodoEditorClose_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("TodoTitleBox.Focus();", code, StringComparison.Ordinal);
@@ -303,7 +323,7 @@ public sealed class HomePageLayoutTests
         var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs"));
 
         Assert.Contains("主页 · Alt+1 · Ctrl+L 聚焦搜索", xaml, StringComparison.Ordinal);
-        Assert.Contains("待办 · Alt+2 · Ctrl+N 快速新建", xaml, StringComparison.Ordinal);
+        Assert.Contains("待办 · Alt+2 · Ctrl+N 新建 · Ctrl+F 查找", xaml, StringComparison.Ordinal);
         Assert.Contains("F1 打开手册", xaml, StringComparison.Ordinal);
         Assert.Contains("key == Key.N && modifiers == ModifierKeys.Control", code, StringComparison.Ordinal);
         Assert.Contains("key == Key.F1 && modifiers == ModifierKeys.None", code, StringComparison.Ordinal);
@@ -322,7 +342,7 @@ public sealed class HomePageLayoutTests
         Assert.Contains("Visibility=\"{Binding ShowDiscardEditorConfirmation", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{Binding KeepEditingCommand}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{Binding DiscardEditorCommand}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Command=\"{Binding DataContext.Todo.DeleteTodoCommand", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding DeleteSelectedTodoCommand}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{Binding UndoLastActionCommand}\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("DeleteTodo_Click", code, StringComparison.Ordinal);
 
@@ -335,6 +355,74 @@ public sealed class HomePageLayoutTests
         Assert.Contains("Text=\"{Binding MaintenanceStatus}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ex.Message", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Todo_focus_search_sort_action_bar_and_editor_guidance_are_explicit()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"TodoSearchBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding TodoListQuery", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ClearTodoListQueryCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TodoSortSelector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("DisplayMemberPath=\"DisplayText\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TodoSelectedActionBar\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"TodoItemsList\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Enter 或 F2 编辑", xaml, StringComparison.Ordinal);
+        Assert.Contains("StringFormat=时间状态：{0}", xaml, StringComparison.Ordinal);
+        Assert.Contains("MaxLength=\"200\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("MaxLength=\"4000\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding SetDueTodayCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding SetReminderInThirtyMinutesCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding EditorValidationHint}\"", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("key == Key.F && modifiers == ModifierKeys.Control", code, StringComparison.Ordinal);
+        Assert.Contains("TodoItemsList.IsKeyboardFocusWithin", code, StringComparison.Ordinal);
+        Assert.Contains("key is Key.Enter or Key.F2", code, StringComparison.Ordinal);
+        Assert.Contains("key == Key.Delete", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Notification_inbox_uses_focus_projection_action_bar_and_validated_quiet_draft()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "NotificationInbox.xaml"));
+        var code = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "NotificationInbox.xaml.cs"));
+        var windowCode = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"NotificationQueryBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding NotificationQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding NotificationFilters}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding NotificationSortOptions}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"NotificationItemsList\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{Binding SelectedNotification, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"NotificationSelectedActionBar\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding OpenSelectedNotificationCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding CompleteSelectedNotificationCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding SnoozeSelectedNotificationCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommandParameter=\"{Binding Id}\"", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("Text=\"{Binding TypeText}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding RecoveryText}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"{Binding AutomationName}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("MinHeight=\"32\"", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("MaxLength=\"5\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"night\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"lunch\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"off\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding QuietValidationHint}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding QuietSettingsSaveLabel}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding ClearNotificationHistoryLabel}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding NotificationStatus}\"", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("NotificationItemsList.IsKeyboardFocusWithin", code, StringComparison.Ordinal);
+        Assert.Contains("ModifierKeys.Control | ModifierKeys.Shift", code, StringComparison.Ordinal);
+        Assert.Contains("key is Key.Enter or Key.F2", code, StringComparison.Ordinal);
+        Assert.Contains("NotificationInboxControl.IsKeyboardFocusWithin", windowCode, StringComparison.Ordinal);
+        Assert.Contains("NotificationInboxControl.FocusQuery", windowCode, StringComparison.Ordinal);
     }
 
     private static string ReadProjectFile(string relativePath)

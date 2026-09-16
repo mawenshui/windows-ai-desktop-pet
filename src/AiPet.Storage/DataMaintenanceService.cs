@@ -10,7 +10,8 @@ public enum DataModule
 {
     None = 0, Settings = 1, Layout = 2, Todos = 4, Shortcuts = 8,
     SearchIndex = 16, IconCache = 32, Logs = 64, Notifications = 128, ProviderPresets = 256,
-    AllNonSecret = Settings | Layout | Todos | Shortcuts | SearchIndex | IconCache | Logs | Notifications | ProviderPresets,
+    Journal = 512,
+    AllNonSecret = Settings | Layout | Todos | Shortcuts | SearchIndex | IconCache | Logs | Notifications | ProviderPresets | Journal,
 }
 public sealed record DataModulePreview(DataModule Module, string DisplayName, bool Exists, long Bytes);
 public sealed record RestorePreview(DataModule Module, string DisplayName, long CurrentBytes, long IncomingBytes, int FileCount);
@@ -27,6 +28,7 @@ public sealed partial class DataMaintenanceService
         [DataModule.SearchIndex]="index.db", [DataModule.IconCache]="icons", [DataModule.Logs]="logs",
         [DataModule.Notifications]="notifications.json",
         [DataModule.ProviderPresets]="provider-presets.json",
+        [DataModule.Journal]="journal.json",
     };
     public const long MaximumBackupBytes = 512L * 1024 * 1024;
     private const long MaximumEntryBytes = 64L * 1024 * 1024;
@@ -145,11 +147,13 @@ public sealed partial class DataMaintenanceService
     }
     public static void ValidateJson(string name, byte[] bytes)
     {
+        if (name == "journal.json" && bytes.LongLength > 32L * 1024 * 1024)
+            throw new InvalidDataException("复盘数据文件超过 32 MiB 上限。");
         using var json = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth=32 });
         if (json.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("模块必须是 JSON 对象。");
         if (name != "layout.json")
         {
-            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" ? 1 : name == "settings.json" ? 5 : name == "todos.json" ? 4 : 3;
+            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" or "journal.json" ? 1 : name == "settings.json" ? 5 : name == "todos.json" ? 4 : 3;
             if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || schema.GetInt32() < 1 || schema.GetInt32() > max) throw new InvalidDataException("模块 schema 不受支持。");
             if (name is "todos.json" or "shortcuts.json" && (!json.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array))
                 throw new InvalidDataException("事项列表无效。");
@@ -331,7 +335,7 @@ public sealed partial class DataMaintenanceService
     private static string DisplayName(DataModule module) => module switch
     {
         DataModule.Settings=>"应用设置", DataModule.Layout=>"窗口位置", DataModule.Todos=>"待办与提醒",
-        DataModule.Shortcuts=>"快捷入口", DataModule.SearchIndex=>"搜索索引", DataModule.IconCache=>"自定义图标", DataModule.Logs=>"诊断日志", DataModule.Notifications=>"提醒队列与历史", DataModule.ProviderPresets=>"AI 服务预设", _=>module.ToString(),
+        DataModule.Shortcuts=>"快捷入口", DataModule.SearchIndex=>"搜索索引", DataModule.IconCache=>"自定义图标", DataModule.Logs=>"诊断日志", DataModule.Notifications=>"提醒队列与历史", DataModule.ProviderPresets=>"AI 服务预设", DataModule.Journal=>"每日复盘", _=>module.ToString(),
     };
     private static DataModule WithDependencies(DataModule modules)
     {

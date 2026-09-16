@@ -100,7 +100,17 @@ function Publish-FileAtomically {
         throw "Refusing to reuse publication temporary file: $temporaryDestination"
     }
     [System.IO.File]::Copy($Source, $temporaryDestination, $false)
-    [System.IO.File]::Move($temporaryDestination, $Destination, $true)
+    if ([System.IO.File]::Exists($Destination)) {
+        $backupDestination = $Destination + ".$runId.bak"
+        if ([System.IO.File]::Exists($backupDestination)) {
+            throw "Refusing to reuse publication backup file: $backupDestination"
+        }
+        [System.IO.File]::Replace($temporaryDestination, $Destination, $backupDestination)
+        [System.IO.File]::Delete($backupDestination)
+    }
+    else {
+        [System.IO.File]::Move($temporaryDestination, $Destination)
+    }
 }
 
 $portableAsset = Join-Path $projectRoot "dist\portable\$portableName"
@@ -109,7 +119,8 @@ $checksumPath = Join-Path $projectRoot 'dist\checksums\SHA256SUMS.txt'
 $commit = (& git -C $projectRoot rev-parse HEAD 2>$null)
 # Capture the build input state before publishing generated files into tracked
 # dist paths. Checking afterwards would make every successful build look dirty.
-$sourceTreeState = if (@(& git -C $projectRoot status --porcelain --untracked-files=no 2>$null).Count -eq 0) { 'clean' } else { 'dirty' }
+$repositoryIgnoreFile = Join-Path $projectRoot '.gitignore'
+$sourceTreeState = if (@(& git -c "core.excludesFile=$repositoryIgnoreFile" -C $projectRoot status --porcelain --untracked-files=no 2>$null).Count -eq 0) { 'clean' } else { 'dirty' }
 
 Publish-FileAtomically -Source $candidatePortableAsset -Destination $portableAsset
 Publish-FileAtomically -Source $candidateInstallerAsset -Destination $installerAsset
