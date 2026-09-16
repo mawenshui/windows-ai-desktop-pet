@@ -1,71 +1,62 @@
 # GitHub Release 状态
 
-日期：2026-09-15。此清单按最近一次已核对的 GitHub 远端实际状态记录。维护者已明确要求把现有 GitHub Release 全部转为正式发布；转换只修改 Release 状态和标题，不改变历史报告中的 PASS、FAIL、SKIP、未签名事实、标签或资产字节。
+日期：2026-09-17。仓库 `mawenshui/windows-ai-desktop-pet` 已将 `CHANGELOG.md` 中 0.1.0～0.24.0 共 34 个版本全部建立为正式 GitHub Release。所有 Release 均不是 Draft 或 Pre-release；标题统一为“Windows AI 桌面宠物 `<版本>` 正式版”，正文为 UTF-8 中文，v0.24.0 是唯一 Latest。
 
-## 已发布版本
+## 远端版本清单
 
-| 版本 | GitHub 状态 | 资产 |
+| 版本 | 状态 | 发布资产 |
 | :--- | :--- | :--- |
-| [v0.7.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.7.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.7.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.7.1) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.8.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.8.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.8.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.8.1) | 正式 Release（历史既有） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.9.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.9.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.10.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.10.0) | 正式 Release（历史既有） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.11.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.11.0) | 正式 Release（历史既有） | 便携 ZIP、安装 EXE、SHA-256、provenance |
-| [v0.12.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.0) | 正式 Release（历史重封装转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.12.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.1) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.12.2](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.2) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.13.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.13.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.14.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.14.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.15.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.15.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.16.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.0) | 正式 Release（历史转换） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) | 正式 Release（历史转换，Latest） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.1.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.1.0) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.2.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.2.0) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.2.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.2.1) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.2.2](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.2.2) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.2.3](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.2.3) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.3.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.3.0) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.4.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.4.0) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.5.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.5.0) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.6.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.6.0) | 正式版（历史补档） | 便携 ZIP、SHA-256 |
+| [v0.7.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.7.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.7.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.7.1) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.8.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.8.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.8.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.8.1) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.8.2](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.8.2) | 正式版（历史补档） | 源码标签与中文更新说明；无可追溯二进制 |
+| [v0.9.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.9.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.10.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.10.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.11.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.11.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256、provenance |
+| [v0.12.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.0) | 正式版（历史重封装） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.12.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.1) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.12.2](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.12.2) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.13.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.13.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.14.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.14.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.15.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.15.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.16.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.0) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.16.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.16.1) | 正式版（历史整理） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.17.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.17.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.18.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.18.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.18.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.18.1) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.19.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.19.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.20.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.20.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.21.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.21.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.22.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.22.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.23.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.23.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.24.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.24.0) | 正式版、Latest | 便携 ZIP、安装 EXE、SHA-256 |
 
-## 当前 0.24.0 本地状态
+## 追溯与资产边界
 
-0.24.0 已按 JOURNAL-01～08 完成每日复盘候选实现，349/349 自动化、候选打包、哈希复核、系统边界和 package-smoke 通过；真实前台 UI、性能、签名及完整物理矩阵仍未通过门禁，且 provenance 为 dirty/unsigned。本轮没有提交、推送、打标签或创建远端 Release，因此不得写入上方“已发布版本”。完整结果见 [0.24.0 验证报告](0.24.0-test-report.md)。
+- 0.2.0～0.6.0、0.8.2、0.19.0、0.20.0、0.22.0 和 0.23.0 没有逐版独立保留的源码提交；标签指向仓库中最早可追溯且覆盖相应能力的提交，Release 正文已明确说明。
+- 0.1.0～0.6.0 只保留便携归档，没有真实安装 EXE；0.8.2 没有可追溯二进制，因此只发布源码标签和中文更新说明。没有使用相邻版本资产改名填补缺口。
+- v0.12.0 资产是既有历史重封装，Release 正文保留其来源边界。所有历史安装器均未进行 Authenticode 签名。
+- 对所有本地仍存在的远端二进制，已逐项核对 GitHub 返回的资产大小和 `sha256:` digest，本轮差异数为 0。
 
-## 0.23.0 状态
+## 0.24.0 当次验证
 
-0.23.0 已按 UX-230-01～18 完成提醒中心聚焦处理、统一操作与静默草稿优化，338/338 自动化、本地打包、system 和 package-smoke PASS。独立 UI/强制性能因宿主无法前台激活应用而 FAIL；签名和物理矩阵为 SKIP。候选资产来自 dirty 工作区，`verify-release.ps1` 已阻断稳定发布；本轮未创建标签或远端 Release，因此不得写入上方“已发布版本”。完整结果与哈希见 [0.23.0 验证报告](0.23.0-test-report.md)。
+- 干净源码提交：`2a1f8b1fc53c1ecb0cfae02ae9a32b6b54a09cf6`；发布资产提交：`e2540fb`。
+- `scripts/test.ps1 -CI`：349/349 通过，0 跳过，Release 构建 0 警告、0 错误。
+- `scripts/smoke-release.ps1 -Version 0.24.0`：便携运行、静默安装、安装后运行、卸载和自启清理通过。
+- `scripts/test-system-e2e.ps1 -CI`：8/8 系统几何合同和应用 smoke 通过；当前仅单屏、100% 缩放，Explorer 重启、热插拔、休眠、改时及其他缩放条件为 SKIP。
+- 独立 UI 和强制性能测试因当前交互桌面不能把应用置前而停止输入，不能计为通过；未配置受保护签名证书，Authenticode 为 SKIP。
+- 正式 Release 是维护者明确要求的发布状态，不会把上述 FAIL/SKIP 或未执行项改写为 PASS。
 
-## 0.22.0 状态
+## 远端终检
 
-0.22.0 已按 UX-220-01～19 完成待办聚焦浏览、统一操作与低摩擦录入优化，334/334 自动化和本地打包 PASS。独立 UI/强制性能因宿主无法前台激活应用而 FAIL；系统与候选包 smoke 因当前登录会话无法访问安全存储而 FAIL；签名和多数物理矩阵为 SKIP。候选资产来自 dirty 工作区，本轮未创建标签或远端 Release，因此不得写入上方“已发布版本”。完整结果与哈希见 [0.22.0 验证报告](0.22.0-test-report.md)。
-
-## 0.21.0 状态
-
-0.21.0 已按 UX-210-01～19 完成键盘、搜索恢复、待办可撤销与可访问状态优化，327/327 自动化和本地打包 PASS。独立 UI/强制性能因宿主无法前台激活应用而 FAIL；系统与候选包 smoke 因当前登录会话无法访问安全存储而 FAIL；签名和多数物理矩阵为 SKIP。候选资产来自 dirty 工作区，本轮未创建标签或远端 Release，因此不得写入上方“已发布版本”。完整结果与哈希见 [0.21.0 验证报告](0.21.0-test-report.md)。
-
-## 0.20.0 状态
-
-0.20.0 在 dirty 候选工作区完成内置智能更新线路和设置减负，317/317 自动化、系统 smoke、打包及 package-smoke PASS；独立 UI/强制性能因宿主无法前台激活应用而 FAIL，签名和多数物理矩阵为 SKIP。本轮没有提交、推送、创建标签或创建远端资产，因此只保留本地候选，不得写入上方“已发布版本”。完整结果与哈希见 [0.20.0 验证报告](0.20.0-test-report.md)。
-
-## 0.19.0 状态
-
-0.19.0 已在 dirty 候选工作区生成便携版、安装版和 SHA-256，并通过 package-smoke；独立 UI 与性能因宿主无法前台激活应用而 FAIL，签名与物理环境仍为 SKIP。本轮没有提交、推送、创建标签或访问 GitHub 核对远端，因此 0.19.0 只保留本地候选，未写入上方“已发布版本”。详细结果见 [0.19.0 验证报告](0.19.0-test-report.md)。
-
-## 0.18.1 状态
-
-0.18.1 的候选便携版、安装版和 SHA-256 已从干净源提交 `9b8b1a96e4ebac66531ebe5719b0e12568b4a5b8` 生成并通过 package-smoke，随 `main` 的资产提交 `b3d1b4f405ab6368c5575adac6b88bb733c5c626` 同步。GitHub Tree API 返回的两个资产及清单 blob SHA/大小与本地 Git 对象一致；Release 列表仍没有 `v0.18.1`。UI 与性能为 FAIL，签名与硬件为 SKIP，因此没有创建 `v0.18.1` 标签或 GitHub Release。
-
-## 0.18.0 与 0.17.0 状态
-
-0.18.0 的候选便携版、安装版和 SHA-256 已从干净源提交 `ca0683249486689f91d6b517fea5c01a6349b77b` 生成并通过 package-smoke，随 `main` 的资产提交 `8ebcfad8a78c87cd4ddf33745ad85f5140193973` 同步。GitHub Tree API 返回的两个资产及清单 blob SHA/大小与本地 Git 对象一致；Release 列表最高仍为 `v0.16.1`。UI 与性能为 FAIL，签名与硬件为 SKIP，因此没有创建 `v0.18.0` 标签或 GitHub Release。
-
-0.17.0 的候选便携版、安装版和 SHA-256 已随源码和文档同步到 `main` 的资产提交 `4ee8809bd703c1417c1d4ed0c29fbfba5a37b558`。GitHub Git Tree API 返回的 blob SHA/大小与本地 Git 对象一致。UI 与性能为 FAIL，签名与硬件为 SKIP，因此没有创建 `v0.17.0` 标签或 GitHub Release。
-
-本次新增的 12 个历史候选均先以草稿上传，确认三个资产齐全后再发布为 Pre-release。随后通过 GitHub 资产 API 逐版下载全部 15 个 Release 的便携版、安装版和 `SHA256SUMS.txt`；下载字节与本地 SHA-256 全部一致。所有安装器均未签名。
-
-v0.12.0 没有保留原始 ZIP/安装器，但工作区保留了产品版本为 `0.12.0+87da027` 的完整便携目录。本次从该目录重新封装 ZIP，并使用当前 Inno Setup 定义生成安装器；静默安装、应用 `--smoke` 和卸载均为 PASS。Release 说明明确标注它是历史重封装。
-
-## 未建立 Release 的早期记录
-
-| 版本 | 原因 |
-| :--- | :--- |
-| 0.1.0、0.2.0～0.2.3 | 只有早期便携/暂存归档，没有真实安装 EXE；程序元数据仍为默认 `1.0.0`，不能冒充对应正式版本。 |
-| 0.3.0～0.6.0 | 只有便携归档，没有对应安装器与可重现的独立源码提交。 |
-| 0.8.2 | 只有变更记录和候选说明，没有该版本的便携包、安装器或独立源码快照。 |
-
-这些记录不满足“每个 Release 同时提供便携版和安装版”的要求，因此没有使用相邻版本改名、回填当前程序或生成无法追溯的假资产。
+GitHub API 返回 34 个 Release，与 `CHANGELOG.md` 的 34 个版本完全一致：无缺失、无额外版本、无 Draft、无 Pre-release、无标题偏差、无空正文或 Unicode 替换字符。v0.24.0 是唯一 Latest，包含 `windows-ai-desktop-pet-v0.24.0-portable.zip`、`windows-ai-desktop-pet-v0.24.0-setup.exe` 和 `SHA256SUMS.txt`。

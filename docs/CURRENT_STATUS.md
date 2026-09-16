@@ -1,6 +1,6 @@
 # 当前代码状态与文档索引
 
-日期：2026-09-15；软件基线：**0.24.0 候选工作区**，由 0.23.0 按 MINOR 升级。本版按 JOURNAL-01～08 增加本地每日复盘与 Markdown 日志，不新增主页面、第三方依赖、账号、云端、遥测、权限或 Agent 状态指示。
+日期：2026-09-17；软件基线：**0.24.0 正式版**，由 0.23.0 按 MINOR 升级。本版按 JOURNAL-01～08 增加本地每日复盘与 Markdown 日志，不新增主页面、第三方依赖、账号、云端、遥测、权限或 Agent 状态指示。
 
 ## 当前实现
 
@@ -16,15 +16,15 @@
 
 ## 当前验证边界
 
-复盘回归已覆盖存储往返、过期 revision、损坏与容量保护、投影、跨日冻结、删除隔离、Markdown 编码/标题净化/路径保护、手动/自动备份恢复、ViewModel 自动保存及 WPF 合同。当前完整 `scripts/test.ps1 -CI` 为 349/349、0 警告、0 错误；候选打包、哈希复核、系统边界以及便携/安装/卸载烟测通过，细节见 [0.24.0 验证报告](release/0.24.0-test-report.md)。
+复盘回归已覆盖存储往返、过期 revision、损坏与容量保护、投影、跨日冻结、删除隔离、Markdown 编码/标题净化/路径保护、手动/自动备份恢复、ViewModel 自动保存及 WPF 合同。干净源码提交 `2a1f8b1` 的完整 `scripts/test.ps1 -CI` 为 349/349、0 警告、0 错误；正式打包、哈希复核、系统边界以及便携/安装/卸载烟测通过，细节见 [0.24.0 验证报告](release/0.24.0-test-report.md)。
 
-真实前台复盘交互、200% 缩放、系统覆盖确认、跨午夜/手动改时/时区/DST/休眠、多屏、签名和覆盖升级不能由进程内自动化推断。候选资产已生成，但 provenance 明确为 dirty/unsigned；工作区包含用户和先前任务的未提交改动，不满足干净源发布条件。本任务未提交、推送、打标签或创建 GitHub Release。
+真实前台复盘交互与强制性能因当前桌面不能置前应用而未完成；200% 缩放、系统覆盖确认、跨午夜/手动改时/时区/DST/休眠、多屏、签名和覆盖升级不能由进程内自动化推断。正式资产 provenance 为 clean/unsigned。GitHub 已补齐 0.1.0～0.24.0 共 34 个正式 Release，并核对中文标题、中文正文、标签、资产大小与 SHA-256 digest；v0.24.0 为唯一 Latest。
 
 ## 当前文档
 
 - [PRD](Windows桌面宠物产品需求文档_PRD.md)、[工程规范](PROJECT_SPEC.md)、[技术设计](TECHNICAL_DESIGN.md)、[测试计划](TEST_PLAN.md)、[用户手册](USER_MANUAL.md)。
 - [0.24.0 功能扩展计划](0.24.0－功能扩展计划.md)、[FocuSD 参考与每日复盘设计](FocuSD参考－每日复盘与Markdown日志功能建议.md)、[已有功能优化](已有功能优化.md)。
-- [0.24.0 候选说明](RELEASE_NOTES_0.24.0.md)、[0.24.0 验证报告](release/0.24.0-test-report.md)、[GitHub Release 状态](release/GITHUB_RELEASE_STATUS.md)。
+- [0.24.0 正式版说明](RELEASE_NOTES_0.24.0.md)、[0.24.0 验证报告](release/0.24.0-test-report.md)、[GitHub Release 状态](release/GITHUB_RELEASE_STATUS.md)。
 
 ## 非当前产品能力
 

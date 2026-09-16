@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.24.0**，于 **2026-09-15** 按 JOURNAL-01～08 完成本地每日复盘与 Markdown 日志候选实现。当前为候选版本，完整发布门禁按本次验证结果判定。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.24.0**，于 **2026-09-17** 发布为正式版；本版按 JOURNAL-01～08 增加本地每日复盘与 Markdown 日志。GitHub 已补齐并整理 0.1.0～0.24.0 共 34 个正式 Release，标题和更新说明统一使用 UTF-8 中文。
 
 ## 当前能力
 
@@ -47,14 +47,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.24.0 已完成 349/349 全量自动化、候选打包、哈希复核、系统边界和便携/安装/卸载烟测；真实复盘前台 UI、性能、签名和完整物理矩阵仍待验收。详情以[0.24.0 验证报告](docs/release/0.24.0-test-report.md)为准，历史 0.23.0 证据不能替代当前版本证据。
+0.24.0 已从干净提交 `2a1f8b1` 完成 349/349 全量自动化、正式打包、哈希复核、系统边界和便携/安装/卸载烟测；真实复盘前台 UI 与强制性能因当前桌面不能置前应用而未完成，签名和完整物理矩阵仍待验收。详情以[0.24.0 验证报告](docs/release/0.24.0-test-report.md)和[Release 清单](docs/release/GITHUB_RELEASE_STATUS.md)为准。
 
-正式稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。任一 UI、性能、签名或硬件门禁出现 FAIL/SKIP 时，0.24.0 只保留候选资产，不创建稳定 GitHub Release。
+常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。本次按维护者明确要求完成全部历史版本正式化；这项发布决定不把 UI、性能、签名或硬件的 FAIL/SKIP 改写为 PASS。
 
-## 文档与候选产物
+## 文档与发布产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.24.0 候选说明](docs/RELEASE_NOTES_0.24.0.md) · [验证报告](docs/release/0.24.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.24.0－功能扩展计划.md) · [每日复盘设计与参考](docs/FocuSD参考－每日复盘与Markdown日志功能建议.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.24.0 正式版说明](docs/RELEASE_NOTES_0.24.0.md) · [验证报告](docs/release/0.24.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.24.0－功能扩展计划.md) · [每日复盘设计与参考](docs/FocuSD参考－每日复盘与Markdown日志功能建议.md)
 
-0.24.0 本地候选已生成：便携 ZIP SHA-256 `47e7dbd7…de11ab4`，安装器 SHA-256 `248b1429…415089c`，完整值见验证报告和 `dist/checksums/SHA256SUMS.txt`。资产来自 dirty 工作区且未签名，正式发布须从干净提交重新生成；历史 0.19.0～0.23.0 候选资产及哈希保留在对应报告中。
+0.24.0 正式资产来自干净提交：便携 ZIP SHA-256 `3cc1b70d…83a7686`，安装器 SHA-256 `a1551cb7…25c1c84`，完整值见 `dist/checksums/SHA256SUMS.txt`。资产未进行 Authenticode 签名；历史版本的实际资产、缺失项和追溯边界见 Release 清单。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。
