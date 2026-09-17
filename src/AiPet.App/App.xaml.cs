@@ -47,10 +47,22 @@ public partial class App : System.Windows.Application
     private OpenAiCompatibleTodoClient? _todoAi;
     private TodoStore? _todoStore;
     private DailyJournalStore? _dailyJournalStore;
+    private FocusSessionService? _focusSessionService;
     private ReminderScheduler? _reminderScheduler;
     private GlobalHotkeyService? _globalHotkeys;
     private SettingsStore? _settingsStore;
     private HomeViewModel? _homeVm;
+    private DispatcherTimer? _fullscreenTimer;
+    private bool _userPetHidden;
+    private bool _fullscreenPetSuppressed;
+    private bool _petWasVisibleBeforeFullscreen;
+    private int _fullscreenMatchCount;
+    private int _fullscreenMissCount;
+    private bool _focusWasActive;
+    private bool _clickThroughActive;
+    private bool _clickThroughSuppressedForSession;
+    private bool _hidePetDuringFullscreen;
+    private bool _clickThroughDuringFocus;
 
     public string[]? LaunchArgs { get; private set; }
 
@@ -165,6 +177,8 @@ public partial class App : System.Windows.Application
             return;
         }
         var settingsV = _settingsStore.Load();
+        _hidePetDuringFullscreen = settingsV.Appearance.HidePetDuringFullscreen;
+        _clickThroughDuringFocus = settingsV.Focus.ClickThroughPet;
         Func<DateTimeOffset>? todoNow = null;
         if (isUiE2e
             && DateTimeOffset.TryParse(
@@ -177,7 +191,31 @@ public partial class App : System.Windows.Application
 
         var petPackageRoot = System.IO.Path.GetDirectoryName(petJson)
             ?? throw new InvalidOperationException("pet.json 缺少父目录");
-        var cache = new PetFrameCache(petPackageRoot, manifest, preferred);
+        PetFrameCache? cache = null;
+        var candidates = new[] { preferred, manifest.FrameInventory?.Preferred }
+            .Concat(manifest.FrameInventory?.Characters ?? new List<string>())
+            .Where(character => !string.IsNullOrWhiteSpace(character))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal);
+        foreach (var candidate in candidates)
+        {
+            var candidateCache = new PetFrameCache(petPackageRoot, manifest, candidate);
+            if (candidateCache.GetFrame("idle", Direction8.Down, 0) is null) continue;
+            preferred = candidate;
+            cache = candidateCache;
+            break;
+        }
+        if (cache is null)
+        {
+            System.Windows.MessageBox.Show("内置桌宠角色首帧无法读取，请重新安装完整资源。", "Windows AI Desktop Pet", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
+        if (!string.Equals(settingsV.Pet.PreferredCharacter, preferred, StringComparison.Ordinal))
+        {
+            settingsV.Pet.PreferredCharacter = preferred;
+            try { _settingsStore.Save(settingsV); } catch { /* Runtime fallback remains usable for this launch. */ }
+        }
 
         // --- 2. Wire up all MVP subsystems ---
         _search = new SearchService(_settingsStore.IndexPath);
@@ -188,6 +226,7 @@ public partial class App : System.Windows.Application
         _todoAi = new OpenAiCompatibleTodoClient();
         _todoStore = new TodoStore(_settingsStore.AppDataDir);
         _dailyJournalStore = new DailyJournalStore(_settingsStore.AppDataDir);
+        _focusSessionService = new FocusSessionService(new FocusSessionStore(_settingsStore.AppDataDir), todoNow);
         // _homeVm is attached after the XAML resource graph is built
         // (see TryAttachHomeViewModel below) so the resource lookup
         // can find the XAML-declared instance instead of us creating
@@ -203,6 +242,7 @@ public partial class App : System.Windows.Application
                 settingsV.ToolWindow.AlwaysOnTop);
             _tool.ApplyTheme(settingsV.Appearance.Theme);
             _tool.WindowPreferencesChanged += (_, _) => SaveToolWindowPreferences();
+            _tool.SettingsOpened += (_, _) => RestorePetInteractionForSession();
             DebugLog("[App] tool window ctor done");
             _pet = new PetWindow(cache, manifest, preferred, _settingsStore);
             DebugLog("[App] pet window ctor done");
@@ -248,12 +288,40 @@ public partial class App : System.Windows.Application
                 todoStore: _todoStore,
                 todoAiClient: _todoAi,
                 todoNow: todoNow,
-                journalStore: _dailyJournalStore);
+                journalStore: _dailyJournalStore,
+                focusService: _focusSessionService);
+            var previews = new Dictionary<string, System.Windows.Media.ImageSource?>(StringComparer.Ordinal);
+            foreach (var character in manifest.FrameInventory?.Characters ?? new List<string>())
+            {
+                try
+                {
+                    previews[character] = new PetFrameCache(petPackageRoot, manifest, character)
+                        .GetFrame("idle", Direction8.Down, 0);
+                }
+                catch
+                {
+                    previews[character] = null;
+                }
+            }
+            fromXaml.SetPetCharacterPreviews(previews);
             fromXaml.CharacterChanged += character => _pet?.SetCharacter(character);
             fromXaml.AppearanceChanged += appearance =>
             {
                 _tool?.ApplyTheme(appearance.Theme);
                 _pet?.ApplyAppearancePreferences(appearance);
+            };
+            fromXaml.LowDistractionSettingsChanged += (appearance, focus) =>
+            {
+                _hidePetDuringFullscreen = appearance.HidePetDuringFullscreen;
+                _clickThroughDuringFocus = focus.ClickThroughPet;
+                ApplyFocusState(fromXaml.Todo.CurrentFocus);
+                if (!_hidePetDuringFullscreen) LeaveFullscreenSuppression();
+            };
+            fromXaml.Todo.FocusStateChanged += ApplyFocusState;
+            fromXaml.Todo.FocusCompleted += snapshot =>
+            {
+                _pet?.ShowFocusCompleted();
+                _tray?.ShowBalloon("专注完成", "本次专注记录已保存，可在每日复盘中查看。", ToolTipIcon.Info);
             };
             _homeVm = fromXaml;
             _homeVm.MaintenanceExitRequested += async (_, _) => await RequestShutdownAsync();
@@ -284,6 +352,9 @@ public partial class App : System.Windows.Application
         _tray.QuickTodoRequested += (_, _) => ShowQuickTodo();
         _tray.SettingsClicked += (_, _) => ShowSettings();
         _tray.AutostartClicked += (_, _) => ToggleAutostartFromTray();
+        _tray.FocusToggleRequested += (_, _) => ToggleFocusFromTray();
+        _tray.FocusEndRequested += (_, _) => RequestEndFocusFromTray();
+        _tray.RestorePetInteractionRequested += (_, _) => RestorePetInteractionForSession();
         _tray.HelpClicked += (_, _) =>
         {
             var result = HelpLauncher.OpenManual();
@@ -358,6 +429,15 @@ public partial class App : System.Windows.Application
 
         _pet.Show();
         _tray.SetPetVisible(true);
+        ApplyFocusState(_homeVm?.Todo.CurrentFocus ?? new FocusSessionSnapshot(null, 0, 0, 0));
+        if (_homeVm?.Todo is { ShowFocusResult: true, CurrentFocus.IsCompleted: true })
+        {
+            _pet.ShowFocusCompleted();
+            _tray.ShowBalloon("专注完成", "应用关闭期间计时已到，本次记录已保存。", ToolTipIcon.Info);
+        }
+        _fullscreenTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(500) };
+        _fullscreenTimer.Tick += (_, _) => PollForegroundFullscreen();
+        _fullscreenTimer.Start();
         if (isPreview)
         {
             Dispatcher.BeginInvoke(new Action(() =>
@@ -443,6 +523,8 @@ public partial class App : System.Windows.Application
 
     private void HidePet()
     {
+        _userPetHidden = true;
+        _petWasVisibleBeforeFullscreen = false;
         _tool?.HideToTray();
         _pet?.Hide();
         _tray?.SetPetVisible(false);
@@ -451,12 +533,16 @@ public partial class App : System.Windows.Application
     private void ShowPet()
     {
         if (_pet is null) return;
+        _userPetHidden = false;
+        _fullscreenPetSuppressed = false;
+        _petWasVisibleBeforeFullscreen = false;
         if (!_pet.IsVisible) _pet.Show();
         _tray?.SetPetVisible(true);
     }
 
     private void ShowSettings()
     {
+        RestorePetInteractionForSession();
         ShowToolWindow(showSettings: true);
     }
 
@@ -608,7 +694,127 @@ public partial class App : System.Windows.Application
         return new TrayState(
             _pet?.IsVisible == true,
             _tool?.IsVisible == true,
-            autostartEnabled);
+            autostartEnabled,
+            _homeVm?.Todo.IsFocusActive == true,
+            _homeVm?.Todo.IsFocusPaused == true,
+            _clickThroughActive);
+    }
+
+    private void ToggleFocusFromTray()
+    {
+        var todo = _homeVm?.Todo;
+        if (todo is null) return;
+        var command = todo.IsFocusPaused ? todo.ResumeFocusCommand : todo.PauseFocusCommand;
+        if (command.CanExecute(null)) command.Execute(null);
+    }
+
+    private void RequestEndFocusFromTray()
+    {
+        var todo = _homeVm?.Todo;
+        if (todo is null) return;
+        RestorePetInteractionForSession();
+        ShowTodoPage();
+        if (todo.RequestEndFocusCommand.CanExecute(null)) todo.RequestEndFocusCommand.Execute(null);
+    }
+
+    private void ApplyFocusState(FocusSessionSnapshot snapshot)
+    {
+        if (_pet is null) return;
+        if (snapshot.IsActive && !_focusWasActive) _clickThroughSuppressedForSession = false;
+        _focusWasActive = snapshot.IsActive;
+        _pet.SetQuietMode(snapshot.IsActive);
+        var shouldClickThrough = snapshot.IsActive
+            && _clickThroughDuringFocus
+            && !_clickThroughSuppressedForSession;
+        SetPetClickThroughSafely(shouldClickThrough);
+    }
+
+    private void RestorePetInteractionForSession()
+    {
+        _clickThroughSuppressedForSession = true;
+        SetPetClickThroughSafely(false);
+    }
+
+    private void SetPetClickThroughSafely(bool enabled)
+    {
+        if (_pet is null || _clickThroughActive == enabled) return;
+        try
+        {
+            WindowClickThrough.Set(_pet, enabled);
+            _clickThroughActive = enabled;
+        }
+        catch
+        {
+            _clickThroughActive = !enabled;
+            _clickThroughSuppressedForSession = true;
+            _tray?.ShowBalloon(
+                enabled ? "桌宠交互保持开启" : "桌宠交互恢复失败",
+                enabled
+                    ? "点击穿透未能应用，桌宠仍可正常操作。"
+                    : "点击穿透未能撤销，请再次使用托盘恢复入口或结束专注后重试。",
+                ToolTipIcon.Warning);
+        }
+    }
+
+    private void PollForegroundFullscreen()
+    {
+        if (_pet is null || _settingsStore is null) return;
+        if (!_hidePetDuringFullscreen)
+        {
+            _fullscreenMatchCount = 0;
+            _fullscreenMissCount = 0;
+            LeaveFullscreenSuppression();
+            return;
+        }
+
+        bool fullscreen;
+        try
+        {
+            var handle = new WindowInteropHelper(_pet).Handle;
+            fullscreen = ForegroundFullscreenDetector.IsForegroundFullscreenOnSameMonitor(handle);
+        }
+        catch
+        {
+            return;
+        }
+
+        if (fullscreen)
+        {
+            _fullscreenMatchCount++;
+            _fullscreenMissCount = 0;
+            if (_fullscreenMatchCount >= 2) EnterFullscreenSuppression();
+        }
+        else
+        {
+            _fullscreenMissCount++;
+            _fullscreenMatchCount = 0;
+            if (_fullscreenMissCount >= 2) LeaveFullscreenSuppression();
+        }
+    }
+
+    private void EnterFullscreenSuppression()
+    {
+        if (_fullscreenPetSuppressed || _pet is null) return;
+        _fullscreenPetSuppressed = true;
+        _petWasVisibleBeforeFullscreen = _pet.IsVisible && !_userPetHidden;
+        if (_pet.IsVisible)
+        {
+            _pet.Hide();
+            _tray?.SetPetVisible(false);
+        }
+    }
+
+    private void LeaveFullscreenSuppression()
+    {
+        if (!_fullscreenPetSuppressed || _pet is null) return;
+        var shouldRestore = _petWasVisibleBeforeFullscreen && !_userPetHidden;
+        _fullscreenPetSuppressed = false;
+        _petWasVisibleBeforeFullscreen = false;
+        if (shouldRestore)
+        {
+            _pet.Show();
+            _tray?.SetPetVisible(true);
+        }
     }
 
     private async Task RequestShutdownAsync()
@@ -618,6 +824,8 @@ public partial class App : System.Windows.Application
 
         _shutdownRequested = true;
         _notificationTimer?.Stop();
+        _fullscreenTimer?.Stop();
+        SetPetClickThroughSafely(false);
         _homeVm?.CancelBackgroundWork();
         _applicationIndexCts?.Cancel();
         _wakeCts?.Cancel();
@@ -673,6 +881,8 @@ public partial class App : System.Windows.Application
     {
         try { SystemEvents.TimeChanged -= OnSystemTimeChanged; } catch { }
         try { SystemEvents.PowerModeChanged -= OnPowerModeChanged; } catch { }
+        try { _fullscreenTimer?.Stop(); } catch { }
+        try { SetPetClickThroughSafely(false); } catch { }
         try { _tool?.AllowClose(); } catch { }
         try { _homeVm?.CancelBackgroundWork(); } catch { }
         try { _applicationIndexCts?.Cancel(); } catch { }
@@ -690,6 +900,7 @@ public partial class App : System.Windows.Application
     private async void OnSystemTimeChanged(object? sender, EventArgs e)
     {
         _reminderScheduler?.Reschedule();
+        ReconcileFocusClockSafely();
         await RefreshJournalDateSafelyAsync();
     }
 
@@ -697,7 +908,14 @@ public partial class App : System.Windows.Application
     {
         if (e.Mode != PowerModes.Resume) return;
         _reminderScheduler?.Reschedule();
+        ReconcileFocusClockSafely();
         await RefreshJournalDateSafelyAsync();
+    }
+
+    private void ReconcileFocusClockSafely()
+    {
+        try { _focusSessionService?.ReconcileWallClock(); }
+        catch { DebugLog("[Focus] clock reconciliation failed"); }
     }
 
     private async Task RefreshJournalDateSafelyAsync()

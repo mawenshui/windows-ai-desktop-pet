@@ -62,7 +62,7 @@ public static class DailyJournalProjector
 
 public static class DailyJournalMarkdownFormatter
 {
-    public static string Format(DailyJournalEntry entry)
+    public static string Format(DailyJournalEntry entry, FocusDailySummary? focusSummary = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
         var completed = entry.Snapshot.Count(item => item.IsCompleted);
@@ -73,6 +73,13 @@ public static class DailyJournalMarkdownFormatter
         builder.Append("- 已完成：").Append(completed).Append('\n');
         builder.Append("- 待处理：").Append(pending).Append('\n');
         builder.Append("- 已安排：").Append(planned).Append('\n').Append('\n');
+        if (focusSummary is not null)
+        {
+            builder.Append("## 专注陪伴\n\n");
+            builder.Append("- 完成次数：").Append(focusSummary.CompletedCount).Append('\n');
+            builder.Append("- 专注时长：").Append(focusSummary.TotalSeconds / 60).Append(" 分钟\n");
+            builder.Append("- 提前结束：").Append(focusSummary.EndedEarlyCount).Append(" 次\n\n");
+        }
         builder.Append("## 相关事项\n\n");
         if (entry.Snapshot.Count == 0)
         {
@@ -107,7 +114,7 @@ public static class DailyJournalMarkdownFormatter
 
 public static class DailyJournalMarkdownExporter
 {
-    public static void Export(string path, DailyJournalEntry entry)
+    public static void Export(string path, DailyJournalEntry entry, FocusDailySummary? focusSummary = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(entry);
@@ -121,7 +128,7 @@ public static class DailyJournalMarkdownExporter
         if (Directory.Exists(fullPath))
             throw new DailyJournalValidationException("复盘导出目标必须是文件。");
         RejectReparsePoints(fullPath);
-        RecoverableAtomicFile.WriteAllText(fullPath, DailyJournalMarkdownFormatter.Format(entry));
+        RecoverableAtomicFile.WriteAllText(fullPath, DailyJournalMarkdownFormatter.Format(entry, focusSummary));
     }
 
     private static void RejectReparsePoints(string fullPath)

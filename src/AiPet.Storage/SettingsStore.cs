@@ -8,7 +8,7 @@ namespace AiPet.Storage;
 public sealed class AppSettings
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 5;
+    public int SchemaVersion { get; set; } = 6;
 
     [JsonPropertyName("pet")]
     public PetSettings Pet { get; set; } = new();
@@ -27,6 +27,9 @@ public sealed class AppSettings
 
     [JsonPropertyName("appearance")]
     public AppearanceSettings Appearance { get; set; } = new();
+
+    [JsonPropertyName("focus")]
+    public FocusSettings Focus { get; set; } = new();
 
     [JsonPropertyName("features")]
     public FeatureSettings Features { get; set; } = new();
@@ -86,6 +89,14 @@ public sealed class AppearanceSettings
     public bool EnableBubbleAnimation { get; set; } = true;
     [JsonPropertyName("enableFollowMotion")]
     public bool EnableFollowMotion { get; set; } = true;
+    [JsonPropertyName("hidePetDuringFullscreen")]
+    public bool HidePetDuringFullscreen { get; set; }
+}
+
+public sealed class FocusSettings
+{
+    [JsonPropertyName("clickThroughPet")]
+    public bool ClickThroughPet { get; set; }
 }
 
 public sealed class FeatureSettings
@@ -239,13 +250,15 @@ public sealed class SettingsStore
             var text = File.ReadAllText(SettingsPath);
             var s = JsonSerializer.Deserialize<AppSettings>(text, Options);
             if (s is null) return Defaults();
-            if (s.SchemaVersion < 5)
+            if (s.SchemaVersion < 6)
             {
                 if (s.SchemaVersion < 3)
                     RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v3.bak", text);
                 if (s.SchemaVersion < 4)
                     RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v4.bak", text);
-                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v5.bak", text);
+                if (s.SchemaVersion < 5)
+                    RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v5.bak", text);
+                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v6.bak", text);
                 s = Normalize(s);
                 Save(s);
             }
@@ -291,11 +304,12 @@ public sealed class SettingsStore
 
     private static AppSettings Normalize(AppSettings settings)
     {
-        settings.SchemaVersion = 5;
+        settings.SchemaVersion = 6;
         settings.Pet ??= new PetSettings();
         settings.ToolWindow ??= new ToolWindowSettings();
         settings.Autostart ??= new AutostartSettings();
         settings.Appearance ??= new AppearanceSettings();
+        settings.Focus ??= new FocusSettings();
         settings.Features ??= new FeatureSettings();
         settings.Hotkeys ??= new HotkeySettings();
         settings.Backup ??= new BackupSettings();

@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Windows.Media;
 using AiPet.AI;
 using AiPet.Search;
 using AiPet.Secrets;
@@ -60,7 +61,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         IReadOnlyList<SearchRangeCandidateOption>? searchOnboardingCandidates = null,
         Func<DateTimeOffset>? todoNow = null,
         ISearchResultActions? searchResultActions = null,
-        DailyJournalStore? journalStore = null)
+        DailyJournalStore? journalStore = null,
+        FocusSessionService? focusService = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -87,7 +89,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         ReloadAi();
         ReloadAutostart();
         if (todoStore is not null && todoAiClient is not null)
-            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow, journalStore);
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow, journalStore, focusService);
     }
 
     public ObservableCollection<SearchItem> Results { get; } = new();
@@ -454,28 +456,72 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     public string NewRangePath { get => _newRangePath; set { _newRangePath = value; OnPC(); } }
 
     private string _selectedCharacter = "hero";
+    private bool _petCharacterPreviewsConfigured;
     public string SelectedCharacter
     {
         get => _selectedCharacter;
         set
         {
             if (_selectedCharacter == value || string.IsNullOrWhiteSpace(value)) return;
-            _selectedCharacter = value;
-            OnPC();
-            CharacterChanged?.Invoke(value);
-            Status = "桌宠形象已切换";
-            if (_settings is null) return;
+            var option = PetCharacters.FirstOrDefault(candidate => string.Equals(candidate.Id, value, StringComparison.Ordinal));
+            if (option is null || _petCharacterPreviewsConfigured && option.Preview is null)
+            {
+                OnPC();
+                Status = "该内置角色资源无法读取，已保留当前形象";
+                return;
+            }
+            if (_settings is null)
+            {
+                _selectedCharacter = value;
+                OnPC();
+                CharacterChanged?.Invoke(value);
+                return;
+            }
+            var previousCharacter = _selectedCharacter;
             try
             {
                 var settings = _settings.Load();
+                var previousPreference = settings.Pet.PreferredCharacter;
                 settings.Pet.PreferredCharacter = value;
                 _settings.Save(settings);
+                try
+                {
+                    CharacterChanged?.Invoke(value);
+                }
+                catch
+                {
+                    _selectedCharacter = previousCharacter;
+                    OnPC();
+                    try
+                    {
+                        settings = _settings.Load();
+                        settings.Pet.PreferredCharacter = previousPreference;
+                        _settings.Save(settings);
+                        Status = "桌宠形象切换失败；原形象和偏好均已恢复";
+                    }
+                    catch
+                    {
+                        Status = "桌宠形象切换失败，偏好回滚也未能写入；请检查数据目录后重启应用";
+                    }
+                    return;
+                }
+                _selectedCharacter = value;
+                OnPC();
+                Status = "桌宠形象已切换并保存";
             }
             catch
             {
-                Status = "桌宠形象已切换；偏好将在下次保存时重试";
+                OnPC();
+                Status = "桌宠形象切换失败；原形象和偏好均已保留";
             }
         }
+    }
+
+    public void SetPetCharacterPreviews(IReadOnlyDictionary<string, ImageSource?> previews)
+    {
+        _petCharacterPreviewsConfigured = true;
+        foreach (var option in PetCharacters)
+            option.Preview = previews.TryGetValue(option.Id, out var preview) ? preview : null;
     }
 
     public ICommand SearchCommand { get; private set; } = null!;
@@ -551,6 +597,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             RemoveRangeCommand, RetryRangeCommand, CancelRangeCommand, RefreshRangesCommand,
             ConfirmSearchOnboardingCommand, DeferSearchOnboardingCommand, OpenHelpCommand,
             SaveGlobalHotkeysCommand, SaveAutomaticBackupSettingsCommand,
+            SaveLowDistractionSettingsCommand,
             CreateAutomaticBackupNowCommand, OpenAutomaticBackupDirectoryCommand,
             SaveUpdateSettingsCommand, CheckForUpdatesCommand, DownloadUpdateCommand,
             RebuildContentIndexCommand, DisableContentSearchCommand,
@@ -1759,6 +1806,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     public event Action<ShortcutItem?>? RelocateShortcutRequested;
     public event Action<string>? CharacterChanged;
     public event Action<AppearanceSettings>? AppearanceChanged;
+    public event Action<AppearanceSettings, FocusSettings>? LowDistractionSettingsChanged;
     private void OnPC([CallerMemberName] string? n = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
     private void OnPCFor(string n) => OnPC(n);
@@ -1797,7 +1845,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         return path;
     }
 
-    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache | DataModule.Notifications | DataModule.ProviderPresets | DataModule.Journal)
+    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache | DataModule.Notifications | DataModule.ProviderPresets | DataModule.Journal | DataModule.FocusSessions)
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
         Maintenance.QueueRestore(source, modules);
@@ -1855,7 +1903,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         TodoStore? todoStore = null,
         ITodoAiClient? todoAiClient = null,
         Func<DateTimeOffset>? todoNow = null,
-        DailyJournalStore? journalStore = null)
+        DailyJournalStore? journalStore = null,
+        FocusSessionService? focusService = null)
     {
         _search = search;
         _shortcuts = shortcuts;
@@ -1897,7 +1946,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         ReloadAutostart();
         RaiseCommandStates();
         if (todoStore is not null && todoAiClient is not null)
-            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow, journalStore);
+            Todo.Attach(todoStore, todoAiClient, CreateTodoAiConnection, todoNow, journalStore, focusService);
     }
 
     private TodoAiConnection? CreateTodoAiConnection()
@@ -1928,7 +1977,25 @@ internal sealed record AiConfigurationSnapshot(
     string Model,
     string ApiKey);
 
-public sealed record PetCharacterOption(string Id, string DisplayName);
+public sealed class PetCharacterOption : INotifyPropertyChanged
+{
+    private ImageSource? _preview;
+    public PetCharacterOption(string id, string displayName) { Id = id; DisplayName = displayName; }
+    public string Id { get; }
+    public string DisplayName { get; }
+    public ImageSource? Preview
+    {
+        get => _preview;
+        internal set
+        {
+            if (ReferenceEquals(_preview, value)) return;
+            _preview = value;
+            PropertyChanged?.Invoke(this, new(nameof(Preview)));
+        }
+    }
+    public string LicenseText => "RGS · CC0-1.0";
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
 public sealed record AiConfigurationOption(string Id, string DisplayName);
 public sealed record SearchRangeCandidateOption(string DisplayName, string Path);
 public sealed record AppearanceOption(string Id, string DisplayName);

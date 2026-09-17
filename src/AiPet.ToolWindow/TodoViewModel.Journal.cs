@@ -33,6 +33,7 @@ public sealed partial class TodoViewModel
     private int _journalCompletedCount;
     private int _journalPendingCount;
     private int _journalPlannedCount;
+    private FocusDailySummary _journalFocusSummary = new(0, 0, 0);
 
     public IReadOnlyList<TodoPageModeOption> TodoPageModes { get; } = new[]
     {
@@ -72,7 +73,7 @@ public sealed partial class TodoViewModel
     public int JournalCompletedCount => _journalCompletedCount;
     public int JournalPendingCount => _journalPendingCount;
     public int JournalPlannedCount => _journalPlannedCount;
-    public string JournalSummaryText => $"已完成 {JournalCompletedCount} · 待处理 {JournalPendingCount} · 已安排 {JournalPlannedCount}";
+    public string JournalSummaryText => $"已完成 {JournalCompletedCount} · 待处理 {JournalPendingCount} · 已安排 {JournalPlannedCount} · 专注 {_journalFocusSummary.CompletedCount} 次 / {FormatFocusDuration(_journalFocusSummary.TotalSeconds)}";
     public string JournalSaveStatus
     {
         get => _journalSaveStatus;
@@ -176,7 +177,8 @@ public sealed partial class TodoViewModel
         {
             await SaveJournalNowAsync();
             var entry = BuildSelectedJournalEntry();
-            await Task.Run(() => DailyJournalMarkdownExporter.Export(path, entry));
+            var focusSummary = _focusService?.Summarize(_selectedJournalDate) ?? new FocusDailySummary(0, 0, 0);
+            await Task.Run(() => DailyJournalMarkdownExporter.Export(path, entry, focusSummary));
             JournalSaveStatus = "Markdown 已导出";
         }
         catch
@@ -250,11 +252,18 @@ public sealed partial class TodoViewModel
         _journalCompletedCount = projection.CompletedCount;
         _journalPendingCount = projection.PendingCount;
         _journalPlannedCount = projection.PlannedCount;
+        _journalFocusSummary = _focusService?.Summarize(_selectedJournalDate) ?? new FocusDailySummary(0, 0, 0);
         OnPropertyChanged(nameof(HasJournalItems));
         OnPropertyChanged(nameof(JournalCompletedCount));
         OnPropertyChanged(nameof(JournalPendingCount));
         OnPropertyChanged(nameof(JournalPlannedCount));
         OnPropertyChanged(nameof(JournalSummaryText));
+    }
+
+    private static string FormatFocusDuration(int totalSeconds)
+    {
+        var minutes = totalSeconds / 60;
+        return minutes >= 60 ? $"{minutes / 60} 小时 {minutes % 60} 分" : $"{minutes} 分";
     }
 
     private DailyJournalProjection ProjectJournal(DateOnly date) => DailyJournalProjector.Project(

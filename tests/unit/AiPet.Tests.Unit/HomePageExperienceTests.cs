@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -478,6 +479,93 @@ public sealed class HomePageExperienceTests : IDisposable
         Assert.Equal("本地数据备份完成（不含 API Key）。", vm.MaintenanceStatus);
         Assert.Equal(vm.MaintenanceStatus, vm.Status);
         Assert.DoesNotContain(destination, vm.MaintenanceStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Character_switch_does_not_apply_when_settings_transaction_fails()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "character-transaction"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "character-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings);
+        var applied = new List<string>();
+        vm.CharacterChanged += applied.Add;
+        Directory.CreateDirectory(settings.AppDataDir);
+        File.WriteAllText(settings.SettingsPath, "{ broken");
+
+        vm.SelectedCharacter = "monster";
+
+        Assert.Equal("hero", vm.SelectedCharacter);
+        Assert.Empty(applied);
+        Assert.Contains("失败", vm.Status, StringComparison.Ordinal);
+        Assert.Equal("{ broken", File.ReadAllText(settings.SettingsPath));
+    }
+
+    [Fact]
+    public void Character_switch_rolls_back_preference_when_runtime_apply_fails()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "character-runtime-failure"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "character-runtime-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings);
+        vm.CharacterChanged += _ => throw new InvalidDataException("fixture");
+
+        vm.SelectedCharacter = "monster";
+
+        Assert.Equal("hero", vm.SelectedCharacter);
+        Assert.Equal("hero", settings.Load().Pet.PreferredCharacter);
+        Assert.Contains("恢复", vm.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Character_with_missing_configured_preview_is_not_saved_or_applied()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "character-preview-failure"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "character-preview-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings);
+        var applied = new List<string>();
+        vm.CharacterChanged += applied.Add;
+        vm.SetPetCharacterPreviews(new Dictionary<string, System.Windows.Media.ImageSource?>());
+
+        vm.SelectedCharacter = "monster";
+
+        Assert.Equal("hero", vm.SelectedCharacter);
+        Assert.Equal("hero", settings.Load().Pet.PreferredCharacter);
+        Assert.Empty(applied);
+        Assert.Contains("无法读取", vm.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Low_distraction_draft_applies_only_after_explicit_save()
+    {
+        var settings = new SettingsStore(Path.Combine(_root, "quiet-settings"));
+        var vm = new HomeViewModel(
+            _search,
+            new ShortcutStore(Path.Combine(_root, "quiet-shortcuts")),
+            new OpenAiCompatibleClient(),
+            settings);
+        var applied = 0;
+        vm.LowDistractionSettingsChanged += (_, _) => applied++;
+
+        vm.HidePetDuringFullscreen = true;
+        vm.ClickThroughPetDuringFocus = true;
+        Assert.True(vm.HasUnsavedLowDistractionChanges);
+        Assert.False(settings.Load().Appearance.HidePetDuringFullscreen);
+        Assert.Equal(0, applied);
+
+        vm.SaveLowDistractionSettingsCommand.Execute(null);
+
+        Assert.False(vm.HasUnsavedLowDistractionChanges);
+        Assert.True(settings.Load().Appearance.HidePetDuringFullscreen);
+        Assert.True(settings.Load().Focus.ClickThroughPet);
+        Assert.Equal(1, applied);
     }
 
     private static async Task WaitUntilAsync(Func<bool> predicate)

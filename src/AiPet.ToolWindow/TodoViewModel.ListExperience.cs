@@ -71,7 +71,9 @@ public sealed partial class TodoViewModel
             OnPropertyChanged(nameof(HasSelectedTodo));
             OnPropertyChanged(nameof(SelectedTodoSummary));
             OnPropertyChanged(nameof(SelectedCompletionLabel));
+            OnPropertyChanged(nameof(FocusSelectedTodoHint));
             RaiseListExperienceCommands();
+            RaiseFocusCommands();
         }
     }
 

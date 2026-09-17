@@ -160,6 +160,22 @@ public sealed class HomePageLayoutTests
     }
 
     [Fact]
+    public void Focus_quiet_mode_and_character_cards_are_visible_keyboard_reachable_controls()
+    {
+        var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));
+
+        Assert.Contains("AutomationProperties.Name=\"专注陪伴\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding StartFocusCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ConfirmEndFocusCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding PetCharacters}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<UniformGrid Columns=\"2\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Source=\"{Binding Preview}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding HidePetDuringFullscreen, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding ClickThroughPetDuringFocus, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding SaveLowDistractionSettingsCommand}\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Update_settings_use_builtin_routes_without_professional_inputs()
     {
         var xaml = ReadProjectFile(Path.Combine("src", "AiPet.ToolWindow", "PetToolWindow.xaml"));

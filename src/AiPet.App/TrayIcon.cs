@@ -8,7 +8,10 @@ namespace AiPet.App;
 public sealed record TrayState(
     bool PetVisible,
     bool ToolWindowVisible,
-    bool AutostartEnabled);
+    bool AutostartEnabled,
+    bool FocusActive = false,
+    bool FocusPaused = false,
+    bool PetClickThrough = false);
 
 /// <summary>
 /// WinForms <see cref="NotifyIcon"/> wrapper. The context menu is refreshed
@@ -22,6 +25,9 @@ public sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _petVisibilityItem;
     private readonly ToolStripMenuItem _toolWindowItem;
     private readonly ToolStripMenuItem _autostartItem;
+    private readonly ToolStripMenuItem _focusToggleItem;
+    private readonly ToolStripMenuItem _focusEndItem;
+    private readonly ToolStripMenuItem _restorePetInteractionItem;
     private ToolStripMenuItem? _reminderActions;
     private readonly Icon _applicationIcon;
     private readonly Func<TrayState>? _stateProvider;
@@ -39,6 +45,9 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler? HelpClicked;
     public event EventHandler? ExitClicked;
     public event EventHandler? BalloonClicked;
+    public event EventHandler? FocusToggleRequested;
+    public event EventHandler? FocusEndRequested;
+    public event EventHandler? RestorePetInteractionRequested;
 
     public TrayIcon(Func<TrayState>? stateProvider = null)
     {
@@ -62,6 +71,16 @@ public sealed class TrayIcon : IDisposable
         var quickTodo = new ToolStripMenuItem("快速记待办") { Image = CreateMenuGlyph("todo") };
         quickTodo.Click += (_, _) => QuickTodoRequested?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(quickTodo);
+
+        _focusToggleItem = new ToolStripMenuItem("暂停专注") { Image = CreateMenuGlyph("startup"), Visible = false };
+        _focusToggleItem.Click += (_, _) => FocusToggleRequested?.Invoke(this, EventArgs.Empty);
+        _menu.Items.Add(_focusToggleItem);
+        _focusEndItem = new ToolStripMenuItem("结束专注…") { Image = CreateMenuGlyph("exit"), Visible = false };
+        _focusEndItem.Click += (_, _) => FocusEndRequested?.Invoke(this, EventArgs.Empty);
+        _menu.Items.Add(_focusEndItem);
+        _restorePetInteractionItem = new ToolStripMenuItem("恢复桌宠交互") { Image = CreateMenuGlyph("pet"), Visible = false };
+        _restorePetInteractionItem.Click += (_, _) => RestorePetInteractionRequested?.Invoke(this, EventArgs.Empty);
+        _menu.Items.Add(_restorePetInteractionItem);
         _menu.Items.Add(new ToolStripSeparator());
 
         var settings = new ToolStripMenuItem("设置") { Image = CreateMenuGlyph("settings") };
@@ -149,6 +168,10 @@ public sealed class TrayIcon : IDisposable
         _toolWindowItem.Checked = state.ToolWindowVisible;
         _toolWindowItem.Text = state.ToolWindowVisible ? "收起工具窗口" : "显示工具窗口";
         _autostartItem.Checked = state.AutostartEnabled;
+        _focusToggleItem.Visible = state.FocusActive;
+        _focusToggleItem.Text = state.FocusPaused ? "继续专注" : "暂停专注";
+        _focusEndItem.Visible = state.FocusActive;
+        _restorePetInteractionItem.Visible = state.PetClickThrough;
     }
 
     private void RestoreAfterExplorerRestart()

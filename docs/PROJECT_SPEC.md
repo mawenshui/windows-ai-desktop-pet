@@ -2,17 +2,19 @@
 
 | 属性 | 值 |
 | :--- | :--- |
-| 文档版本 | 2.6（2026-09-15 每日复盘与 Markdown 日志修订） |
-| 软件基线版本 | 0.24.0 |
-| 状态 | 生效；WPF/.NET 8 技术栈已落地，0.24.0 已正式发布 |
+| 文档版本 | 2.7（2026-09-17 正式版唯一发布通道修订） |
+| 软件基线版本 | 0.25.0 |
+| 状态 | 生效；WPF/.NET 8 技术栈已落地，0.25.0 源码实现待按发布证据确认正式发布状态 |
 | 适用范围 | 源码、测试、文档、构建、打包、版本、GitHub 与 AI 工具协作 |
-| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V3.4 |
+| 需求基线 | `docs/Windows桌面宠物产品需求文档_PRD.md` V3.5 |
 
 ## 1. 目的与适用原则
 
 本规范把 PRD 转换为可执行的项目级约束，供开发者、CI 和各类 AI 工具共同遵守。根目录 `AGENTS.md` 是统一操作入口，本文件提供更详细的工程约定。PRD 负责定义“做什么”，本规范负责定义“代码和资料放在哪里、如何验证、如何升级版本、如何打包和发布”。
 
-当前仓库已有 WPF/.NET 8 产品源码、CC0 RGS 桌宠、页内单选与四页工具窗、自动化测试，以及便携版和 Inno Setup 安装版。0.24.0 在 0.23.0 基线上把本地每日复盘作为待办页二级视图，新增 `journal.json` schema 1、待办只读投影、跨日冻结、500 ms 自动保存、逐日浏览/删除、显式 Markdown 导出和维护集成；不改变设置 schema 5、待办 schema 4、通知 schema 1、快捷入口 schema 1 或权限边界，不包含任何 Codex/Claude 等 Agent 状态指示。EXT-08 外部宠物包仍只在 tests/prototypes 评估。当前测试与产物见 CURRENT_STATUS.md，真实输入、性能、签名和物理环境仍需独立证据。
+当前仓库已有 WPF/.NET 8 产品源码、CC0 RGS 桌宠、页内单选与四页工具窗、自动化测试，以及便携版和 Inno Setup 安装版。0.25.0 在 0.24.0 基线上新增本地专注会话、专注期间低打扰桌宠、可恢复点击穿透、同屏全屏自动隐藏及四角色真实首帧卡片；设置升级为 schema 6，并新增 `focus-sessions.json` schema 1。Todo、通知、复盘和快捷入口 schema 保持不变，不增加第三方资源、网络上传、账号、遥测或权限。EXT-08 外部宠物包仍只在 tests/prototypes 评估。当前测试与产物见 CURRENT_STATUS.md，真实输入、性能、签名和物理环境仍需独立证据。
+
+本项目只设置正式版发布通道，不发布 Alpha、Beta、RC、Preview 或 GitHub Pre-release。设计和研发阶段使用“目标设计”“实现中”“待验收”等状态描述，不把未完成实现包装成可安装预览版；功能、测试、文档和发布门禁全部完成后，直接以普通 GitHub Release 发布对应 SemVer 正式版。正式版允许并要求同步发布可追溯源码、便携包、安装包和 SHA-256 清单。
 
 ## 2. 项目结构
 
@@ -73,7 +75,7 @@ windows-ai-desktop-pet/
 | `USER_MANUAL.md` | 用户可见操作和故障处理 | 可见行为、设置或安装方式变化 |
 | `TEST_PLAN.md` | 测试矩阵、环境、数据和覆盖关系 | 需求、架构或风险变化 |
 | `CHANGELOG.md` | 每个软件版本的用户可感知变更 | 每次版本升级 |
-| `RELEASE_NOTES_<version>.md` | 当次候选/Release 说明、升级注意、校验信息 | 每次发布或候选更新 |
+| `RELEASE_NOTES_<version>.md` | 当次正式 Release 说明、升级注意、校验信息 | 每次正式发布 |
 | `CURRENT_STATUS.md` | 代码证据、文档入口、验证边界 | 代码状态核对 |
 | `<version>－功能扩展计划.md` | 当版实施项、后续能力、依赖和验收标准 | 新版本规划或交付状态变化 |
 
@@ -85,7 +87,7 @@ windows-ai-desktop-pet/
 
 1. GUI 框架与受支持的 Windows 版本/架构。
 2. 宠物窗口、工具窗口、托盘、全局快捷键、设置、搜索、快捷项、AI 配置和通知调度的模块边界。
-3. 配置、自动备份、搜索缓存、快捷项、待办与提醒的数据模型及迁移策略。
+3. 配置、自动备份、搜索缓存、快捷项、待办、提醒、复盘与专注会话的数据模型及迁移策略。
 4. Windows 账户安全存储方案，确保 AI Key 不进入普通配置和日志；用户主动导出的完整配置包必须经口令加密和完整性认证。
 5. 搜索授权范围、索引/查询线程模型和取消机制。
 6. 便携版与安装版构建工具、签名方式、安装/升级/卸载策略。
@@ -138,6 +140,8 @@ pwsh -NoProfile -File scripts/test.ps1 -CI
 
 用户未指定时选择最小准确级别。每次进入 `main` 的完整交付都升级版本并更新 `CHANGELOG.md`；尚未合并的 WIP 不提前占用版本。版本升级脚本示例：
 
+版本设计文档可以先用目标 SemVer 命名和冻结范围。正式范围实现并完成第一次全量测试后，按开发流程运行版本升级脚本，再使用该版本同步文档、复测和生成正式候选资产；版本号变化本身不代表已经发布。全部发布门禁通过前不得创建标签、GitHub Release 或对外预览资产，公开版本号也不附加 `-alpha`、`-beta`、`-rc`、`-preview` 等预发布标识。
+
 ```powershell
 pwsh -NoProfile -File scripts/bump-version.ps1 -Part Patch -Summary "Describe the release"
 ```
@@ -162,13 +166,15 @@ dist/checksums/SHA256SUMS.txt
 
 ## 9. GitHub 与 Release 流程
 
+GitHub 只发布正式版本。研发期间可以在本地或普通开发提交中保存设计和实现进度，但不得创建 GitHub Pre-release、预览安装包、预发布标签或对外宣称版本可用。通过门禁后，源码提交、便携版、安装版和校验和均可发布到 GitHub，并在同一普通 Release 中保持一一对应；仓库可见性继续遵守维护者设置，不因发布流程自动改为公开。
+
 1. 从 `GITHUB_TOKEN` 或 `GH_TOKEN` 获取凭据，Token 不得出现在命令输出、remote URL、配置或提交中。
 2. 运行完整测试并保持工作区干净。
 3. 升级版本、更新全部文档和 Release notes。
 4. 生成并测试两个分发版本和校验和。
 5. 使用英文 Conventional Commit，推送 `main`。
 6. 创建并推送带注释标签 `v<version>`。
-7. 创建同名 GitHub Release，使用 UTF-8 notes 文件上传说明。
+7. 创建同名普通 GitHub Release，明确关闭 Pre-release 标记，并使用 UTF-8 notes 文件上传说明。
 8. 上传便携版、安装版和 `SHA256SUMS.txt`，重新下载并校验哈希。
 9. 验证仓库默认分支、Release 页面和资产 URL，再宣布完成。
 
@@ -191,8 +197,8 @@ dist/checksums/SHA256SUMS.txt
 
 ## 11. 基线状态与当前完成条件
 
-2026-09-17 按 JOURNAL-01～08 完成待办页复盘二级视图、本地投影、独立原子存储、修订保护、跨日快照、历史浏览/编辑/删除、UTF-8 Markdown 导出和备份恢复集成，并将 0.23.0 升为 MINOR 0.24.0。能力证据、最终测试和产物状态见 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
+2026-09-17 按 FOCUS-01～09、QUIET-01～08 与 CHAR-01～06 完成专注会话、低打扰协调、全屏检测、点击穿透恢复和四角色首帧卡片，并将源码版本由 0.24.0 升为 MINOR 0.25.0。能力证据、最终测试和产物状态见 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
 
-0.24.0 已从干净源码提交生成便携版和安装版并正式发布；0.1.0～0.24.0 共 34 个 GitHub Release 已统一为正式版。维护者明确要求的历史正式化不改变当时证据：真实桌面、性能、物理矩阵和签名仍按 PASS、FAIL 或 SKIP 分别记录，不能由 Release 状态反推通过。
+0.24.0 及以前版本的历史 Release 与证据保持原状。0.25.0 只允许创建普通正式 Release，不创建 Alpha、Beta、RC、Preview 或 GitHub Pre-release；源码、两个安装资产与校验和可以在所有门禁满足后发布到 GitHub。真实桌面、性能、物理矩阵和签名仍按 PASS、FAIL 或 SKIP 分别记录，不能由版本号或 Release 状态反推通过。
 
-当前扩展计划入口为 [0.24.0－功能扩展计划](0.24.0－功能扩展计划.md)，详细决策见 [FocuSD 参考：每日复盘与 Markdown 日志](FocuSD参考－每日复盘与Markdown日志功能建议.md)；历史计划和 RFC 不代表当前排期。实施结果见 [本次报告](release/0.24.0-test-report.md)。
+当前设计与实施入口为 [0.25.0：专注陪伴、低打扰与内置角色库设计](0.25.0－专注陪伴、低打扰与角色库设计.md)，历史计划和 RFC 不代表当前排期。正式发布结果以 [0.25.0 验证报告](release/0.25.0-test-report.md) 和 [GitHub Release 状态](release/GITHUB_RELEASE_STATUS.md) 为准。

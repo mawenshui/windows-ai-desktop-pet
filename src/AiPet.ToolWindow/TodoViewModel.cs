@@ -148,10 +148,11 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         ITodoAiClient todoAiClient,
         Func<TodoAiConnection?> connectionProvider,
         Func<DateTimeOffset>? now = null,
-        DailyJournalStore? journalStore = null)
+        DailyJournalStore? journalStore = null,
+        FocusSessionService? focusService = null)
         : this()
     {
-        Attach(store, todoAiClient, connectionProvider, now, journalStore);
+        Attach(store, todoAiClient, connectionProvider, now, journalStore, focusService);
     }
 
     public ObservableCollection<TodoRowViewModel> Items { get; } = new();
@@ -564,7 +565,8 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         ITodoAiClient todoAiClient,
         Func<TodoAiConnection?> connectionProvider,
         Func<DateTimeOffset>? now = null,
-        DailyJournalStore? journalStore = null)
+        DailyJournalStore? journalStore = null,
+        FocusSessionService? focusService = null)
     {
         _store = store;
         _todoAiClient = todoAiClient;
@@ -572,6 +574,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         _connectionProvider = connectionProvider;
         _now = now ?? _defaultNow;
         AttachJournal(journalStore ?? new DailyJournalStore(Path.GetDirectoryName(store.TodoPath), _now));
+        AttachFocus(focusService ?? new FocusSessionService(new FocusSessionStore(Path.GetDirectoryName(store.TodoPath))));
         Reload();
         RaiseAllCommands();
     }
@@ -657,6 +660,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         InitializeTodayPlanCommands();
         InitializeNotificationCommands();
         InitializeJournalCommands();
+        InitializeFocusCommands();
     }
 
     private void Reload()
@@ -1005,6 +1009,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         _aiParseCts?.Cancel();
         CancelTodayPlanWork();
         CancelJournalBackgroundWork();
+        CancelFocusWork();
     }
 
     public async Task WaitForBackgroundWorkAsync(TimeSpan timeout)
@@ -1489,6 +1494,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         RaiseTodayPlanCommands();
         RaiseListExperienceCommands();
         RaiseNotificationCommands();
+        RaiseFocusCommands();
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

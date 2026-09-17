@@ -705,6 +705,41 @@ public sealed class TodoViewModelTests : IDisposable
         Assert.Contains("待办未受影响", vm.JournalSaveStatus, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Focus_controls_link_selected_todo_require_confirmation_and_never_auto_complete_it()
+    {
+        var root = Path.Combine(_root, "focus-vm");
+        var clock = _now;
+        long ticks = 0;
+        var store = new TodoStore(root, () => clock);
+        var todo = store.Create(new TodoItem { Title = "写版本说明" });
+        var focus = new FocusSessionService(new FocusSessionStore(root), () => clock, () => ticks, 1);
+        var vm = new TodoViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
+            () => new TodoAiConnection("https://example.test", "model", "key"), () => clock, focusService: focus);
+        vm.SelectedTodo = Assert.Single(vm.Items);
+
+        vm.UseSelectedTodoForFocusCommand.Execute(null);
+        vm.FocusDurationMinutes = "15";
+        vm.StartFocusCommand.Execute(null);
+        Assert.True(vm.IsFocusRunning);
+        Assert.Contains(todo.Title, vm.FocusAssociationText, StringComparison.Ordinal);
+
+        ticks = 90;
+        vm.PauseFocusCommand.Execute(null);
+        Assert.True(vm.IsFocusPaused);
+        Assert.Equal("13:30", vm.FocusRemainingText);
+        vm.RequestEndFocusCommand.Execute(null);
+        Assert.True(vm.ShowFocusEndConfirmation);
+        vm.ConfirmEndFocusCommand.Execute(null);
+
+        Assert.True(vm.ShowFocusResult);
+        Assert.Equal(TodoStatus.Pending, Assert.Single(store.Load()).Status);
+        Assert.True(vm.CompleteFocusTodoCommand.CanExecute(null));
+        vm.CompleteFocusTodoCommand.Execute(null);
+        Assert.Equal(TodoStatus.Completed, Assert.Single(store.Load()).Status);
+        vm.CancelBackgroundWork();
+    }
+
     private TodoViewModel CreateViewModel(TodoStore store, ITodoAiClient ai) =>
         new(store, ai, () => new TodoAiConnection(
             "https://example.test",

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -24,6 +25,7 @@ public partial class PetWindow : Window
     private bool _enableRoaming = true;
     private bool _enableBubbleAnimation = true;
     private bool _enableFollowMotion = true;
+    private bool _quietMode;
 
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _directionTimer;
@@ -136,7 +138,7 @@ public partial class PetWindow : Window
         {
             Interval = TimeSpan.FromMilliseconds(HeadFollowIntervalMs)
         };
-        _directionTimer.Tick += (_, _) => { if (_enableFollowMotion) UpdateHeadDirectionFromMouse(); };
+        _directionTimer.Tick += (_, _) => { if (_enableFollowMotion && !_quietMode) UpdateHeadDirectionFromMouse(); };
         _directionTimer.Start();
 
         _bubbleTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -265,7 +267,7 @@ public partial class PetWindow : Window
             VisualPositionChanged?.Invoke(this, EventArgs.Empty);
             PersistPosition();
             SetLoopingAction("idle");
-            _directionTimer.Start();
+            if (!_quietMode && _enableFollowMotion) _directionTimer.Start();
             ShowBubble("就待在这里啦", autoHide: true);
         }
         else if (releaseAction != PetPointerReleaseAction.None)
@@ -344,16 +346,28 @@ public partial class PetWindow : Window
 
     public void SetCharacter(string character)
     {
-        _frames.SetCharacter(character);
-        _currentAction = "idle";
-        _currentFrame = 0;
-        _playOnce = false;
-        RenderFrame();
+        var previous = _frames.Character;
+        try
+        {
+            _frames.SetCharacter(character);
+            if (_frames.GetFrame("idle", Direction8.Down, 0) is null)
+                throw new InvalidDataException("角色首帧无法读取。");
+            _currentAction = "idle";
+            _currentFrame = 0;
+            _playOnce = false;
+            RenderFrame();
+        }
+        catch
+        {
+            _frames.SetCharacter(previous);
+            _currentAction = "idle";
+            _currentFrame = 0;
+            _playOnce = false;
+            RenderFrame();
+            throw;
+        }
 
-        var settings = _settings.Load();
-        settings.Pet.PreferredCharacter = character;
-        _settings.Save(settings);
-        ShowBubble("新造型准备好了", autoHide: true);
+        if (!_quietMode) ShowBubble("新造型准备好了", autoHide: true);
     }
 
     public string CurrentCharacter => _frames.Character;
@@ -394,7 +408,7 @@ public partial class PetWindow : Window
         // Respect Windows' reduced-motion preference. The bubble remains a
         // useful reminder even when movement is disabled by accessibility
         // settings.
-        if (roam && _enableRoaming && SystemParameters.ClientAreaAnimation)
+        if (roam && !_quietMode && _enableRoaming && SystemParameters.ClientAreaAnimation)
             StartRoam();
     }
 
@@ -536,13 +550,14 @@ public partial class PetWindow : Window
     private void ScheduleNextIdleBehavior()
     {
         _idleBehaviorTimer.Stop();
+        if (_quietMode) return;
         _idleBehaviorTimer.Interval = PetIdleBehaviorPolicy.NextDelay(_random.Next());
         _idleBehaviorTimer.Start();
     }
 
     private void TryRunIdleBehavior()
     {
-        if (!IsVisible || _isDragging || _isRoaming || _companionWindowVisible || IsMouseOver)
+        if (_quietMode || !IsVisible || _isDragging || _isRoaming || _companionWindowVisible || IsMouseOver)
             return;
         if (DateTime.UtcNow - _lastUserInteractionUtc < TimeSpan.FromSeconds(12))
             return;
@@ -598,7 +613,34 @@ public partial class PetWindow : Window
         _enableBubbleAnimation = settings.EnableBubbleAnimation;
         _enableFollowMotion = settings.EnableFollowMotion;
         if (!_enableRoaming) CancelRoam();
-        if (!_enableFollowMotion) { _currentDirection = Direction8.Down; RenderFrame(); }
+        if (!_enableFollowMotion || _quietMode) { _directionTimer.Stop(); _currentDirection = Direction8.Down; RenderFrame(); }
+        else if (IsLoaded) _directionTimer.Start();
+    }
+
+    public void SetQuietMode(bool enabled)
+    {
+        if (_quietMode == enabled) return;
+        _quietMode = enabled;
+        if (enabled)
+        {
+            CancelRoam();
+            _idleBehaviorTimer.Stop();
+            _directionTimer.Stop();
+            if (!_reminderBubbleActive) HideBubble();
+            _currentDirection = Direction8.Down;
+            SetLoopingAction("idle");
+            RenderFrame();
+            return;
+        }
+
+        if (_enableFollowMotion) _directionTimer.Start();
+        ScheduleNextIdleBehavior();
+    }
+
+    public void ShowFocusCompleted()
+    {
+        if (SystemParameters.ClientAreaAnimation) TriggerOneShot("jump", "idle");
+        ShowBubble("本次专注完成", autoHide: true, TimeSpan.FromSeconds(4), isReminder: false);
     }
 
     private void AdvanceRoam()
@@ -629,7 +671,7 @@ public partial class PetWindow : Window
         _roamStopwatch.Stop();
         _currentDirection = Direction8.Down;
         SetLoopingAction("idle");
-        _directionTimer.Start();
+        if (!_quietMode && _enableFollowMotion) _directionTimer.Start();
         if (persistPosition) PersistPosition();
         VisualPositionChanged?.Invoke(this, EventArgs.Empty);
     }

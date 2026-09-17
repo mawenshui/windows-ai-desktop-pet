@@ -63,10 +63,16 @@ public partial class PetToolWindow : Window
     }
 
     public event EventHandler? WindowPreferencesChanged;
+    public event EventHandler? SettingsOpened;
 
     public PetToolWindow()
     {
         InitializeComponent();
+        ShellTabs.SelectionChanged += (_, args) =>
+        {
+            if (ReferenceEquals(args.OriginalSource, ShellTabs) && ShellTabs.SelectedIndex == 3)
+                SettingsOpened?.Invoke(this, EventArgs.Empty);
+        };
         DataContext = FindResource("HomeVM");
         DataContextChanged += OnDataContextChanged;
 

@@ -91,6 +91,7 @@ public sealed partial class HomeViewModel
             async _ => await CreateAutomaticBackupNowAsync(),
             _ => _settings is not null && !_isCreatingAutomaticBackup);
         OpenAutomaticBackupDirectoryCommand = new RelayCommand(_ => OpenAutomaticBackupDirectory(), _ => _settings is not null);
+        InitializeLowDistractionCommands();
         InitializeUpdateCommands();
     }
 
@@ -101,6 +102,7 @@ public sealed partial class HomeViewModel
         _quickTodoHotkeyGesture = settings.Hotkeys.QuickTodoGesture;
         _automaticBackupEnabled = settings.Backup.AutomaticEnabled;
         _automaticBackupRetentionText = settings.Backup.RetentionCount.ToString();
+        LoadLowDistractionSettings(settings);
         CaptureSavedGlobalHotkeySettings();
         CaptureSavedAutomaticBackupSettings();
         LoadUpdateSettings(settings);

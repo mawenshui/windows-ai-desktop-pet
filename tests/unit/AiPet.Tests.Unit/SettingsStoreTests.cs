@@ -31,7 +31,9 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal(536, loaded.ToolWindow.Height);
         Assert.False(loaded.ToolWindow.StayOpen);
         Assert.True(loaded.ToolWindow.AlwaysOnTop);
-        Assert.Equal(5, loaded.SchemaVersion);
+        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.False(loaded.Appearance.HidePetDuringFullscreen);
+        Assert.False(loaded.Focus.ClickThroughPet);
         Assert.True(loaded.Hotkeys.Enabled);
         Assert.Equal("Ctrl+Alt+Space", loaded.Hotkeys.SearchGesture);
         Assert.Equal("Ctrl+Alt+T", loaded.Hotkeys.QuickTodoGesture);
@@ -138,43 +140,61 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("qwen", profile.ProviderId);
         Assert.Equal("qwen-plus", profile.Model);
         Assert.Equal("legacy", loaded.Ai.ActiveProfileId);
-        Assert.Equal(5, loaded.SchemaVersion);
+        Assert.Equal(6, loaded.SchemaVersion);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
         Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
     }
 
     [Fact]
-    public void Schema_v3_upgrades_to_v5_with_new_defaults_and_migration_backups()
+    public void Schema_v3_upgrades_to_v6_with_new_defaults_and_migration_backups()
     {
         var store = new SettingsStore(_root);
         File.WriteAllText(store.SettingsPath, "{\"schemaVersion\":3,\"pet\":{\"preferredCharacter\":\"base\"}}");
 
         var loaded = store.Load();
 
-        Assert.Equal(5, loaded.SchemaVersion);
+        Assert.Equal(6, loaded.SchemaVersion);
         Assert.Equal("base", loaded.Pet.PreferredCharacter);
         Assert.True(loaded.Hotkeys.Enabled);
         Assert.True(loaded.Backup.AutomaticEnabled);
         Assert.Equal(7, loaded.Backup.RetentionCount);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
         Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
         Assert.False(File.Exists(store.SettingsPath + ".pre-v3.bak"));
     }
 
     [Fact]
-    public void Schema_v4_adds_update_defaults_and_preserves_a_pre_v5_backup()
+    public void Schema_v4_adds_current_defaults_and_preserves_migration_backups()
     {
         var store = new SettingsStore(_root);
         File.WriteAllText(store.SettingsPath, "{\"schemaVersion\":4,\"backup\":{\"retentionCount\":9}}");
 
         var loaded = store.Load();
 
-        Assert.Equal(5, loaded.SchemaVersion);
+        Assert.Equal(6, loaded.SchemaVersion);
         Assert.Equal(9, loaded.Backup.RetentionCount);
         Assert.False(loaded.Updates.PeriodicEnabled);
         Assert.Equal(24, loaded.Updates.IntervalHours);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
         Assert.False(File.Exists(store.SettingsPath + ".pre-v4.bak"));
+    }
+
+    [Fact]
+    public void Schema_v5_adds_low_distraction_defaults_and_preserves_backup()
+    {
+        var store = new SettingsStore(_root);
+        File.WriteAllText(store.SettingsPath, "{\"schemaVersion\":5,\"appearance\":{\"hidePetDuringFullscreen\":true}}");
+
+        var loaded = store.Load();
+
+        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.True(loaded.Appearance.HidePetDuringFullscreen);
+        Assert.False(loaded.Focus.ClickThroughPet);
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
+        Assert.False(File.Exists(store.SettingsPath + ".pre-v5.bak"));
     }
 
     [Theory]

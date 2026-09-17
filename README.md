@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **0.24.0**，于 **2026-09-17** 发布为正式版；本版按 JOURNAL-01～08 增加本地每日复盘与 Markdown 日志。GitHub 已补齐并整理 0.1.0～0.24.0 共 34 个正式 Release，标题和更新说明统一使用 UTF-8 中文。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.25.0**；本版按 FOCUS、QUIET、CHAR 需求增加专注陪伴、低打扰桌宠和内置角色卡。项目不发布预览版，0.25.0 是否已经正式发布以当次验证报告和 GitHub Release 为准。
 
 ## 当前能力
 
@@ -18,6 +18,10 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **
 - 待办使用原生单选列表与统一操作带，支持方向键/Home/End、Enter/F2 编辑、`Ctrl+Enter` 完成或恢复、Delete 可撤销删除；选择摘要与紧迫度均有非颜色文字和可访问名称。
 - 待办编辑器提供今天/明天截止、30 分钟后/明天提醒、清除快捷动作，显示 200/4000 长度计数与实时有效性；空状态提供上下文操作，手动写操作仍共用可并发校验的最近一次撤销。
 - 待办页提供“清单 / 复盘”二级视图：从本地待办计算当天摘要和只读标题，4,000 字正文在停止输入 500 ms 后自动保存，跨日冻结历史快照，可逐日浏览、明确编辑或只删除复盘。
+- 待办页提供“专注陪伴”：15/25/50 分钟快捷时长或 5～180 分钟自定义时长，可关联当前未完成待办，支持暂停、继续、提前结束和到时后另行完成关联待办。
+- 专注运行或暂停时桌宠停止自主漫游、随机气泡和朝向跟随；可选让桌宠点击穿透，并可从托盘立即恢复交互。正式提醒仍可显示。
+- 可选在其他应用覆盖桌宠所在显示器时自动隐藏桌宠；最大化窗口、本应用窗口、最小化或不可见窗口不会触发，退出全屏不会覆盖用户手动隐藏。
+- 四个 RGS 内置角色在设置中使用真实首帧卡片，包含中文名、选中状态、CC0-1.0 信息和本地许可入口；保存失败或资源异常不会切成空白角色。
 - 单日复盘可由用户显式导出为 UTF-8 无 BOM、LF 的 `YYYY-MM-DD.md`；不会默认写 Documents、授权搜索目录或把内容发送给 AI，也不包含任何 Codex/Claude 等 Agent 状态指示。
 - 持久化提醒中心支持标题本地查找、待处理/历史/全部计数、处理优先/最近记录排序、原生单选与统一操作带；可用 Enter/F2 查看详情、`Ctrl+Enter` 完成、`Ctrl+Shift+Enter` 稍后，静默时段有草稿、实时校验和夜间/午休/关闭预设；“已提交”不代表“已看到”。
 - 多组 AI 配置、模型列表内容验证、主动最小草稿生成验证/取消；完整配置包可加密迁移全部配置、当前项、自定义 Provider 预设和 API Key，导入后直接启用，同时保留无 Key 兼容迁移。
@@ -30,7 +34,7 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前软件版本 **
 - 每次正式启动检查一次固定公开仓库的稳定 GitHub Release；可选 1～168 小时周期检查，官方元数据不畅时自动切换内置 API 线路，安装器按三条内置线路与官方地址逐级恢复。用户无需填写代理模板或 Token；临时失败保留已发现版本，下载须通过 Release digest（存在时）与 SHA-256 清单并由用户确认安装。
 - 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，自动避让未选事项的既有安排，再逐项确认、整批原子写入并撤销最近一批。
 
-外部 2D 角色包导入仍只有隔离试验工程；PDF/Office 正文、OCR、语义检索、云同步、通用聊天、3D 和商城未接入。见[当前状态](docs/CURRENT_STATUS.md)、[实施顺序与剩余验收](docs/0.24.0－功能扩展计划.md)及[每日复盘设计与参考](docs/FocuSD参考－每日复盘与Markdown日志功能建议.md)。
+外部 2D 角色包导入仍只有隔离试验工程；PDF/Office 正文、OCR、语义检索、云同步、通用聊天、3D 和商城未接入。见[当前状态](docs/CURRENT_STATUS.md)及[0.25.0 设计与验收](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)。
 
 ## 使用与开发
 
@@ -47,14 +51,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.24.0 已从干净提交 `2a1f8b1` 完成 349/349 全量自动化、正式打包、哈希复核、系统边界和便携/安装/卸载烟测；真实复盘前台 UI 与强制性能因当前桌面不能置前应用而未完成，签名和完整物理矩阵仍待验收。详情以[0.24.0 验证报告](docs/release/0.24.0-test-report.md)和[Release 清单](docs/release/GITHUB_RELEASE_STATUS.md)为准。
+0.25.0 的源码与自动化状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测、签名、真实桌面和物理矩阵逐项见[0.25.0 验证报告](docs/release/0.25.0-test-report.md)。任一 FAIL/SKIP 都不会被版本号或历史发布记录改写为 PASS。
 
 常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。本次按维护者明确要求完成全部历史版本正式化；这项发布决定不把 UI、性能、签名或硬件的 FAIL/SKIP 改写为 PASS。
 
 ## 文档与发布产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.24.0 正式版说明](docs/RELEASE_NOTES_0.24.0.md) · [验证报告](docs/release/0.24.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [扩展计划](docs/0.24.0－功能扩展计划.md) · [每日复盘设计与参考](docs/FocuSD参考－每日复盘与Markdown日志功能建议.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.25.0 版本说明](docs/RELEASE_NOTES_0.25.0.md) · [验证报告](docs/release/0.25.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.25.0 设计](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)
 
-0.24.0 正式资产来自干净提交：便携 ZIP SHA-256 `3cc1b70d…83a7686`，安装器 SHA-256 `a1551cb7…25c1c84`，完整值见 `dist/checksums/SHA256SUMS.txt`。资产未进行 Authenticode 签名；历史版本的实际资产、缺失项和追溯边界见 Release 清单。
+0.25.0 的资产哈希只在从正式提交打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

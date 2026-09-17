@@ -41,7 +41,7 @@ public sealed partial class DataMaintenanceService
             DeleteTree(WorkRoot);
             DeleteTree(Path.Combine(_root,"automatic-backups"));
             foreach(var filename in ModulePaths.Values.Where(name=>name.EndsWith(".json",StringComparison.Ordinal)))
-            foreach(var suffix in new[]{".previous",".pre-v3.bak",".pre-v3.bak.previous",".pre-v4.bak",".pre-v4.bak.previous",".pre-v5.bak",".pre-v5.bak.previous"}) DeleteTree(Path.Combine(_root,filename+suffix));
+            foreach(var suffix in new[]{".previous",".pre-v3.bak",".pre-v3.bak.previous",".pre-v4.bak",".pre-v4.bak.previous",".pre-v5.bak",".pre-v5.bak.previous",".pre-v6.bak",".pre-v6.bak.previous"}) DeleteTree(Path.Combine(_root,filename+suffix));
         }
         catch { errors.Add("cleanup_backups_failed"); }
         return new(result.Completed,errors);

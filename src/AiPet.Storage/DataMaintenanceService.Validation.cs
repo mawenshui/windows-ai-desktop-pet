@@ -56,8 +56,11 @@ public sealed partial class DataMaintenanceService
         }
         if(name=="settings.json")
         {
-            foreach(var module in new[] {"pet","search","toolWindow","ai","appearance","features","autostart","hotkeys","backup","updates"})
+            foreach(var module in new[] {"pet","search","toolWindow","ai","appearance","focus","features","autostart","hotkeys","backup","updates"})
                 if(root.TryGetProperty(module,out var value)) Require(value.ValueKind==JsonValueKind.Object);
+            if(root.TryGetProperty("appearance",out var appearance))
+                Require(Boolean(appearance,"enablePetRoaming") && Boolean(appearance,"enableBubbleAnimation") && Boolean(appearance,"enableFollowMotion") && Boolean(appearance,"hidePetDuringFullscreen"));
+            if(root.TryGetProperty("focus",out var focus)) Require(Boolean(focus,"clickThroughPet"));
             if(root.TryGetProperty("search",out var search) && search.TryGetProperty("ranges",out var ranges)) Require(ranges.ValueKind==JsonValueKind.Array && ranges.GetArrayLength()<=1000 && ranges.EnumerateArray().All(range=>range.ValueKind==JsonValueKind.String && !string.IsNullOrWhiteSpace(range.GetString())));
             if(root.TryGetProperty("ai",out var ai) && ai.TryGetProperty("profiles",out var profiles))
                 Require(profiles.ValueKind==JsonValueKind.Array && profiles.GetArrayLength()<=100 && profiles.EnumerateArray().All(profile=>profile.ValueKind==JsonValueKind.Object && Text(profile,"id",100,true) && Text(profile,"displayName",100,true) && Text(profile,"endpoint",2048,true) && Text(profile,"model",200,true)));
@@ -99,6 +102,39 @@ public sealed partial class DataMaintenanceService
                     Require(Date(item,"relevantAt"));
                 }
             }
+        }
+        if(name=="focus-sessions.json")
+        {
+            Require(root.TryGetProperty("revision",out var revision) && revision.TryGetInt64(out var revisionNumber) && revisionNumber>=0);
+            Require(root.TryGetProperty("lastDurationMinutes",out var duration) && duration.TryGetInt32(out var durationMinutes) && durationMinutes is >=5 and <=180);
+            Require(root.TryGetProperty("sessions",out var sessions) && sessions.ValueKind==JsonValueKind.Array && sessions.GetArrayLength()<=10000);
+            var ids=new HashSet<Guid>();
+            var activeIds=new HashSet<Guid>();
+            foreach(var session in sessions.EnumerateArray())
+            {
+                Require(session.ValueKind==JsonValueKind.Object);
+                Require(session.TryGetProperty("id",out var id) && id.TryGetGuid(out var guid) && guid!=Guid.Empty && ids.Add(guid));
+                if(session.TryGetProperty("todoId",out var todoId)) Require(todoId.ValueKind==JsonValueKind.Null || todoId.TryGetGuid(out var todoGuid) && todoGuid!=Guid.Empty);
+                Require(session.TryGetProperty("status",out _) && EnumValue(session,"status",new[]{"Running","Paused","Completed","EndedEarly"}));
+                Require(session.TryGetProperty("plannedSeconds",out var planned) && planned.TryGetInt32(out _));
+                var plannedSeconds=planned.GetInt32();
+                Require(plannedSeconds is >=300 and <=10800);
+                Require(session.TryGetProperty("accumulatedSeconds",out var accumulated) && accumulated.TryGetInt32(out var accumulatedSeconds) && accumulatedSeconds>=0 && accumulatedSeconds<=plannedSeconds);
+                Require(session.TryGetProperty("startedAt",out var startedAt) && startedAt.ValueKind==JsonValueKind.String && startedAt.TryGetDateTimeOffset(out _));
+                Require(Date(session,"lastResumedAt") && Date(session,"endedAt"));
+                var status=session.GetProperty("status").ToString();
+                var running=status is "Running" or "0";
+                var paused=status is "Paused" or "1";
+                var terminal=status is "Completed" or "EndedEarly" or "2" or "3";
+                var hasLastResumed=session.TryGetProperty("lastResumedAt",out var lastResumedAt) && lastResumedAt.ValueKind!=JsonValueKind.Null;
+                var hasEnded=session.TryGetProperty("endedAt",out var endedAt) && endedAt.ValueKind!=JsonValueKind.Null;
+                Require(running ? hasLastResumed && !hasEnded : paused ? !hasLastResumed && !hasEnded : terminal && !hasLastResumed && hasEnded);
+                if(running || paused) activeIds.Add(id.GetGuid());
+            }
+            Require(activeIds.Count<=1);
+            if(root.TryGetProperty("activeSessionId",out var activeId) && activeId.ValueKind!=JsonValueKind.Null)
+                Require(activeId.TryGetGuid(out var activeGuid) && activeIds.Contains(activeGuid));
+            else Require(activeIds.Count==0);
         }
         if(name=="layout.json") foreach(var property in root.EnumerateObject()) Require(property.Value.ValueKind is JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False or JsonValueKind.Null);
     }

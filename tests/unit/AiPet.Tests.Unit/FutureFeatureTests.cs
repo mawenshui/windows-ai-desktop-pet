@@ -20,7 +20,7 @@ public sealed class FutureFeatureTests : IDisposable
     {
         File.WriteAllText(Path.Combine(_root, "settings.json"), "{\"schemaVersion\":2,\"appearance\":{\"theme\":\"unknown\"}}");
         var loaded = new SettingsStore(_root).Load();
-        Assert.Equal(5, loaded.SchemaVersion);
+        Assert.Equal(6, loaded.SchemaVersion);
         Assert.Equal("system", loaded.Appearance.Theme);
         Assert.True(File.Exists(Path.Combine(_root, "settings.json.pre-v3.bak")));
         Assert.True(File.Exists(Path.Combine(_root, "settings.json.pre-v4.bak")));
