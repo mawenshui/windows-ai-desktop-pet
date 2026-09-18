@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.25.2**；本版升级 SQLite 安全依赖并新增显式授权、全程脱敏的真实 AI 验证入口，产品功能与数据格式保持兼容。项目不发布预览版，0.25.2 是否已经正式发布以当次验证报告和 GitHub Release 为准。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前正式版本 **0.25.2**；本版升级 SQLite 安全依赖并新增显式授权、全程脱敏的真实 AI 验证入口，产品功能与数据格式保持兼容。项目不发布预览版；[v0.25.2](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.25.2) 已作为普通正式版和 Latest 发布。
 
 ## 当前能力
 
