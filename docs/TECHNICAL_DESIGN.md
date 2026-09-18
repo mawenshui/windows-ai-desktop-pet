@@ -1,10 +1,10 @@
 # 技术设计与实现基线
 
-日期：2026-09-18；软件：0.25.1 源码版本。本文以当前代码为准；[0.25.0 功能设计](0.25.0－专注陪伴、低打扰与角色库设计.md)和[0.25.1 验证报告](release/0.25.1-test-report.md)分别说明功能基线与本轮验收状态。
+日期：2026-09-18；软件：0.25.2 源码版本。本文以当前代码为准；[0.25.0 功能设计](0.25.0－专注陪伴、低打扰与角色库设计.md)和[0.25.2 验证报告](release/0.25.2-test-report.md)分别说明功能基线与本轮验收状态。
 
 ## 1. 技术与模块
 
-WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.10、System.Text.Json、Windows Forms NotifyIcon；测试采用 xUnit 2.9.2、Test.Sdk 17.11.1、runner 2.8.2。不新增外部运行时依赖。global.json 允许 SDK 主版本滚动，不能称为锁死 SDK。Directory.Build.props 从根 VERSION 读取所有程序集版本；安装器和手册使用同一软件版本。
+WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.31、System.Text.Json、Windows Forms NotifyIcon；测试采用 xUnit 2.9.2、Test.Sdk 17.11.1、runner 2.8.2。不新增外部运行时依赖。SQLite 提供程序传递解析到 SQLitePCLRaw 2.1.12，避开 `SQLitePCLRaw.lib.e_sqlite3 <= 2.1.11` 的 CVE-2025-6965。global.json 允许 SDK 主版本滚动，不能称为锁死 SDK。Directory.Build.props 从根 VERSION 读取所有程序集版本；安装器和手册使用同一软件版本。
 
 | 模块 | 当前职责 |
 | :--- | :--- |
@@ -114,6 +114,8 @@ GET models 验证响应对象/data 数组/所选模型；最小生成验证独�
 单项 AI 草稿只接收当前一句话、时间及时区。草稿支持重复和额外时间，确认时使用同一 TodoStore 规则校验。目标在本地按标题匹配，多目标可重新选择；确认后写入并保留一次内存撤销，不上传列表或索引。
 
 今日安排是独立协议。ViewModel 只从用户明确勾选的 1～12 条待处理事项构造 ID、标题、备注、截止时间和 `UpdatedAt` 快照；未勾选且已有今天计划的事项会被合并为只含开始/结束的匿名 `occupiedBlocks`，不发送其标识、标题或备注。AI 必须原样覆盖全部选中 ID，返回当前偏移下今天未来的 15 分钟～4 小时时间块；额外/重复/缺失 ID、无绝对偏移、跨日、过去、新块互相重叠或与占用块冲突都直接拒绝。本地降级按截止时间排序，从严格晚于当前时间的下一刻钟开始分配 30 分钟块，并逐段跳过占用时间，不访问网络。两者都先形成内存草稿，逐项勾选确认后才批量写入。
+
+`scripts/test-live-ai.ps1` 是人工明确授权后的本机诊断入口，不进入 CI 或发布必需门禁。它要求 `-AllowSavedCredential`，只读取活动 profile 及其 Windows Credential Manager Key，在内存中调用生产连接、结构化待办和今日安排客户端；固定匿名输入不会写入 TodoStore。报告只保存稳定状态、错误类别、延迟与结果数量，不序列化配置名、Provider、端点、模型、凭据目标、Key 或响应正文。`GET /models` 未列出当前别名时单独记录为 `NOT_CONFIRMED`，不能覆盖实际生成能力的独立结论。
 
 ## 7. 维护与恢复
 

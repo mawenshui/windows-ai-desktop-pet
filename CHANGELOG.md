@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.25.2] - 2026-09-18
+
+### Security
+
+- 将 `Microsoft.Data.Sqlite` 从 8.0.10 升级到 8.0.31，使传递的 `SQLitePCLRaw.lib.e_sqlite3` 从受 CVE-2025-6965 影响的 2.1.6 升至 2.1.12；升级后复扫全部项目未发现 NuGet 已知漏洞。
+
+### Tests
+
+- 新增显式授权的 `scripts/test-live-ai.ps1`：从 Windows 凭据管理器读取当前活动配置的 Key，真实验证模型列表、结构化待办草稿和今日安排草稿，只生成脱敏报告且不写入用户待办。
+- 扩展 0.25.2 全自动验证记录，区分必需发布门禁、真实 AI、20,000 条匿名搜索性能、桌面前台限制与物理环境 SKIP，避免把未执行项目写成通过。
+
 ## [0.25.1] - 2026-09-18
 
 ### Changed

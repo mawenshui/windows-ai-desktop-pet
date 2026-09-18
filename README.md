@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.25.1**；本版修复 GitHub 更新源诊断与系统代理链，并让深色/浅色主题完整、可逆地作用于整个工具窗口。项目不发布预览版，0.25.1 是否已经正式发布以当次验证报告和 GitHub Release 为准。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.25.2**；本版升级 SQLite 安全依赖并新增显式授权、全程脱敏的真实 AI 验证入口，产品功能与数据格式保持兼容。项目不发布预览版，0.25.2 是否已经正式发布以当次验证报告和 GitHub Release 为准。
 
 ## 当前能力
 
@@ -45,20 +45,21 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **
 ```powershell
 pwsh -NoProfile -File scripts/test.ps1 -CI
 dotnet run --project src/AiPet.App/AiPet.App.csproj -c Release
+pwsh -NoProfile -File scripts/test-live-ai.ps1 -AllowSavedCredential
 pwsh -NoProfile -File scripts/package.ps1
 pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 ```
 
-test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。正式发布只强制 automated 与 package-smoke：前者证明构建和自动化回归，后者证明便携运行、安装、安装后启动与卸载。ui、system、performance、signatures、hardware 仍可按需收集为诊断证据，但不阻断版本升级和正式 Release。
+test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。`test-live-ai.ps1` 只有在用户明确授权 `-AllowSavedCredential` 时才读取当前活动 AI 配置的 Windows 凭据，执行模型列表、结构化待办草稿与今日安排草稿验证；它不输出 Key、端点、模型或响应正文，也不写入用户数据。正式发布只强制 automated 与 package-smoke：前者证明构建和自动化回归，后者证明便携运行、安装、安装后启动与卸载。ui、system、performance、signatures、hardware 仍可按需收集为诊断证据，但不阻断版本升级和正式 Release。
 
-0.25.1 的源码、自动化和分发状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测和可选诊断见[0.25.1 验证报告](docs/release/0.25.1-test-report.md)。可选诊断的 FAIL/SKIP 会保留原始结果，但不再阻断正式发布。
+0.25.2 的源码、自动化和分发状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测、真实 AI 与可选诊断见[0.25.2 验证报告](docs/release/0.25.2-test-report.md)。可选诊断的 FAIL/SKIP 会保留原始结果，但不再阻断正式发布。
 
 常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的 automated 与 package-smoke 均为 PASS，并验证两个资产及清单哈希一致。Release workflow 会在 GitHub 托管 Windows runner 上重跑这两组门禁；不会创建部署环境或 Pre-release。
 
 ## 文档与发布产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.25.1 版本说明](docs/RELEASE_NOTES_0.25.1.md) · [验证报告](docs/release/0.25.1-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.25.0 功能设计](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.25.2 版本说明](docs/RELEASE_NOTES_0.25.2.md) · [验证报告](docs/release/0.25.2-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.25.0 功能设计](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)
 
-0.25.1 的资产哈希只在从正式提交打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
+0.25.2 的资产哈希只在从正式提交打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

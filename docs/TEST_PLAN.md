@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.25.1，2026-09-18；测试结果以[本次报告](release/0.25.1-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
+基线：0.25.2，2026-09-18；测试结果以[本次报告](release/0.25.2-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入、真实外部服务和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -11,6 +11,7 @@
 | scripts/test-ui-e2e.ps1 -CI | 独立程序真实鼠标/键盘、专注开始/暂停/继续/结束、角色卡与低打扰设置、搜索结果操作、单项 AI/今日安排、AI 未保存导航/取消、焦点和实际托盘；无法前台激活立即停止输入 |
 | scripts/test-system-e2e.ps1 -CI | 几何合同、启动/帮助/存储/退出 smoke、当前显示环境记录 |
 | scripts/test-performance.ps1 -Enforce | 匿名 20,000 条名称查询与 UI/进程指标，按 config/performance-budgets.json 判断 |
+| scripts/test-live-ai.ps1 -AllowSavedCredential | 用户明确授权后读取当前活动配置的 Windows 凭据，真实验证模型列表、结构化待办草稿和今日安排草稿；不写入用户数据，只输出脱敏报告 |
 | scripts/package.ps1 | ZIP / Inno Setup、离线手册/资源、SHA-256 和 provenance |
 | scripts/smoke-release.ps1 | 便携运行、安装、安装后运行、静默卸载及安装路径自启清理；签名按实际配置报告 |
 | scripts/collect-release-evidence.ps1 -Gate ... | 绑定当前版本/提交/输入指纹/环境/时间/资产的证据；正式发布只强制 automated 与 package-smoke |
@@ -33,7 +34,7 @@
 | CHAR-01～06 | HomeViewModel、PetFrameCache、设置迁移和 WPF 合同；四角色首帧、许可文本、保存后应用、保存失败保持、坏 ID/坏帧回退；键盘、200% 缩放和高对比度单列桌面验收 |
 | TODAY-01～06 | TodayPlan、TodoStore、TodoViewModel、HomePageLayout；只发送选中项正文、未选项匿名占用时间、AI/本地冲突避让、精确刻钟边界、过期整批拒绝、前 12 条批量选择/清除与旧草稿失效 |
 | EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离；提醒投影的待处理/历史语义、失效目标和清理保留边界 |
-| AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留 |
+| AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留；获用户授权时以脱敏 live runner 分别核对真实模型列表、单项结构化草稿和今日安排草稿 |
 | AI-06 / EXT-11 | EncryptedAiConfigurationBundle、HomeViewModel；全字段加密往返、密文无 Key/端点、错误口令/篡改拒绝、跨数据目录导入后即用、自定义 Provider 迁移、凭据中途失败回滚 |
 | DATA-01/02/04/05 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile、HomePageLayout/HomePageExperience；路径/容量/schema/hash、中途失败/中断回滚、FocusSessions 等真实模块成组恢复、损坏后写保护、危险层级/明确确认、独立状态通道、成功不泄露路径与失败不拼接原异常 |
 | HOTKEY-01/02 / EXT-09 | EssentialFeature、PetToolWindowLifecycle、HomePageLayout；组合键规范化/拒绝/去重、设置持久化、快速待办定向及标题焦点、托盘等价入口；真实跨程序按键与占用释放单列实测 |
@@ -44,6 +45,8 @@
 | AUTO/TRAY/HELP | 自启、托盘重建合同、帮助路径与 smoke；真实重登录/Explorer 单列 |
 
 外部服务默认 fake HTTP；完整配置包使用匿名伪 Key，并断言密文、普通设置和错误信息不出现该值。无实际 API Key、待办标题、搜索原文或个人路径进入测试 fixture/诊断。渲染截图只使用匿名测试数据，build 目录不作为源码交付；不得将锁屏、PIN 或其他程序截为桌宠证据。
+
+真实 AI 诊断不是默认测试，也不是 CI/Release 前置条件。只有用户明确允许读取本机已保存 Key 时才运行；脚本固定发送匿名自动化输入，模型列表的“未列出”与实际结构化生成分别判定，禁止把 profile 名称、Provider、端点、模型、凭据目标、Key、响应正文或生成内容写入控制台和报告。依赖安全复核使用 `dotnet list src/AiPet.sln package --vulnerable --include-transitive --configfile NuGet.Config`，需要可访问 NuGet 官方源；无网络时必须记为未执行，不能宣称无漏洞。
 
 ## 3. 正式发布门禁
 
