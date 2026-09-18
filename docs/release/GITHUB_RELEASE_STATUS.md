@@ -4,9 +4,9 @@
 
 ## 0.25.1 当前状态
 
-- 0.25.1 修复代码、文档、便携 ZIP、安装 EXE、SHA-256 与 clean provenance 已生成；automated、system、package-smoke 为 PASS，UI、performance 和匿名真实更新源为 FAIL，signatures、hardware 为 SKIP。当前没有 `v0.25.1` 标签、Draft、Pre-release 或普通 Release。
-- 远端仓库当前为 Private；匿名 GitHub latest API 与 `gh-proxy.com` 对该仓库均返回 404，而同一时点对公开 `cli/cli` 仓库均返回 200。应用不接受更新 Token，因此在维护者明确将更新源设为 Public 前，无法完成匿名真实更新检查和下载验收。
-- 仓库可见性不会由代码任务擅自修改。即使后续公开，也仍需以 0.25.1 当次 automated、UI、system、performance、package-smoke、signatures、hardware 七组证据决定是否创建普通正式 Release。
+- 0.25.1 修复代码、文档、便携 ZIP、安装 EXE、SHA-256 与 clean provenance 已生成；automated、system、package-smoke 与匿名真实更新链路为 PASS，UI、performance 为 FAIL，signatures、hardware 为 SKIP。当前没有 `v0.25.1` 标签、Draft、Pre-release 或普通 Release。
+- 远端仓库已由维护者设为 Public。2026-09-18 的匿名验收中，GitHub 官方 latest API、`gh-proxy.com` 元数据与校验和地址均返回 HTTP 200；项目更新客户端匿名发现 `v0.24.0`，经内置“智能加速线路”下载完整安装器并通过 SHA-256 校验。
+- 仓库可见性与真实更新阻塞已经解除；仍须以 0.25.1 当次 automated、UI、system、performance、package-smoke、signatures、hardware 七组证据决定是否创建普通正式 Release，不能由在线检查通过推断其他门禁通过。
 
 ## 0.25.0 当前状态
 

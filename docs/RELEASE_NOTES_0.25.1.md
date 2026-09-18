@@ -13,6 +13,8 @@
 
 自动更新坚持匿名读取固定 GitHub Release，不要求用户填写 Token。对应 GitHub 仓库必须为 Public 且存在普通正式 Release；Private 仓库对匿名客户端返回 404，任何本地代理或加速线路都不能绕过 GitHub 权限。仓库可见性由维护者明确决定，应用不会自动修改。
 
+当前仓库已由维护者设为 Public。2026-09-18 的匿名在线验收确认 GitHub 官方与内置加速元数据线路可访问，且项目更新客户端可下载当前正式安装器并通过 SHA-256 校验。
+
 ## 验证状态
 
 测试、打包、签名、真实桌面及硬件结果见 [0.25.1 验证报告](release/0.25.1-test-report.md)。所有正式发布门禁通过前，不创建 `v0.25.1` 标签或 GitHub Release，也不创建 Preview、Alpha、Beta、RC 或 Pre-release。
