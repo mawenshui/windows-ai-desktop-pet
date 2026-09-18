@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.25.0 用户手册</title><style>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.25.1 用户手册</title><style>
     :root { color-scheme: light; font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; color: #241f1c; background: #f7f4f1; }
     body { margin: 0; line-height: 1.7; }
     main { width: min(760px, calc(100% - 40px)); margin: 32px auto; padding: 32px; background: #fffdfc; border: 1px solid #ded7d2; border-radius: 20px; box-shadow: 0 16px 42px rgb(36 31 28 / .10), 0 3px 10px rgb(36 31 28 / .06); }
@@ -12,15 +12,15 @@
     th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ded7d2; }
     @media(max-width:600px) { main { box-sizing: border-box; padding: 20px; } h1 { font-size: 24px; } }
 </style></head><body><main><h1>Windows AI Desktop Pet 用户手册</h1>
-<p>适用版本：<strong>0.25.0</strong>；修订：2026-09-17。项目不提供预览版；当前版本是否已经正式发布以本轮验证报告和 GitHub Release 为准。</p>
+<p>适用版本：<strong>0.25.1</strong>；修订：2026-09-18。项目不提供预览版；当前版本是否已经正式发布以本轮验证报告和 GitHub Release 为准。</p>
 <h2>1. 安装与退出</h2>
-<p>完整解压 windows-ai-desktop-pet-v0.25.0-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.25.0-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
+<p>完整解压 windows-ai-desktop-pet-v0.25.1-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.25.1-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
 <p>关闭工具窗只是收起。托盘“退出”才结束应用，自启默认关闭，可在设置或托盘启用。便携目录移动后重新检查自启。便携版和安装版默认共用当前 Windows 账户数据。</p>
 <p>交互卸载会询问是否清理个人数据，默认“否”。选择“是”删除已识别的设置、待办、提醒队列、每日复盘、专注记录、快捷引用、索引、日志、维护快照、设置中记录的本应用 AI 凭据和旧版本遗留的更新凭据；目标原文件及未知文件保留。先退出桌宠；清理失败会停止卸载并提示。丢失设置中未记录的旧凭据需自行在 Windows 凭据管理器处理。静默卸载始终保留个人数据。卸载移除指向本次安装位置的自启项；指向其他便携位置的配置不受影响。</p>
 <h2>2. 桌宠与工具窗</h2>
 <p>单击桌宠打开或收起工具窗，双击播放动作，拖动移动位置。工具窗跟随宠物定位并记忆位置。隐藏后通过托盘恢复。四页为主页、待办、维护、设置；常驻与置顶独立保存。Esc、关闭按钮和显式收起始终可用。</p>
 <p>选项直接显示在按钮组或列表，Tab 聚焦、方向键/Home/End 选择，Ctrl+Tab / Ctrl+Shift+Tab 循环切页。<kbd>Alt+1</kbd>～<kbd>Alt+4</kbd> 可直接进入四页；<kbd>Ctrl+L</kbd> 返回搜索，<kbd>Ctrl+N</kbd> 打开待办编辑器，待办页 <kbd>Ctrl+F</kbd> 通常聚焦清单查找，在提醒区域内则聚焦提醒查找，编辑时 <kbd>Ctrl+Enter</kbd> 保存，<kbd>F1</kbd> 打开包内离线手册。AI 有未保存修改时，鼠标、键盘和所有定向入口都先确认；取消会保留原编辑页面。</p>
-<p>设置顶部有外观、快捷键、更新、搜索、AI 五项目录。四个内置 RGS 角色以真实正面首帧卡片展示中文名、选中状态和 CC0-1.0 许可，可打开包内本地许可；角色卡不联网也不播放额外预览动画。切换保存成功后才应用，资源异常会回退到可显示角色。</p>
+<p>设置顶部有外观、快捷键、更新、搜索、AI 五项目录。四个内置 RGS 角色以真实正面首帧卡片展示中文名、选中状态和 CC0-1.0 许可，可打开包内本地许可；角色卡不联网也不播放额外预览动画。切换保存成功后才应用，资源异常会回退到可显示角色。系统/浅色/深色/高对比度主题会同步更新整个工具窗的背景、卡片、输入、文字、状态色、边框与阴影，切回浅色不会保留深色边缘。</p>
 <p>“低打扰”提供两个默认关闭且需显式保存的开关：其他应用同屏全屏时隐藏桌宠、专注时允许桌宠点击穿透。普通最大化和本应用窗口不触发全屏隐藏；应用只恢复自己隐藏的桌宠。点击穿透生效时可从托盘恢复交互，打开设置也会恢复当前会话交互。</p>
 <p>默认按 Ctrl+Alt+Space 可从其他普通窗口显示桌宠、打开主页并聚焦搜索；Ctrl+Alt+T 打开待办页、新建一条待办并聚焦标题。设置 → 快捷唤出可停用或修改两个组合键，格式为修饰键加普通键，例如 <code>Ctrl+Shift+F12</code>。两个组合不能相同；若任一组合被系统或其他程序占用，本应用会停用两者并显示原因，避免只生效一半。修改后按钮标记“有修改”，成功保存并应用后显示“已保存”；格式或写入失败时输入仍保留。托盘“立即搜索”“快速记待办”始终可用。修改快捷键不会绕过 AI 未保存编辑确认。</p>
 <h2>3. 搜索</h2>
@@ -78,8 +78,8 @@
 <p>“兼容迁移（不含 Key）”继续导出名称、供应商、地址和模型；导入先预览，重名可跳过或重命名。新配置需补充 Key 和验证，导入不替换活动配置。无 Key JSON 最大 1 MB。单独导入自定义预设仍不能覆盖内置 ID；模板地址可编辑。</p>
 <p>待办页展开“一句话安排（AI 可选）”后输入文字生成草稿，发送的只有本次文字、当前时间和时区提示，不发送已有列表、搜索索引或文件路径。可表达创建、修改、完成、删除、稍后、重复和多个时间。核对时间、规则和目标，重名可重新选择；确认后才写入。取消、转手动、单次撤销保留，撤销和对话不会跨重启保存。</p>
 <h2>8. 应用更新</h2>
-<p>每次正常启动会在后台检查一次指定 GitHub 公开仓库的最新稳定 Release；无更新、断网或 GitHub 暂时不可用都不会阻止桌宠启动，也不会自动下载安装。在设置 → 应用更新可“立即检查”，或开启运行期间周期检查并填写 1～168 小时。周期或间隔变化后保存按钮标记“有修改”，成功写入后显示“已保存”；输入不合法或写入失败时仍保留未保存状态。Windows 系统代理自动生效。</p>
-<p>更新线路已经内置，无需填写代理地址、加速模板或 GitHub Token。应用会优先检查 GitHub 官方元数据，连接不畅时自动切换智能加速；下载时也会逐条尝试内置线路并最终回退官方地址。设置页的“智能线路”状态带会说明正在选择、当前使用、下载进度或全部线路暂不可用，不需要用户判断技术域名。</p>
+<p>每次正常启动会在后台检查一次指定 GitHub 公开仓库的最新稳定 Release；无更新、断网或 GitHub 暂时不可用都不会阻止桌宠启动，也不会自动下载安装。在设置 → 应用更新可“立即检查”，或开启运行期间周期检查并填写 1～168 小时。周期或间隔变化后保存按钮标记“有修改”，成功写入后显示“已保存”；输入不合法或写入失败时仍保留未保存状态。检查和下载共用 Windows 用户代理设置，也识别标准 <code>HTTP_PROXY</code>、<code>HTTPS_PROXY</code> 与 <code>NO_PROXY</code> 环境配置。</p>
+<p>更新线路已经内置，无需填写代理地址、加速模板或 GitHub Token。应用会优先检查 GitHub 官方元数据，连接不畅时自动切换智能加速；下载时也会逐条尝试内置线路并最终回退官方地址。若 GitHub 官方返回匿名 404，则会明确提示“更新源未公开或尚无正式 Release”，不会再误报为本机代理或所有线路故障；匿名自动更新要求发布仓库为 Public。</p>
 <p>发现新版本后选择“下载并准备安装”。后续检查如果临时断网，已发现版本和下载入口会保留；只有明确确认当前已是最新版本时才清除。应用只接受固定仓库、精确版本标签和文件名匹配的安装器，并读取同一 Release 的 <code>SHA256SUMS.txt</code>；Release 提供 digest 时还会交叉核对。校验失败会删除临时文件并保留当前版本。校验通过后仍会询问，确认后才启动安装器并退出。便携版用户也会下载安装器；如希望继续使用便携版，可取消并手动下载便携包。</p>
 <h2>9. 维护与隐私</h2>
 <p>备份先选模块并查看大小。可包括设置、位置、待办与提醒队列、每日复盘、专注记录、快捷入口与图标、AI 预设和实际 LocalAppData 日志。索引是可重建数据，不复制正在使用的 SQLite；普通维护备份始终不含 Key，与设置页中用户主动创建的加密完整 AI 配置包不同。备份包含个人正文和路径，请妥善保存。</p>
