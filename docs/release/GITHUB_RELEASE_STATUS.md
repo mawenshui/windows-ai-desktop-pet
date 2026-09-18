@@ -1,11 +1,13 @@
 # GitHub Release 状态
 
-日期：2026-09-18。仓库 `mawenshui/windows-ai-desktop-pet` 已将 0.1.0～0.24.0 共 34 个历史版本建立为正式 GitHub Release。所有既有 Release 均不是 Draft 或 Pre-release；标题统一为“Windows AI 桌面宠物 `<版本>` 正式版”，正文为 UTF-8 中文，v0.24.0 仍是唯一 Latest。
+日期：2026-09-18。仓库 `mawenshui/windows-ai-desktop-pet` 已将 0.1.0～0.25.1 共 35 个版本建立为正式 GitHub Release。所有既有 Release 均不是 Draft 或 Pre-release；标题统一为“Windows AI 桌面宠物 `<版本>` 正式版”，正文为 UTF-8 中文，v0.25.1 是唯一 Latest。
 
 ## 0.25.1 当前状态
 
-- 0.25.1 修复代码和文档已完成，最终便携 ZIP、安装 EXE、SHA-256 及 clean provenance 已生成；automated 与 package-smoke 两项必需门禁均为 PASS。当前尚未创建 `v0.25.1` 标签、Draft、Pre-release 或普通 Release。
-- 远端仓库已由维护者设为 Public。2026-09-18 的匿名验收中，GitHub 官方 latest API、`gh-proxy.com` 元数据与校验和地址均返回 HTTP 200；项目更新客户端匿名发现 `v0.24.0`，经内置“智能加速线路”下载完整安装器并通过 SHA-256 校验。
+- [v0.25.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.25.1) 已发布为普通正式版和 Latest，不是 Draft 或 Pre-release；便携 ZIP、安装 EXE 与 `SHA256SUMS.txt` 三项资产均可下载。
+- main CI 与 v0.25.1 Release 工作流均通过。Release 工作流重新执行 automated 与 package-smoke 后上传资产，并回下载逐项比对；GitHub API 返回的二进制大小和 SHA-256 digest 与本地清单一致。
+- 远端仓库为 Public。共享出口的 GitHub 官方匿名 API 当次达到速率限制，客户端自动回退到内置线路；项目更新客户端匿名发现 `v0.25.1`，经“智能加速线路”下载完整安装器并通过 SHA-256 校验。
+- 旧工作流遗留的 v0.12.2～v0.16.1 六条 `release` deployment 均为不承载资产的历史错误记录，已标记 inactive 后删除；不再使用的 `release` environment 也已删除。新 Release 工作流不再创建 deployment。
 - 仓库可见性与真实更新阻塞已经解除。正式发布仅由当次 automated 与 package-smoke 两组必需证据决定；UI、system、performance、signatures、hardware 是可选诊断，必须如实记录，但 FAIL/SKIP 不阻断普通正式 Release。
 
 ## 0.25.0 当前状态
@@ -51,7 +53,8 @@
 | [v0.21.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.21.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
 | [v0.22.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.22.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
 | [v0.23.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.23.0) | 正式版（历史补档） | 便携 ZIP、安装 EXE、SHA-256 |
-| [v0.24.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.24.0) | 正式版、Latest | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.24.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.24.0) | 正式版 | 便携 ZIP、安装 EXE、SHA-256 |
+| [v0.25.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.25.1) | 正式版、Latest | 便携 ZIP、安装 EXE、SHA-256 |
 
 ## 追溯与资产边界
 
@@ -71,4 +74,4 @@
 
 ## 远端终检
 
-GitHub API 返回 34 个 Release，与 `CHANGELOG.md` 的 34 个版本完全一致：无缺失、无额外版本、无 Draft、无 Pre-release、无标题偏差、无空正文或 Unicode 替换字符。v0.24.0 是唯一 Latest，包含 `windows-ai-desktop-pet-v0.24.0-portable.zip`、`windows-ai-desktop-pet-v0.24.0-setup.exe` 和 `SHA256SUMS.txt`。
+GitHub API 返回 35 个 Release，与 `CHANGELOG.md` 的 35 个版本完全一致：无缺失、无额外版本、无 Draft、无 Pre-release、无标题偏差、无空正文或 Unicode 替换字符。v0.25.1 是唯一 Latest，包含 `windows-ai-desktop-pet-v0.25.1-portable.zip`、`windows-ai-desktop-pet-v0.25.1-setup.exe` 和 `SHA256SUMS.txt`；Release 工作流与独立 API 校验均确认远端大小和哈希匹配。

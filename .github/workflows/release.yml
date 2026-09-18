@@ -37,7 +37,7 @@ jobs:
           if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) { throw 'Release notes missing.' }
           $portable = "dist/portable/windows-ai-desktop-pet-v$version-portable.zip"
           $installer = "dist/installer/windows-ai-desktop-pet-v$version-setup.exe"
-          gh release create "v$version" $portable $installer dist/checksums/SHA256SUMS.txt --title "Windows AI Desktop Pet v$version" --notes-file $notes --verify-tag
+          gh release create "v$version" $portable $installer dist/checksums/SHA256SUMS.txt --title "Windows AI 桌面宠物 $version 正式版" --notes-file $notes --verify-tag
           if ($LASTEXITCODE -ne 0) { throw 'Release upload failed.' }
           $download = Join-Path $env:RUNNER_TEMP ("aipet-verify-" + [Guid]::NewGuid().ToString('N'))
           gh release download "v$version" --dir $download
