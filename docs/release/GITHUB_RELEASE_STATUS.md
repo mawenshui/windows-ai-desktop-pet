@@ -4,7 +4,7 @@
 
 ## 0.25.1 当前状态
 
-- 0.25.1 修复代码和文档已完成，最终便携 ZIP、安装 EXE 与 SHA-256 正在复验。当前没有 `v0.25.1` 标签、Draft、Pre-release 或普通 Release。
+- 0.25.1 修复代码和文档已完成，最终便携 ZIP、安装 EXE、SHA-256 及 clean provenance 已生成；automated 与 package-smoke 两项必需门禁均为 PASS。当前尚未创建 `v0.25.1` 标签、Draft、Pre-release 或普通 Release。
 - 远端仓库已由维护者设为 Public。2026-09-18 的匿名验收中，GitHub 官方 latest API、`gh-proxy.com` 元数据与校验和地址均返回 HTTP 200；项目更新客户端匿名发现 `v0.24.0`，经内置“智能加速线路”下载完整安装器并通过 SHA-256 校验。
 - 仓库可见性与真实更新阻塞已经解除。正式发布仅由当次 automated 与 package-smoke 两组必需证据决定；UI、system、performance、signatures、hardware 是可选诊断，必须如实记录，但 FAIL/SKIP 不阻断普通正式 Release。
 
