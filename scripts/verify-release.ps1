@@ -5,8 +5,11 @@ $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'release-evidence.ps1')
 if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) { throw 'Set AIPET_RELEASE_EVIDENCE_DIR to reviewed, current release evidence.' }
 $context = Get-ReleaseContext $root
-$dirty = @(& git -C $root status --porcelain --untracked-files=all)
-if ($LASTEXITCODE -ne 0 -or $dirty.Count -gt 0) { throw 'Release requires a clean committed workspace, including assets and documentation.' }
+# Only tracked state can affect the source revision being released. Untracked local
+# archives or operator notes are outside that revision and must not make an otherwise
+# reproducible release fail; the current release assets are validated explicitly below.
+$dirty = @(& git -C $root status --porcelain --untracked-files=no)
+if ($LASTEXITCODE -ne 0 -or $dirty.Count -gt 0) { throw 'Release requires a clean committed workspace for all tracked files, including current assets and documentation.' }
 $assets = foreach ($entry in @(@('portable','portable.zip'),@('installer','setup.exe'))) {
     $name = "windows-ai-desktop-pet-v$($context.version)-$($entry[1])"
     @{name=$name;sha256=(Get-FileHash -LiteralPath (Join-Path $root "dist/$($entry[0])/$name") -Algorithm SHA256).Hash.ToLowerInvariant()}

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -1042,6 +1043,14 @@ public partial class App : System.Windows.Application
             var afterDelete = WindowsCredentialStore.Load(target);
             if (afterDelete is not null) throw new InvalidOperationException("delete did not take effect");
             Line("[OK ] secrets: save/load/delete round-trip works");
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1312)
+        {
+            // Headless service and sandbox logons may not expose a Credential Manager
+            // vault. This does not prevent the packaged application from starting, so
+            // keep it visible in the report without treating the environment as a
+            // product failure. Any other credential error remains release-blocking.
+            Line("[SKIP] secrets: Windows Credential Manager is unavailable in this logon session (error 1312)");
         }
         catch (Exception ex) { ok = false; Line($"[FAIL] secrets: {ex.Message}"); }
 

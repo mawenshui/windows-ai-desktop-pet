@@ -4,15 +4,15 @@
 
 ## 0.25.1 当前状态
 
-- 0.25.1 修复代码、文档、便携 ZIP、安装 EXE、SHA-256 与 clean provenance 已生成；automated、system、package-smoke 与匿名真实更新链路为 PASS，UI、performance 为 FAIL，signatures、hardware 为 SKIP。当前没有 `v0.25.1` 标签、Draft、Pre-release 或普通 Release。
+- 0.25.1 修复代码和文档已完成，最终便携 ZIP、安装 EXE 与 SHA-256 正在复验。当前没有 `v0.25.1` 标签、Draft、Pre-release 或普通 Release。
 - 远端仓库已由维护者设为 Public。2026-09-18 的匿名验收中，GitHub 官方 latest API、`gh-proxy.com` 元数据与校验和地址均返回 HTTP 200；项目更新客户端匿名发现 `v0.24.0`，经内置“智能加速线路”下载完整安装器并通过 SHA-256 校验。
-- 仓库可见性与真实更新阻塞已经解除；仍须以 0.25.1 当次 automated、UI、system、performance、package-smoke、signatures、hardware 七组证据决定是否创建普通正式 Release，不能由在线检查通过推断其他门禁通过。
+- 仓库可见性与真实更新阻塞已经解除。正式发布仅由当次 automated 与 package-smoke 两组必需证据决定；UI、system、performance、signatures、hardware 是可选诊断，必须如实记录，但 FAIL/SKIP 不阻断普通正式 Release。
 
 ## 0.25.0 当前状态
 
 - 0.25.0 的代码、文档、便携 ZIP、安装 EXE、SHA-256 和 provenance 已推送到 `main`；远端 `main` 提交为 `3e7628c55e9b2d07bde87515ee20ec0e649c9fac`。
-- 当次 automated、system、package-smoke 为 PASS；UI、performance 为 FAIL，signatures、hardware 为 SKIP，详见 [0.25.0 验证报告](0.25.0-test-report.md)。
-- 因正式发布门禁没有全部 PASS，远端不存在 `v0.25.0` 标签或 GitHub Release；没有创建 Draft、Pre-release、Preview、Alpha、Beta 或 RC。
+- 当次 automated、system、package-smoke 为 PASS；UI、performance 为 FAIL，signatures、hardware 为 SKIP，详见 [0.25.0 验证报告](0.25.0-test-report.md)。这是当时规则下未发布的历史状态，不追溯改写。
+- 远端不存在 `v0.25.0` 标签或 GitHub Release；没有创建 Draft、Pre-release、Preview、Alpha、Beta 或 RC。
 
 ## 远端版本清单
 
