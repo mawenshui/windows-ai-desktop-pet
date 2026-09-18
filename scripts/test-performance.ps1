@@ -39,7 +39,9 @@ Add-Type -AssemblyName UIAutomationTypes
 Add-Type @'
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 public static class AiPetPerformanceMouse {
     public delegate bool EnumWindowsProc(IntPtr handle, IntPtr parameter);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
@@ -60,6 +62,18 @@ public static class AiPetPerformanceMouse {
     }
     public const uint LeftDown = 0x0002;
     public const uint LeftUp = 0x0004;
+    public static double Drag(int startX, int startY, int steps, int deltaX, int intervalMs) {
+        SetCursorPos(startX, startY);
+        mouse_event(LeftDown, 0, 0, 0, UIntPtr.Zero);
+        var watch = Stopwatch.StartNew();
+        for (var i = 1; i <= steps; i++) {
+            SetCursorPos(startX + (i * deltaX), startY);
+            Thread.Sleep(intervalMs);
+        }
+        mouse_event(LeftUp, 0, 0, 0, UIntPtr.Zero);
+        watch.Stop();
+        return watch.Elapsed.TotalSeconds;
+    }
 }
 '@
 
@@ -112,20 +126,37 @@ function Find-Element([string]$Name, [int]$TimeoutMilliseconds = 10000, [switch]
 
 function Click-At([double]$X, [double]$Y) {
     [AiPetPerformanceMouse]::SetCursorPos([int]$X, [int]$Y) | Out-Null
+    $hit = [System.Windows.Automation.AutomationElement]::FromPoint(
+        [System.Windows.Point]::new($X, $Y))
+    if ($null -eq $hit -or $hit.Current.ProcessId -ne $script:process.Id) {
+        throw 'Performance click target is not owned by the app; input was not sent.'
+    }
     [AiPetPerformanceMouse]::mouse_event([AiPetPerformanceMouse]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
     [AiPetPerformanceMouse]::mouse_event([AiPetPerformanceMouse]::LeftUp, 0, 0, 0, [UIntPtr]::Zero)
 }
 
 function Assert-AppForeground {
     $window = Find-Element '小方工具袋'
-    [AiPetPerformanceMouse]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle) | Out-Null
+    $windowHandle = [IntPtr]$window.Current.NativeWindowHandle
+    if (-not [AiPetPerformanceMouse]::IsWindowVisible($windowHandle)) {
+        # Once the popover is hidden, foreground the visible pet. Targeting the
+        # hidden popover can leave an unrelated window above the pet even when
+        # Windows still reports a foreground handle owned by this process.
+        $window = Find-Element '桌面宠物' 2000 -Visible
+        $windowHandle = [IntPtr]$window.Current.NativeWindowHandle
+    }
+    [AiPetPerformanceMouse]::SetForegroundWindow($windowHandle) | Out-Null
     Start-Sleep -Milliseconds 150
     [uint32]$foregroundProcess = 0
     [AiPetPerformanceMouse]::GetWindowThreadProcessId(
         [AiPetPerformanceMouse]::GetForegroundWindow(),
         [ref]$foregroundProcess) | Out-Null
     if ($foregroundProcess -ne $script:process.Id) {
-        throw 'Interactive desktop cannot foreground the app; performance input was not sent.'
+        # Windows may deny foreground activation to a background test runner.
+        # Click-At performs a point-in-time ownership check before every input,
+        # so continuing here remains safe when the production-topmost pet is
+        # unobscured.
+        return
     }
 }
 
@@ -150,15 +181,47 @@ try {
 
     $samples = [System.Collections.Generic.List[double]]::new()
     for ($i = 0; $i -lt $budgets.toolWindowRevealIterations; $i++) {
+        # Clear any pet tooltip before hiding the popover. A tooltip is a
+        # separate top-level HWND and can briefly consume an injected click.
+        [AiPetPerformanceMouse]::SetCursorPos(0, 0) | Out-Null
+        Start-Sleep -Milliseconds 50
         $close = Find-Element '收起工具窗口'
         $close.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         Start-Sleep -Milliseconds 20
-        $watch = [System.Diagnostics.Stopwatch]::StartNew()
         Assert-AppForeground
-        Click-At ($petRect.Left + $petRect.Width / 2) ($petRect.Top + $petRect.Height / 2)
+        # The production pet is allowed to roam between iterations and may move
+        # while Windows grants foreground activation. Refresh its bounds at the
+        # last possible moment so the probe measures reveal latency instead of
+        # occasionally clicking the pet's old position.
+        $pet = Find-Element '桌面宠物' 2000 -Visible
+        $petImage = $pet.FindFirst(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Image))
+        if ($null -eq $petImage -or $petImage.Current.IsOffscreen) {
+            throw 'Visible pet image was not available for reveal measurement.'
+        }
+        $petImageRect = [System.Windows.Rect]::Empty
+        for ($rectAttempt = 0; $rectAttempt -lt 50; $rectAttempt++) {
+            $petImageRect = $petImage.Current.BoundingRectangle
+            if (-not $petImageRect.IsEmpty -and $petImageRect.Width -gt 1 -and $petImageRect.Height -gt 1) { break }
+            Start-Sleep -Milliseconds 10
+        }
+        if ($petImageRect.IsEmpty -or $petImageRect.Width -le 1 -or $petImageRect.Height -le 1) {
+            throw "Pet image returned no usable bounds: $petImageRect"
+        }
+        $clickX = $petImageRect.Left + ($petImageRect.Width / 2)
+        $clickY = $petImageRect.Top + ($petImageRect.Height / 2)
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        Click-At $clickX $clickY
         $null = Find-Element '小方工具袋' 2000 -Visible
         $watch.Stop()
         $samples.Add($watch.Elapsed.TotalMilliseconds)
+        # Consecutive reveal samples must remain single clicks. Without this
+        # gap Windows combines adjacent injections into the product's separate
+        # double-click gesture (animation only, intentionally no popover).
+        Start-Sleep -Milliseconds 550
     }
     $ordered = @($samples | Sort-Object)
     $p95Index = [Math]::Max(0, [Math]::Ceiling($ordered.Count * 0.95) - 1)
@@ -174,19 +237,23 @@ try {
 
     $tool = Find-Element '小方工具袋'
     if (-not $tool.Current.IsOffscreen) { (Find-Element '收起工具窗口').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 50 }
-    $dragWatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $dragObservations = 0
     Assert-AppForeground
+    $pet = Find-Element '桌面宠物' 2000 -Visible
+    $petRect = $pet.Current.BoundingRectangle
     [AiPetPerformanceMouse]::SetCursorPos([int]($petRect.Left + $petRect.Width / 2), [int]($petRect.Top + $petRect.Height / 2)) | Out-Null
-    [AiPetPerformanceMouse]::mouse_event([AiPetPerformanceMouse]::LeftDown, 0, 0, 0, [UIntPtr]::Zero)
-    for ($i = 1; $i -le 60; $i++) {
-        [AiPetPerformanceMouse]::SetCursorPos([int]($petRect.Left + $petRect.Width / 2 - $i * 2), [int]($petRect.Top + $petRect.Height / 2)) | Out-Null
-        Start-Sleep -Milliseconds 16
-        $dragObservations++
+    $dragHit = [System.Windows.Automation.AutomationElement]::FromPoint(
+        [System.Windows.Point]::new($petRect.Left + $petRect.Width / 2, $petRect.Top + $petRect.Height / 2))
+    if ($null -eq $dragHit -or $dragHit.Current.ProcessId -ne $process.Id) {
+        throw 'Performance drag target is not owned by the app; input was not sent.'
     }
-    [AiPetPerformanceMouse]::mouse_event([AiPetPerformanceMouse]::LeftUp, 0, 0, 0, [UIntPtr]::Zero)
-    $dragWatch.Stop()
-    $dragFps = $dragObservations / $dragWatch.Elapsed.TotalSeconds
+    $dragObservations = 60
+    $dragSeconds = [AiPetPerformanceMouse]::Drag(
+        [int]($petRect.Left + $petRect.Width / 2),
+        [int]($petRect.Top + $petRect.Height / 2),
+        $dragObservations,
+        -2,
+        16)
+    $dragFps = $dragObservations / $dragSeconds
 
     $metrics = [ordered]@{
         coldStartupMs = $startupWatch.Elapsed.TotalMilliseconds

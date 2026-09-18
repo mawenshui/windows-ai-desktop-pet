@@ -257,7 +257,10 @@ public partial class App : System.Windows.Application
                 _tool.WindowStyle = WindowStyle.SingleBorderWindow;
                 _pet.AllowsTransparency = false;
                 _pet.Background = System.Windows.Media.Brushes.White;
-                _pet.Topmost = false;
+                // The performance probe exercises the production topmost pet.
+                // Independent UI E2E keeps both hosts non-topmost so dialogs and
+                // selectors can be driven through accessibility APIs.
+                _pet.Topmost = !isUiE2e;
                 _pet.WindowStyle = WindowStyle.SingleBorderWindow;
             }
         }

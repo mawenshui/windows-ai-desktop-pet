@@ -218,8 +218,8 @@ public partial class PetWindow : Window
         CaptureMouse();
         if (e.ClickCount >= 2) _singleClickTimer.Stop();
         _isDragging = false;
-        _downPoint = e.GetPosition(this);
         _dragOffset = e.GetPosition(this);
+        _downPoint = PointToScreen(_dragOffset);
         PointerInteractionStarted?.Invoke(this, EventArgs.Empty);
     }
 
@@ -229,8 +229,9 @@ public partial class PetWindow : Window
         if (e.LeftButton != MouseButtonState.Pressed) return;
 
         var cur = e.GetPosition(this);
-        var dx = cur.X - _downPoint.X;
-        var dy = cur.Y - _downPoint.Y;
+        var screen = PointToScreen(cur);
+        var dx = screen.X - _downPoint.X;
+        var dy = screen.Y - _downPoint.Y;
         if (!_isDragging && PetPointerGesture.ShouldStartDrag(dx, dy))
         {
             _isDragging = true;
@@ -242,7 +243,6 @@ public partial class PetWindow : Window
         }
         if (_isDragging)
         {
-            var screen = PointToScreen(cur);
             Left = screen.X - _dragOffset.X;
             Top = screen.Y - _dragOffset.Y;
             VisualPositionChanged?.Invoke(this, EventArgs.Empty);
@@ -255,10 +255,17 @@ public partial class PetWindow : Window
         ReleaseMouseCapture();
 
         var cur = e.GetPosition(this);
-        var dx = cur.X - _downPoint.X;
-        var dy = cur.Y - _downPoint.Y;
+        var screen = PointToScreen(cur);
+        var dx = screen.X - _downPoint.X;
+        var dy = screen.Y - _downPoint.Y;
         var moved = Math.Sqrt(dx * dx + dy * dy);
-        var releaseAction = PetPointerGesture.ResolveRelease(_isDragging, moved, e.ClickCount);
+        // MouseMove is the authoritative transition into dragging. Rechecking
+        // the raw distance here can mistake movement of the roaming window
+        // itself for pointer movement between a fast press and release.
+        var releaseAction = PetPointerGesture.ResolveRelease(
+            _isDragging,
+            _isDragging ? moved : 0,
+            e.ClickCount);
 
         if (_isDragging)
         {
