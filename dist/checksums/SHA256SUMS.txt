@@ -1,2 +1,2 @@
-ee0aed581b23335dabc680c48103b596b235bd326495f75c873af64ca752dcf3  windows-ai-desktop-pet-v0.25.1-portable.zip
-48151e8988d3c652809755a0068b26db9e526210d519574ac96b9fd5a8f409a4  windows-ai-desktop-pet-v0.25.1-setup.exe
+01f305b9c79ab4f0d75879925b82ae138ba4a19497a4152f6f3434c01d6bc3cb  windows-ai-desktop-pet-v0.25.1-portable.zip
+93e00858ed3eee228a1a2347a5fcd486449e24259051b7faea9aa17d25f2c0c2  windows-ai-desktop-pet-v0.25.1-setup.exe
