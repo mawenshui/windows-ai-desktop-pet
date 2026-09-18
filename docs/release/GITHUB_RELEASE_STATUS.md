@@ -1,6 +1,12 @@
 # GitHub Release 状态
 
-日期：2026-09-17。仓库 `mawenshui/windows-ai-desktop-pet` 已将 `CHANGELOG.md` 中 0.1.0～0.24.0 共 34 个版本全部建立为正式 GitHub Release。所有 Release 均不是 Draft 或 Pre-release；标题统一为“Windows AI 桌面宠物 `<版本>` 正式版”，正文为 UTF-8 中文，v0.24.0 是唯一 Latest。
+日期：2026-09-18。仓库 `mawenshui/windows-ai-desktop-pet` 已将 0.1.0～0.24.0 共 34 个历史版本建立为正式 GitHub Release。所有既有 Release 均不是 Draft 或 Pre-release；标题统一为“Windows AI 桌面宠物 `<版本>` 正式版”，正文为 UTF-8 中文，v0.24.0 仍是唯一 Latest。
+
+## 0.25.0 当前状态
+
+- 0.25.0 的代码、文档、便携 ZIP、安装 EXE、SHA-256 和 provenance 已推送到 `main`；远端 `main` 提交为 `3e7628c55e9b2d07bde87515ee20ec0e649c9fac`。
+- 当次 automated、system、package-smoke 为 PASS；UI、performance 为 FAIL，signatures、hardware 为 SKIP，详见 [0.25.0 验证报告](0.25.0-test-report.md)。
+- 因正式发布门禁没有全部 PASS，远端不存在 `v0.25.0` 标签或 GitHub Release；没有创建 Draft、Pre-release、Preview、Alpha、Beta 或 RC。
 
 ## 远端版本清单
 
