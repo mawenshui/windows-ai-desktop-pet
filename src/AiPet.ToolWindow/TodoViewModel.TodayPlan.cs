@@ -279,8 +279,8 @@ public sealed partial class TodoViewModel
                 && candidate.Item.PlannedStartAt is not null
                 && candidate.Item.DueAt is not null)
             .Select(candidate => new TodayPlanOccupiedBlock(
-                candidate.Item.PlannedStartAt!.Value.ToLocalTime(),
-                candidate.Item.DueAt!.Value.ToLocalTime()))
+                candidate.Item.PlannedStartAt!.Value.ToOffset(localNow.Offset),
+                candidate.Item.DueAt!.Value.ToOffset(localNow.Offset)))
             .Where(block => block.StartAt.Date == localNow.Date
                 && block.EndAt.Date == localNow.Date
                 && block.EndAt > localNow

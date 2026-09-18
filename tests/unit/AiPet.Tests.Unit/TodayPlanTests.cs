@@ -215,17 +215,21 @@ public sealed class TodayPlanTests : IDisposable
     [Fact]
     public async Task View_model_sends_only_selected_items_then_applies_and_undoes_local_plan()
     {
-        var store = new TodoStore(_root, () => _now);
+        // Use an offset that differs from common developer and CI time zones so
+        // the view model cannot accidentally re-convert the injected wall clock
+        // through TimeZoneInfo.Local.
+        var now = new DateTimeOffset(2026, 9, 9, 9, 2, 0, TimeSpan.FromHours(14));
+        var store = new TodoStore(_root, () => now);
         var selected = store.Create(new TodoItem { Title = "selected", Notes = "private selected note" });
         store.Create(new TodoItem
         {
             Title = "not-selected",
             Notes = "must stay local",
-            PlannedStartAt = _now.AddMinutes(13),
-            DueAt = _now.AddMinutes(43),
+            PlannedStartAt = now.AddMinutes(13),
+            DueAt = now.AddMinutes(43),
         });
         var fake = new CapturingTodayPlanClient();
-        var vm = new TodoViewModel(store, fake, Connection, () => _now);
+        var vm = new TodoViewModel(store, fake, Connection, () => now);
         vm.TodayPlanCandidates.Single(item => item.Id == selected.Id).IsSelected = true;
 
         await vm.GenerateTodayPlanAsync(useAi: true);
@@ -234,10 +238,10 @@ public sealed class TodayPlanTests : IDisposable
         Assert.Equal("selected", sent.Title);
         Assert.DoesNotContain(fake.LastRequest.Items, item => item.Title == "not-selected");
         var busy = Assert.Single(fake.LastRequest.OccupiedBlocks!);
-        Assert.Equal(_now.AddMinutes(13), busy.StartAt);
-        Assert.Equal(_now.AddMinutes(43), busy.EndAt);
+        Assert.Equal(now.AddMinutes(13), busy.StartAt);
+        Assert.Equal(now.AddMinutes(43), busy.EndAt);
         Assert.True(vm.HasTodayPlanDraft);
-        Assert.Equal(_now.AddMinutes(43), Assert.Single(vm.TodayPlanDraft).Block.StartAt);
+        Assert.Equal(now.AddMinutes(43), Assert.Single(vm.TodayPlanDraft).Block.StartAt);
         Assert.Contains("已避让 1 个既有时间段", vm.TodayPlanMessage);
 
         vm.ApplyTodayPlanCommand.Execute(null);
