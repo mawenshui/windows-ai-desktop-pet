@@ -49,11 +49,11 @@ pwsh -NoProfile -File scripts/package.ps1
 pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 ```
 
-test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
+test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。正式发布只强制 automated 与 package-smoke：前者证明构建和自动化回归，后者证明便携运行、安装、安装后启动与卸载。ui、system、performance、signatures、hardware 仍可按需收集为诊断证据，但不阻断版本升级和正式 Release。
 
-0.25.1 的源码与自动化状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测、签名、真实桌面和物理矩阵逐项见[0.25.1 验证报告](docs/release/0.25.1-test-report.md)。任一 FAIL/SKIP 都不会被版本号或历史发布记录改写为 PASS。
+0.25.1 的源码、自动化和分发状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测和可选诊断见[0.25.1 验证报告](docs/release/0.25.1-test-report.md)。可选诊断的 FAIL/SKIP 会保留原始结果，但不再阻断正式发布。
 
-常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。本次按维护者明确要求完成全部历史版本正式化；这项发布决定不把 UI、性能、签名或硬件的 FAIL/SKIP 改写为 PASS。
+常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的 automated 与 package-smoke 均为 PASS，并验证两个资产及清单哈希一致。Release workflow 会在 GitHub 托管 Windows runner 上重跑这两组门禁；不会创建部署环境或 Pre-release。
 
 ## 文档与发布产物
 

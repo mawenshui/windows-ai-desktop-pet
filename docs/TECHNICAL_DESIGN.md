@@ -151,6 +151,6 @@ GitHubReleaseUpdateClient 固定读取 `mawenshui/windows-ai-desktop-pet` 的 la
 
 ## 10. 发布证据
 
-collect-release-evidence 收集七组独立报告。release-evidence 绑定版本、提交、输入指纹、时间、环境以及烟雾/签名/硬件资产哈希；verify-release 拒绝 dirty、缺失/过期、FAIL/SKIP、缺项、错资产和错 SHA256SUMS。输入包含源码、测试、脚本、配置、素材、workflow、VERSION、Directory.Build.props 和离线手册。
+collect-release-evidence 可收集 automated、package-smoke 及其他诊断报告。release-evidence 绑定版本、提交、输入指纹、时间、环境和资产哈希；verify-release 只强制 automated 与 package-smoke，拒绝 dirty、必需报告缺失/过期/FAIL/SKIP、缺项、错资产和错 SHA256SUMS。输入包含源码、测试、脚本、配置、素材、workflow、VERSION、Directory.Build.props 和离线手册。
 
-Release workflow 在受保护的 self-hosted Windows runner 上发布已经通过验证的字节，下载后再比哈希。修改提交或构建输入必须重取证，既有历史成功不能迁移为当前 PASS。候选状态及限制见[当前状态](CURRENT_STATUS.md)。
+Release workflow 在 GitHub 托管 Windows runner 上重新执行 automated 与 package-smoke，发布已经通过验证的字节，并在上传后重新下载比对哈希。UI、system、performance、signatures 与 hardware 可继续手动诊断，但不阻断发布。修改提交或构建输入必须重取必需证据，既有历史成功不能迁移为当前 PASS。当前状态见[当前状态](CURRENT_STATUS.md)。

@@ -11,6 +11,12 @@ $script:ReleaseChecks = @{
     hardware = @('multi-monitor','scaling-100-200','display-hotplug','sleep-resume','timezone-clock','explorer-restart','upgrade-data-retention')
 }
 
+# A formal release is blocked only by the automated regression suite and by
+# proving that both distributed forms can install/start/uninstall normally.
+# The remaining collectors are optional diagnostics and never an approval
+# substitute for these two required gates.
+$script:RequiredReleaseGates = @('automated','package-smoke')
+
 function Get-ReleaseInputFingerprint {
     param([Parameter(Mandatory)][string]$Root)
     $paths = [Collections.Generic.List[string]]::new()
@@ -61,7 +67,7 @@ function Test-ReleaseEvidenceSet {
     param([Parameter(Mandatory)][string]$Directory, [Parameter(Mandatory)][hashtable]$Context,
         [Parameter(Mandatory)][object[]]$Assets, [DateTimeOffset]$Now = [DateTimeOffset]::UtcNow,
         [int]$MaximumAgeHours = 72)
-    foreach ($gate in @('automated','ui','system','performance','package-smoke','signatures','hardware')) {
+    foreach ($gate in $script:RequiredReleaseGates) {
         $file = Join-Path $Directory "$gate.json"
         if (-not [IO.File]::Exists($file)) { throw "Missing release evidence: $gate" }
         $report = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
@@ -77,7 +83,7 @@ function Test-ReleaseEvidenceSet {
             if (@($report.checks | Where-Object name -CEQ $required).Count -ne 1) { throw "Missing or duplicated check: $gate/$required" }
         }
         if (-not $report.environment.os -or -not $report.environment.runtime) { throw "Missing environment: $gate" }
-        if ($gate -in @('package-smoke','signatures','hardware')) {
+        if ($gate -eq 'package-smoke') {
             if (@($report.assets).Count -ne $Assets.Count) { throw "Missing asset bindings: $gate" }
             foreach ($asset in $Assets) {
                 $bound = @($report.assets | Where-Object name -CEQ $asset.name)

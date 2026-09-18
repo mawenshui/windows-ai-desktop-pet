@@ -13,8 +13,8 @@
 | scripts/test-performance.ps1 -Enforce | 匿名 20,000 条名称查询与 UI/进程指标，按 config/performance-budgets.json 判断 |
 | scripts/package.ps1 | ZIP / Inno Setup、离线手册/资源、SHA-256 和 provenance |
 | scripts/smoke-release.ps1 | 便携运行、安装、安装后运行、静默卸载及安装路径自启清理；签名按实际配置报告 |
-| scripts/collect-release-evidence.ps1 -Gate ... | 绑定当前版本/提交/输入指纹/环境/时间/资产的七类证据 |
-| scripts/verify-release.ps1 | 验证干净工作区、完整新鲜证据、资产及清单哈希 |
+| scripts/collect-release-evidence.ps1 -Gate ... | 绑定当前版本/提交/输入指纹/环境/时间/资产的证据；正式发布只强制 automated 与 package-smoke |
+| scripts/verify-release.ps1 | 验证干净工作区、两组必需新鲜证据、资产及清单哈希 |
 | tests/prototypes/AiPet.Prototypes | EXT-08 严格 2D 宠物包隔离评估和 20,000/100,000 元数据测量 |
 
 从仓库根使用 pwsh -NoProfile -File 运行 PowerShell 入口。单元工程包含进程内 WPF 和文件/SQLite 边界集成用例；目录命名不表示全部为纯内存单元测试。尚未设置覆盖率、格式或漏洞扫描阈值，不伪装为已执行。
@@ -45,10 +45,10 @@
 
 外部服务默认 fake HTTP；完整配置包使用匿名伪 Key，并断言密文、普通设置和错误信息不出现该值。无实际 API Key、待办标题、搜索原文或个人路径进入测试 fixture/诊断。渲染截图只使用匿名测试数据，build 目录不作为源码交付；不得将锁屏、PIN 或其他程序截为桌宠证据。
 
-## 3. 独立发布门禁
+## 3. 正式发布门禁
 
-七组 gate：automated、ui、system、performance、package-smoke、signatures、hardware。输入指纹覆盖源码/测试/脚本/资源/配置/离线手册及版本构建元数据，报告必须来自当前提交且不超过 72 小时。缺少必需检查、FAIL/SKIP、错资产或 dirty 都拒绝。
+必需 gate 只有 `automated` 与 `package-smoke`。输入指纹覆盖源码、测试、脚本、资源、配置、workflow、离线手册及版本构建元数据；报告必须来自当前提交且不超过 72 小时。两组任一缺失、FAIL/SKIP、资产不符或工作区 dirty 都拒绝发布。package-smoke 必须证明便携运行、安装、安装后启动和卸载均正常。
 
-系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.25.1 还需在解锁的同桌面会话验证完整深色/浅色切换、关联/无关联专注、暂停/继续/提前结束/到时、安静模式与正式提醒、点击穿透恢复、真全屏/最大化/副屏与手动隐藏、四角色切换、200% 缩放和高对比度，并回归复盘、提醒中心、待办录入、主页布局、搜索焦点、设置保护、公开更新源检查/下载、正文、今日安排、快捷键、自动备份和 AI 迁移。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
+`ui`、`system`、`performance`、`signatures` 与 `hardware` 是可选诊断。执行时仍须如实记录 PASS、FAIL 或 SKIP，不能把进程内测试冒充真实桌面或物理设备结果；但这些结果不阻断版本升级、标签或正式 Release。覆盖升级、交互清理、真实跨版本迁移、多屏/缩放、热插拔、休眠、时区/时钟和 Explorer 重启按风险与环境另行验证。
 
-NotifyIcon/桌宠提交无法证明展示，需实测专注助手、隐藏桌宠、动画关闭和中心处理。UI 无法获取前台或运行失败不应降低测试条件、替换为属性赋值并声称真实输入 PASS。完整门禁不齐只保留候选，不创建正式 Release。
+NotifyIcon/桌宠提交无法证明展示；若执行 UI 诊断，无法获取前台或运行失败时不应降低条件或改写为 PASS。发布结论只声明 automated 与 package-smoke 所证明的构建、便携运行和安装主路径正常，不据此声称所有 UI、性能、签名或硬件目标均已验证。

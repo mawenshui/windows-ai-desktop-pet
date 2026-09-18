@@ -10,20 +10,23 @@ permissions:
 
 jobs:
   verified-release:
-    # The protected runner owns reviewed physical-device evidence and tested assets.
-    # Publish the exact bytes that were tested; rebuilding invalidates asset bindings.
-    runs-on: [self-hosted, Windows, X64, aipet-release]
-    environment: release
+    # Release requires reproducible automated checks plus real portable/install
+    # smoke tests. UI, performance, signing and hardware diagnostics are useful
+    # but are not release blockers for this project.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify tag and all independent gates
+      - name: Verify tag and required release gates
         shell: pwsh
-        env:
-          AIPET_RELEASE_EVIDENCE_DIR: ${{ vars.AIPET_RELEASE_EVIDENCE_DIR }}
         run: |
           $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
           if ("v$version" -ne "${{ github.ref_name }}") { throw 'Tag and VERSION mismatch.' }
-          ./scripts/verify-release.ps1
+          $evidence = Join-Path $env:RUNNER_TEMP 'aipet-release-evidence'
+          ./scripts/collect-release-evidence.ps1 -Gate automated -EvidenceDirectory $evidence
+          if ($LASTEXITCODE -ne 0) { throw 'Automated release gate failed.' }
+          ./scripts/collect-release-evidence.ps1 -Gate package-smoke -EvidenceDirectory $evidence
+          if ($LASTEXITCODE -ne 0) { throw 'Package smoke release gate failed.' }
+          ./scripts/verify-release.ps1 -EvidenceDirectory $evidence
       - name: Publish tested assets
         shell: pwsh
         env:

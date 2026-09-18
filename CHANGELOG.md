@@ -9,10 +9,12 @@ All notable changes to this project are documented in this file. The format foll
 - 更新检查与安装器下载显式共用 Windows 用户代理及 `HTTP_PROXY`/`HTTPS_PROXY` 环境代理；GitHub 官方不可达时继续使用内置匿名加速线路。
 - 更新源返回匿名 404 时不再误报为“所有线路均未连接”，改为说明仓库未公开或没有正式 Release，并继续保留此前发现的版本。
 - 工具窗口主题改为完整动态调色板；深色主题覆盖主体、卡片、输入、文字、状态色、边框与阴影，切回浅色时恢复全部浅色资源，不残留深色边缘。
+- 修复待办快捷时间、跨日复盘和专注日汇总错误依赖运行机器时区的问题，GitHub UTC runner 与用户本地时区现在得到一致结果。
+- 正式发布门禁精简为自动化回归和分发 smoke；UI、性能、签名与物理硬件矩阵保留为可选诊断。Release workflow 改用 GitHub 托管 Windows runner，不再创建 `release` deployment。
 
 ### Tests
 
-- 新增系统代理处理器、匿名 404 分类、更新状态文案，以及深色到浅色完整主题恢复的 WPF 回归测试。
+- 新增系统代理处理器、匿名 404 分类、更新状态文案、深色到浅色完整主题恢复，以及跨 runner 时区的墙钟回归测试。
 
 ## [0.25.0] - 2026-09-17
 

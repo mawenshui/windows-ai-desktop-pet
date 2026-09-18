@@ -12,7 +12,7 @@
 
 本规范把 PRD 转换为可执行的项目级约束，供开发者、CI 和各类 AI 工具共同遵守。根目录 `AGENTS.md` 是统一操作入口，本文件提供更详细的工程约定。PRD 负责定义“做什么”，本规范负责定义“代码和资料放在哪里、如何验证、如何升级版本、如何打包和发布”。
 
-当前仓库已有 WPF/.NET 8 产品源码、CC0 RGS 桌宠、页内单选与四页工具窗、自动化测试，以及便携版和 Inno Setup 安装版。0.25.0 在 0.24.0 基线上新增本地专注会话、低打扰桌宠和四角色真实首帧卡片；0.25.1 在不改变 schema 的前提下修复完整主题往返切换，并让更新检查与下载显式共用 Windows/环境代理、准确区分匿名更新源 404。Todo、通知、复盘和快捷入口 schema 保持不变，不增加第三方资源、网络上传、账号、遥测或权限。EXT-08 外部宠物包仍只在 tests/prototypes 评估。当前测试与产物见 CURRENT_STATUS.md，真实输入、性能、签名和物理环境仍需独立证据。
+当前仓库已有 WPF/.NET 8 产品源码、CC0 RGS 桌宠、页内单选与四页工具窗、自动化测试，以及便携版和 Inno Setup 安装版。0.25.0 在 0.24.0 基线上新增本地专注会话、低打扰桌宠和四角色真实首帧卡片；0.25.1 在不改变 schema 的前提下修复完整主题往返切换、跨 runner 时区的墙钟逻辑，并让更新检查与下载显式共用 Windows/环境代理、准确区分匿名更新源 404。Todo、通知、复盘和快捷入口 schema 保持不变，不增加第三方资源、网络上传、账号、遥测或权限。EXT-08 外部宠物包仍只在 tests/prototypes 评估。当前测试与产物见 CURRENT_STATUS.md。
 
 本项目只设置正式版发布通道，不发布 Alpha、Beta、RC、Preview 或 GitHub Pre-release。设计和研发阶段使用“目标设计”“实现中”“待验收”等状态描述，不把未完成实现包装成可安装预览版；功能、测试、文档和发布门禁全部完成后，直接以普通 GitHub Release 发布对应 SemVer 正式版。正式版允许并要求同步发布可追溯源码、便携包、安装包和 SHA-256 清单。
 
@@ -115,18 +115,16 @@ windows-ai-desktop-pet/
 pwsh -NoProfile -File scripts/test.ps1 -CI
 ```
 
-完整发布要求应覆盖以下检查；这不是当前 `test.ps1 -CI` 已经串联的步骤清单：
+正式发布的必需检查为：
 
 1. 项目结构、SemVer、UTF-8、AI 入口和必要文档校验。
-2. 格式检查、静态分析和依赖安全检查。
-3. 单元测试及覆盖率检查。
-4. 集成测试，重点覆盖配置、安全存储、搜索范围和 AI 错误分类。
-5. Windows E2E，映射当前版本所有 P0 验收条件。
-6. 便携版和安装版烟雾测试。
+2. 完整 solution 的 Release 构建、单元与集成自动化测试。
+3. 便携版运行、安装版安装、安装后启动和卸载 smoke。
+4. 版本、标签、文档、资产名称与 SHA-256 一致性检查。
 
-当前未配置覆盖率阈值；覆盖目标及增补策略应写入 `TEST_PLAN.md`，关键安全、版本、配置迁移和时间规则不得只依赖总覆盖率。失败、跳过和不适用必须分别报告；任何失败都阻断版本升级和 Release。
+当前未配置覆盖率阈值；覆盖目标及增补策略应写入 `TEST_PLAN.md`，关键安全、版本、配置迁移和时间规则不得只依赖总覆盖率。必需检查的任何失败都会阻断版本升级和 Release。
 
-当前 scripts/test.ps1 -CI 执行结构/文档校验、发布证据反例、隔离 NuGet 还原、完整 solution Release 构建及 xUnit。独立 UI、系统、性能和打包/烟雾仍须另外执行；格式、覆盖率及漏洞扫描阈值尚未接入。collect-release-evidence.ps1 收集七组证据，verify-release.ps1 校验版本、提交、输入指纹、时间和资产。Release workflow 使用受保护自托管环境并强制消费七组报告；缺失或 FAIL/SKIP 不得发布。
+当前 `scripts/test.ps1 -CI` 执行结构/文档校验、发布证据反例、隔离 NuGet 还原、完整 solution Release 构建及 xUnit。Release 必须另外通过 `package-smoke`；`verify-release.ps1` 只强制消费 `automated` 与 `package-smoke` 两组新鲜证据，并校验版本、提交、输入指纹、时间和资产。独立 UI、system、performance、signatures 与 hardware 仍可按需收集为诊断证据，但缺失、FAIL 或 SKIP 不阻断正式发布。Release workflow 使用 GitHub 托管 Windows runner 自动执行必需门禁，不再依赖自托管部署环境。
 
 ## 7. SemVer 与变更分类
 
@@ -162,7 +160,7 @@ dist/installer/windows-ai-desktop-pet-v<version>-setup.exe
 dist/checksums/SHA256SUMS.txt
 ```
 
-发布前必须从空白或受控 Windows 环境验证：便携运行、全新安装、覆盖升级、卸载、托盘、自启、帮助手册、配置保存和敏感数据清理。没有真实入口程序时，打包脚本必须失败，不能生成空 ZIP 或改名占位 EXE。
+发布前必须在受控 Windows 环境验证：便携运行、全新安装、安装后启动和卸载。覆盖升级、托盘、自启、帮助手册、配置保存和敏感数据清理由自动化或专项诊断持续覆盖，但不单独阻断 Release。没有真实入口程序时，打包脚本必须失败，不能生成空 ZIP 或改名占位 EXE。
 
 ## 9. GitHub 与 Release 流程
 
@@ -201,6 +199,6 @@ GitHub 只发布正式版本。研发期间可以在本地或普通开发提交�
 
 2026-09-18 按 SET-03 与 UPDATE-01～04 完成主题资源动态化、浅色完整恢复、Windows/环境代理显式装配及匿名 404 更新源分类，并将源码版本按 PATCH 升为 0.25.1。
 
-0.24.0 及以前版本的历史 Release 与证据保持原状。0.25.0 与 0.25.1 只允许创建普通正式 Release，不创建 Alpha、Beta、RC、Preview 或 GitHub Pre-release；源码、两个安装资产与校验和可以在所有门禁满足后发布到 GitHub。匿名自动更新的固定 Release 仓库必须公开；改变仓库可见性属于维护者外部操作，代码和文档不得擅自执行。真实桌面、性能、物理矩阵和签名仍按 PASS、FAIL 或 SKIP 分别记录，不能由版本号或 Release 状态反推通过。
+0.24.0 及以前版本的历史 Release 与证据保持原状。0.25.0 与 0.25.1 只允许创建普通正式 Release，不创建 Alpha、Beta、RC、Preview 或 GitHub Pre-release；源码、两个安装资产与校验和在 automated 与 package-smoke 通过后即可发布到 GitHub。匿名自动更新的固定 Release 仓库必须公开；改变仓库可见性属于维护者外部操作，代码和文档不得擅自执行。真实桌面、性能、物理矩阵和签名仍按实际结果记录，但不再作为版本升级或 Release 前置条件。
 
 当前功能设计入口为 [0.25.0：专注陪伴、低打扰与内置角色库设计](0.25.0－专注陪伴、低打扰与角色库设计.md)，0.25.1 为兼容修复。正式发布结果以 [0.25.1 验证报告](release/0.25.1-test-report.md) 和 [GitHub Release 状态](release/GITHUB_RELEASE_STATUS.md) 为准。
