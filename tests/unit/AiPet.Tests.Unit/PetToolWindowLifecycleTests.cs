@@ -529,6 +529,38 @@ public sealed class PetToolWindowLifecycleTests
     }
 
     [Fact]
+    public void Theme_switch_updates_the_complete_surface_and_restores_light_palette()
+    {
+        RunSta(() =>
+        {
+            var window = new PetToolWindow { AutoHideOnDeactivate = false };
+            window.ShowNear(new Rect(900, 800, 176, 148), new Rect(0, 0, 1920, 1040));
+            PumpDispatcher();
+            window.UpdateLayout();
+
+            var body = FindElement<Border>(window, "PopoverBody");
+            var search = FindElement<TextBox>(window, "SearchBox");
+            Assert.NotNull(body);
+            Assert.NotNull(search);
+
+            window.ApplyTheme("dark");
+            PumpDispatcher();
+            AssertBrushColor("#FF24201E", body.Background);
+            AssertBrushColor("#FF302A27", search.Background);
+            AssertBrushColor("#FFFFF8F2", window.Foreground);
+
+            window.ApplyTheme("light");
+            PumpDispatcher();
+            AssertBrushColor("#FFFFFCF8", body.Background);
+            AssertBrushColor("#FFFFFFFF", search.Background);
+            AssertBrushColor("#FF33302E", window.Foreground);
+
+            window.AllowClose();
+            window.Close();
+        });
+    }
+
+    [Fact]
     public void Reminder_editor_exposes_independent_pet_channel_switches()
     {
         RunSta(() =>
@@ -1099,6 +1131,12 @@ public sealed class PetToolWindowLifecycleTests
         Assert.True(contrastingPixels >= 5,
             $"Expected input text to render inside the content host; found {contrastingPixels} contrasting pixels " +
             $"(textView={textView?.ActualWidth:F1}x{textView?.ActualHeight:F1}, host={contentHost.ActualWidth:F1}x{contentHost.ActualHeight:F1}).");
+    }
+
+    private static void AssertBrushColor(string expected, Brush brush)
+    {
+        var expectedColor = (Color)ColorConverter.ConvertFromString(expected);
+        Assert.Equal(expectedColor, Assert.IsType<SolidColorBrush>(brush).Color);
     }
 
     private static DependencyObject? FindVisualByTypeName(DependencyObject parent, string typeName)

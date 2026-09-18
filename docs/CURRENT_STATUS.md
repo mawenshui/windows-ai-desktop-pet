@@ -1,6 +1,6 @@
 # 当前代码状态与文档索引
 
-日期：2026-09-18；源码版本：**0.25.0**，由 0.24.0 按 MINOR 升级。功能代码、迁移、自动化回归、便携版与安装器已生成，安装/卸载 smoke 通过；UI、performance、signatures 与 hardware 未满足正式 Release 门禁，因此尚未创建标签或 GitHub Release。
+日期：2026-09-18；源码版本：**0.25.1**，由 0.25.0 按 PATCH 升级。更新连通性诊断与完整主题切换修复已实现；正式资产、独立 UI/性能、签名和硬件状态以本轮验证报告为准，门禁未全部通过前不创建标签或 GitHub Release。
 
 ## 当前实现
 
@@ -13,12 +13,14 @@
 | 内置角色 | base、hero、skeleton、monster 使用各自真实正面首帧卡片、中文名、选中状态、CC0-1.0 信息和本地许可入口；切换先保存后应用，启动时坏 ID 或坏首帧回退到可解码角色 |
 | 数据与维护 | 设置升级为 schema 6，新增 `appearance.hidePetDuringFullscreen` 与 `focus.clickThroughPet`；FocusSessions 进入手动/自动备份、恢复事务、回滚和卸载清理 |
 | 隐私 | 专注数据不进入 AI、搜索索引、默认日志、诊断或遥测；全屏检测不读取标题、正文、进程路径、截图、剪贴板或输入内容 |
+| 更新连通性 | 检查与下载显式共用 Windows 用户代理和标准环境代理；官方失败后使用内置匿名线路。网络失败、匿名源 404 和不安全元数据分别提示；固定仓库、标签、资产、重定向、大小、digest 与 SHA-256 校验不放宽 |
+| 主题切换 | light/dark/high-contrast 使用完整语义调色板；主体、卡片、输入、文字、状态色、边框和阴影同时更新，深色切回浅色会写回全部浅色角色 |
 
 专注 UI 倒计时每秒刷新，但只在状态转换、恢复校准和退出检查点写盘。单个活动会话上限 180 分钟，历史上限 10,000 条、文件上限 16 MiB；只保存可选 Todo ID，不复制标题或备注。角色卡不新增资源或预览动画。
 
 ## 当前验证边界
 
-自动化覆盖专注状态转换、唯一活动会话、暂停/重启恢复、到时幂等、时间回拨自动暂停、日期聚合、损坏写保护、维护输入校验、设置 5→6 迁移、低打扰显式保存、角色切换事务、全屏几何策略、复盘导出与 WPF 绑定合同。2026-09-18 完整 `scripts/test.ps1 -CI` 为 368/368、0 警告、0 错误；system 与 package-smoke 为 PASS，UI 与 performance 为 FAIL，signatures 与 hardware 为 SKIP。资产哈希和逐项证据见 [0.25.0 验证报告](release/0.25.0-test-report.md)。
+自动化覆盖既有专注、低打扰、角色、复盘及维护行为，并新增系统/环境代理装配、匿名 404 更新源分类、状态文案和深色→浅色完整资源恢复。版本与文档同步后的完整 `scripts/test.ps1 -CI` 为 371/371、0 跳过、0 警告、0 错误；资产哈希和逐项证据见 [0.25.1 验证报告](release/0.25.1-test-report.md)。
 
 便携启动、全新安装、安装后启动与卸载清理已经通过；覆盖升级仍属于 hardware SKIP。真实透明窗口中的拖动/提醒与安静模式并存、点击穿透恢复、同屏真全屏/最大化/副屏、200% 缩放、高对比度、休眠与人工改时、Explorer 重启、性能和签名仍必须在适用环境中重验。任何 FAIL/SKIP 都不能由自动化、版本号或历史 Release 推断通过。
 
@@ -26,7 +28,7 @@
 
 - [PRD](Windows桌面宠物产品需求文档_PRD.md)、[工程规范](PROJECT_SPEC.md)、[技术设计](TECHNICAL_DESIGN.md)、[测试计划](TEST_PLAN.md)、[用户手册](USER_MANUAL.md)。
 - [0.25.0 设计与验收](0.25.0－专注陪伴、低打扰与角色库设计.md)、[成熟桌宠产品调研](成熟桌宠产品调研与功能机会.md)。
-- [0.25.0 版本说明](RELEASE_NOTES_0.25.0.md)、[0.25.0 验证报告](release/0.25.0-test-report.md)、[GitHub Release 状态](release/GITHUB_RELEASE_STATUS.md)。
+- [0.25.1 版本说明](RELEASE_NOTES_0.25.1.md)、[0.25.1 验证报告](release/0.25.1-test-report.md)、[GitHub Release 状态](release/GITHUB_RELEASE_STATUS.md)。
 
 ## 非当前产品能力
 

@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.25.0，2026-09-17；测试结果以[本次报告](release/0.25.0-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
+基线：0.25.1，2026-09-18；测试结果以[本次报告](release/0.25.1-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -23,7 +23,7 @@
 
 | 需求 | 核心测试 |
 | :--- | :--- |
-| PET/WIN/NAV/SET | PetWindowPositioner、PetPopoverPositioner、PetToolWindowLifecycle、HomePageLayout、HomeViewModel、GitHubReleaseUpdate、ShellNavigation；未保存导航取消保留、`Alt+1`～`Alt+4`/`Ctrl+L`/`Ctrl+N`/`Ctrl+Enter`/`F1`、Esc 层级、页签帮助文本、设置五项目录、渲染与管理窗 |
+| PET/WIN/NAV/SET | PetWindowPositioner、PetPopoverPositioner、PetToolWindowLifecycle、HomePageLayout、HomeViewModel、GitHubReleaseUpdate、ShellNavigation；未保存导航取消保留、`Alt+1`～`Alt+4`/`Ctrl+L`/`Ctrl+N`/`Ctrl+Enter`/`F1`、Esc 层级、页签帮助文本、设置五项目录、完整深色调色板与浅色恢复、渲染与管理窗 |
 | SRCH-01～11 / EXT-04 | SearchService、SearchIndex、SearchLifecycle、ContentSearch、SearchResultActions、HomeViewModel/HomePageLayout；授权撤销竞争、重启监听、稳定分页、固定/清历史、正文边界、安全结果动作、选择生命周期、单次重置三个条件、可操作空态、数量/序号与 live region |
 | QCK-01～09 / EXT-05 | ShortcutStore、ShortcutOrganization、HomePageLayout；重复 ID、100 项排序/分组、选择数量、固定区边界、扫描互斥、Delete 预览、批量撤销图标、静止管理入口、失效非颜色线索及含目标名的 UIA 语义 |
 | TODO-01～19 / EXT-01 | TodoStore、TodoViewModel、ReminderRule、ReminderScheduler、PetToolWindowLifecycle/HomePageLayout；筛选/总数摘要、上下文空态、全字段未保存基线、页内放弃确认、统一撤销和并发拒绝；待办标题/备注查找、六筛选计数、三排序、稳定选择、统一操作带、列表快捷键、紧迫度、快捷时间、200/4000 计数与实时校验；提醒标题查找、三筛选计数、两排序、通知 ID 选择恢复、目标动作、静默草稿/预设/校验和提醒区焦点分流 |
@@ -38,7 +38,7 @@
 | DATA-01/02/04/05 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile、HomePageLayout/HomePageExperience；路径/容量/schema/hash、中途失败/中断回滚、FocusSessions 等真实模块成组恢复、损坏后写保护、危险层级/明确确认、独立状态通道、成功不泄露路径与失败不拼接原异常 |
 | HOTKEY-01/02 / EXT-09 | EssentialFeature、PetToolWindowLifecycle、HomePageLayout；组合键规范化/拒绝/去重、设置持久化、快速待办定向及标题焦点、托盘等价入口；真实跨程序按键与占用释放单列实测 |
 | DATA-03 / EXT-10 | EssentialFeature、SettingsStore、FutureFeature；24 小时节流、1～30 份保留、模块包含/排除、损坏输入失败保留、schema 4 与 `.pre-v4.bak` |
-| UPDATE-01～04 | GitHubReleaseUpdate、SettingsStore、HomeViewModel/HomePageLayout；稳定版本、固定仓库/标签/资产、内置元数据与下载线路顺序、全部失败、匿名请求、失败保留已发现版本、HTTPS/大小/重定向/digest/清单、临时文件清理、启动一次、周期设置、专业输入移除、状态 live region、schema 6 兼容旧模板与迁移备份 |
+| UPDATE-01～04 | GitHubReleaseUpdate、SettingsStore、HomeViewModel/HomePageLayout；稳定版本、固定仓库/标签/资产、Windows/环境代理处理器、内置元数据与下载线路顺序、网络失败与匿名 404 更新源分类、匿名请求、失败保留已发现版本、HTTPS/大小/重定向/digest/清单、临时文件清理、启动一次、周期设置、专业输入移除、状态 live region、schema 6 兼容旧模板与迁移备份 |
 | EXT-00 | test-release-evidence.ps1；缺失、过期、未来时间、版本/提交/输入不符、FAIL/SKIP、缺检查及资产错误必须失败 |
 | EXT-08 | PrototypeTests；宠物包路径/缺帧/超大/未知字段/许可/重复/损坏回退。原 EXT-07 正文试验已迁入 SRCH-07 正式回归 |
 | AUTO/TRAY/HELP | 自启、托盘重建合同、帮助路径与 smoke；真实重登录/Explorer 单列 |
@@ -49,6 +49,6 @@
 
 七组 gate：automated、ui、system、performance、package-smoke、signatures、hardware。输入指纹覆盖源码/测试/脚本/资源/配置/离线手册及版本构建元数据，报告必须来自当前提交且不超过 72 小时。缺少必需检查、FAIL/SKIP、错资产或 dirty 都拒绝。
 
-系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.25.0 还需在解锁的同桌面会话验证关联/无关联专注、暂停/继续/提前结束/到时、安静模式与正式提醒、点击穿透恢复、真全屏/最大化/副屏与手动隐藏、四角色切换、200% 缩放和高对比度，并回归 0.24.0 复盘、提醒中心、待办录入、主页布局、搜索焦点、设置保护、更新、正文、今日安排、快捷键、自动备份和 AI 迁移。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
+系统当前显示器“存在”和几何合同通过不等于多屏交互已通过。hardware 自动收集只建立 SKIP 清单，需人工操作多屏、100%～200% 缩放、热插拔、休眠、时区/时钟、Explorer 重启、升级保留数据并提供见证记录。0.25.1 还需在解锁的同桌面会话验证完整深色/浅色切换、关联/无关联专注、暂停/继续/提前结束/到时、安静模式与正式提醒、点击穿透恢复、真全屏/最大化/副屏与手动隐藏、四角色切换、200% 缩放和高对比度，并回归复盘、提醒中心、待办录入、主页布局、搜索焦点、设置保护、公开更新源检查/下载、正文、今日安排、快捷键、自动备份和 AI 迁移。smoke 的静默卸载只覆盖保留分支，交互清理和真实跨版本迁移另测。
 
 NotifyIcon/桌宠提交无法证明展示，需实测专注助手、隐藏桌宠、动画关闭和中心处理。UI 无法获取前台或运行失败不应降低测试条件、替换为属性赋值并声称真实输入 PASS。完整门禁不齐只保留候选，不创建正式 Release。

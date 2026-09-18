@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.25.1] - 2026-09-18
+
+### Changed
+
+- 更新检查与安装器下载显式共用 Windows 用户代理及 `HTTP_PROXY`/`HTTPS_PROXY` 环境代理；GitHub 官方不可达时继续使用内置匿名加速线路。
+- 更新源返回匿名 404 时不再误报为“所有线路均未连接”，改为说明仓库未公开或没有正式 Release，并继续保留此前发现的版本。
+- 工具窗口主题改为完整动态调色板；深色主题覆盖主体、卡片、输入、文字、状态色、边框与阴影，切回浅色时恢复全部浅色资源，不残留深色边缘。
+
+### Tests
+
+- 新增系统代理处理器、匿名 404 分类、更新状态文案，以及深色到浅色完整主题恢复的 WPF 回归测试。
+
 ## [0.25.0] - 2026-09-17
 
 ### Added

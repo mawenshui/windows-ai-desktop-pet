@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -95,6 +96,38 @@ public sealed class GitHubReleaseUpdateTests : IDisposable
         Assert.Null(result.Update);
         Assert.Equal(2, handler.Requests.Count);
         Assert.Contains("自动尝试", result.Message, StringComparison.Ordinal);
+        Assert.Equal(UpdateCheckFailureKind.NetworkUnavailable, result.FailureKind);
+    }
+
+    [Fact]
+    public async Task Anonymous_404_is_reported_as_an_unavailable_release_source_not_a_route_failure()
+    {
+        var handler = new RouteHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = new GitHubReleaseUpdateClient(new HttpClient(handler));
+
+        var result = await client.CheckAsync("0.19.0", CancellationToken.None);
+
+        Assert.Equal(UpdateCheckState.Failed, result.State);
+        Assert.Null(result.Update);
+        Assert.Equal(UpdateCheckFailureKind.SourceUnavailable, result.FailureKind);
+        Assert.Contains("未公开", result.Message, StringComparison.Ordinal);
+        Assert.Contains("不是本机代理", result.RouteDisplayName, StringComparison.Ordinal);
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Fact]
+    public void Default_update_handler_uses_the_windows_and_environment_proxy_chain()
+    {
+        var factory = typeof(GitHubReleaseUpdateClient).GetMethod(
+            "CreateSystemProxyHandler",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(factory);
+        using var handler = Assert.IsType<HttpClientHandler>(factory.Invoke(null, null));
+
+        Assert.True(handler.UseProxy);
+        Assert.Same(HttpClient.DefaultProxy, handler.Proxy);
+        Assert.True(handler.AllowAutoRedirect);
+        Assert.InRange(handler.MaxAutomaticRedirections, 1, 5);
     }
 
     [Fact]
@@ -332,7 +365,10 @@ public sealed class GitHubReleaseUpdateTests : IDisposable
         fake.Results.Enqueue(new UpdateCheckResult(
             UpdateCheckState.UpdateAvailable, BuildUpdate("0.20.0"), "发现新版本。", "智能加速线路"));
         fake.Results.Enqueue(new UpdateCheckResult(
-            UpdateCheckState.Failed, null, "网络暂时不可用。"));
+            UpdateCheckState.Failed,
+            null,
+            "更新源未公开。",
+            FailureKind: UpdateCheckFailureKind.SourceUnavailable));
         fake.Results.Enqueue(new UpdateCheckResult(
             UpdateCheckState.UpToDate, null, "当前已是最新版本。", "GitHub 官方"));
         vm.SetUpdateClient(fake);
@@ -344,7 +380,7 @@ public sealed class GitHubReleaseUpdateTests : IDisposable
 
         await vm.CheckForUpdatesAsync(automatic: false);
         Assert.True(vm.HasAvailableUpdate);
-        Assert.Contains("均未连接成功", vm.UpdateRouteStatus, StringComparison.Ordinal);
+        Assert.Contains("无法匿名访问", vm.UpdateRouteStatus, StringComparison.Ordinal);
 
         await vm.CheckForUpdatesAsync(automatic: false);
         Assert.False(vm.HasAvailableUpdate);

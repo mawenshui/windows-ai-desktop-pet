@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.25.0**；本版按 FOCUS、QUIET、CHAR 需求增加专注陪伴、低打扰桌宠和内置角色卡。项目不发布预览版，0.25.0 是否已经正式发布以当次验证报告和 GitHub Release 为准。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.25.1**；本版修复 GitHub 更新源诊断与系统代理链，并让深色/浅色主题完整、可逆地作用于整个工具窗口。项目不发布预览版，0.25.1 是否已经正式发布以当次验证报告和 GitHub Release 为准。
 
 ## 当前能力
 
@@ -31,7 +31,7 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **
 - 全局快捷键、自动备份和更新检查的显式保存按钮会标记未保存修改，成功写入后显示“已保存”并禁用重复提交。
 - 设置顶部五项目录可滚动并聚焦外观、快捷键、更新、搜索和 AI；`Alt+1`～`Alt+4` 直接切页，`Ctrl+L` 返回搜索，全部复用 AI 未保存保护。
 - 工具窗内 `Ctrl+N` 快速新建待办、`Ctrl+Enter` 保存编辑、`F1` 打开离线手册；Esc 按编辑保护、搜索清空、窗口收起的层级处理。
-- 每次正式启动检查一次固定公开仓库的稳定 GitHub Release；可选 1～168 小时周期检查，官方元数据不畅时自动切换内置 API 线路，安装器按三条内置线路与官方地址逐级恢复。用户无需填写代理模板或 Token；临时失败保留已发现版本，下载须通过 Release digest（存在时）与 SHA-256 清单并由用户确认安装。
+- 每次正式启动检查一次固定公开仓库的稳定 GitHub Release；可选 1～168 小时周期检查，检查与下载共用 Windows 用户代理及标准环境代理，官方元数据不畅时自动切换内置 API 线路，安装器按三条内置线路与官方地址逐级恢复。用户无需填写代理模板或 Token；匿名 404 会明确提示更新源未公开或没有正式 Release，临时失败保留已发现版本，下载须通过 Release digest（存在时）与 SHA-256 清单并由用户确认安装。
 - 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，自动避让未选事项的既有安排，再逐项确认、整批原子写入并撤销最近一批。
 
 外部 2D 角色包导入仍只有隔离试验工程；PDF/Office 正文、OCR、语义检索、云同步、通用聊天、3D 和商城未接入。见[当前状态](docs/CURRENT_STATUS.md)及[0.25.0 设计与验收](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)。
@@ -51,14 +51,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。独立证据可分别用 collect-release-evidence.ps1 的 automated、ui、system、performance、package-smoke、signatures、hardware 收集；hardware 自动输出待实机操作的 SKIP，不能代替人工实测。UI runner 不能前台激活应用时停止输入并报告 FAIL。
 
-0.25.0 的源码与自动化状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测、签名、真实桌面和物理矩阵逐项见[0.25.0 验证报告](docs/release/0.25.0-test-report.md)。任一 FAIL/SKIP 都不会被版本号或历史发布记录改写为 PASS。
+0.25.1 的源码与自动化状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测、签名、真实桌面和物理矩阵逐项见[0.25.1 验证报告](docs/release/0.25.1-test-report.md)。任一 FAIL/SKIP 都不会被版本号或历史发布记录改写为 PASS。
 
 常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的全部 PASS、两个资产及清单哈希一致。本次按维护者明确要求完成全部历史版本正式化；这项发布决定不把 UI、性能、签名或硬件的 FAIL/SKIP 改写为 PASS。
 
 ## 文档与发布产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.25.0 版本说明](docs/RELEASE_NOTES_0.25.0.md) · [验证报告](docs/release/0.25.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.25.0 设计](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.25.1 版本说明](docs/RELEASE_NOTES_0.25.1.md) · [验证报告](docs/release/0.25.1-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.25.0 功能设计](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)
 
-0.25.0 的资产哈希只在从正式提交打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
+0.25.1 的资产哈希只在从正式提交打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

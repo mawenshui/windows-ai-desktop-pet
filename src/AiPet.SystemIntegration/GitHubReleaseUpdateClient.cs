@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -14,6 +15,14 @@ public enum UpdateCheckState
     Failed = 2,
 }
 
+public enum UpdateCheckFailureKind
+{
+    None = 0,
+    NetworkUnavailable = 1,
+    SourceUnavailable = 2,
+    InvalidMetadata = 3,
+}
+
 public sealed record ReleaseUpdate(
     Version Version,
     string TagName,
@@ -27,7 +36,8 @@ public sealed record UpdateCheckResult(
     UpdateCheckState State,
     ReleaseUpdate? Update,
     string Message,
-    string RouteDisplayName = "");
+    string RouteDisplayName = "",
+    UpdateCheckFailureKind FailureKind = UpdateCheckFailureKind.None);
 
 public sealed record UpdateDownloadResult(
     bool Success,
@@ -69,7 +79,7 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
             : new Uri(Template.Replace("{url}", official.AbsoluteUri, StringComparison.Ordinal));
     }
 
-    private sealed record UpdateRouteCandidate(Uri Uri, string DisplayName);
+    private sealed record UpdateRouteCandidate(Uri Uri, string DisplayName, bool IsOfficial);
     private sealed record ReleaseAsset(Uri BrowserUrl, long Size, string? Sha256);
 
     private static readonly UpdateRoute[] MetadataRoutes =
@@ -93,20 +103,47 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
 
     public GitHubReleaseUpdateClient(HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient
+        if (httpClient is not null)
+        {
+            _httpClient = httpClient;
+            return;
+        }
+
+        _httpClient = new HttpClient(CreateSystemProxyHandler(), disposeHandler: true)
         {
             Timeout = Timeout.InfiniteTimeSpan,
         };
     }
+
+    internal static HttpClientHandler CreateSystemProxyHandler() => new()
+    {
+        // HttpClient.DefaultProxy observes Windows user proxy settings and
+        // the standard HTTP(S)_PROXY environment variables. The same client is
+        // used for both release metadata and assets so checking and downloading
+        // cannot silently take different proxy paths.
+        UseProxy = true,
+        Proxy = HttpClient.DefaultProxy,
+        AutomaticDecompression = DecompressionMethods.GZip
+            | DecompressionMethods.Deflate
+            | DecompressionMethods.Brotli,
+        AllowAutoRedirect = true,
+        MaxAutomaticRedirections = 5,
+    };
 
     public async Task<UpdateCheckResult> CheckAsync(
         string currentVersion,
         CancellationToken cancellationToken)
     {
         if (!TryParseStableVersion(currentVersion, out var installed))
-            return new(UpdateCheckState.Failed, null, "当前应用版本无效，无法安全比较更新。");
+            return new(
+                UpdateCheckState.Failed,
+                null,
+                "当前应用版本无效，无法安全比较更新。",
+                FailureKind: UpdateCheckFailureKind.InvalidMetadata);
 
         var failureMessage = "暂时无法检查更新。应用已自动尝试 GitHub 官方和内置加速线路，请稍后重试。";
+        var failureKind = UpdateCheckFailureKind.NetworkUnavailable;
+        var officialSourceUnavailable = false;
         foreach (var route in BuildCandidateRoutes(LatestReleaseApi, MetadataRoutes))
         {
             try
@@ -121,13 +158,20 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
             {
                 throw;
             }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                if (route.IsOfficial)
+                    officialSourceUnavailable = true;
+            }
             catch (InvalidDataException ex)
             {
                 failureMessage = $"GitHub Release 元数据不完整或不安全，已停止更新检查（{ex.Message}）";
+                failureKind = UpdateCheckFailureKind.InvalidMetadata;
             }
             catch (JsonException)
             {
                 failureMessage = "GitHub Release 返回了无法识别的数据，已停止更新检查。";
+                failureKind = UpdateCheckFailureKind.InvalidMetadata;
             }
             catch
             {
@@ -136,10 +180,21 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
             }
         }
 
+        if (officialSourceUnavailable)
+        {
+            return new(
+                UpdateCheckState.Failed,
+                null,
+                "更新源未公开或尚无正式 Release，应用无法匿名读取版本信息。请联系发布者检查 GitHub 仓库可见性。",
+                "更新源无法匿名访问；这不是本机代理或加速线路故障。",
+                UpdateCheckFailureKind.SourceUnavailable);
+        }
+
         return new(
             UpdateCheckState.Failed,
             null,
-            failureMessage);
+            failureMessage,
+            FailureKind: failureKind);
     }
 
     public async Task<UpdateDownloadResult> DownloadInstallerAsync(
@@ -271,7 +326,7 @@ public sealed class GitHubReleaseUpdateClient : IReleaseUpdateClient
         {
             var uri = route.Resolve(official);
             if (IsSafeHttpsUri(uri) && seen.Add(uri.AbsoluteUri))
-                candidates.Add(new(uri, route.DisplayName));
+                candidates.Add(new(uri, route.DisplayName, route.Template is null));
         }
         return candidates;
     }

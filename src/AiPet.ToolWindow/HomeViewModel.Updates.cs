@@ -171,7 +171,14 @@ public sealed partial class HomeViewModel
                 _availableUpdate = result.Update;
             UpdateStatus = result.Message;
             UpdateRouteStatus = result.State == UpdateCheckState.Failed
-                ? "GitHub 官方和内置加速线路均未连接成功。"
+                ? result.FailureKind switch
+                {
+                    UpdateCheckFailureKind.SourceUnavailable =>
+                        "更新源无法匿名访问；请检查仓库是否公开且存在正式 Release。",
+                    UpdateCheckFailureKind.InvalidMetadata =>
+                        "已连接更新源，但返回内容未通过安全校验。",
+                    _ => "GitHub 官方和内置加速线路暂时不可用；稍后可重试。",
+                }
                 : $"本次检查：{NormalizeRouteDisplayName(result.RouteDisplayName)}。";
         }
         catch (OperationCanceledException)

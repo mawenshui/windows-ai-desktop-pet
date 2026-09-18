@@ -1,6 +1,6 @@
 # 技术设计与实现基线
 
-日期：2026-09-17；软件：0.25.0 源码版本。本文以当前代码为准；[0.25.0 设计](0.25.0－专注陪伴、低打扰与角色库设计.md)和[验证报告](release/0.25.0-test-report.md)分别说明范围与验收状态。
+日期：2026-09-18；软件：0.25.1 源码版本。本文以当前代码为准；[0.25.0 功能设计](0.25.0－专注陪伴、低打扰与角色库设计.md)和[0.25.1 验证报告](release/0.25.1-test-report.md)分别说明功能基线与本轮验收状态。
 
 ## 1. 技术与模块
 
@@ -14,6 +14,8 @@ WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.10、System.Text.Js
 | Search | SQLite 名称/受控正文索引、授权、目录扫描、watcher、范围任务串行化、排序、摘要和分页 |
 | Shortcuts | JSON、引用/图标、分组固定、批量预览/撤销、失效扫描 |
 | Todos | 待办 schema 4、复盘 schema 1、专注 schema 1、会话状态机/恢复/聚合、日历规则、今日时间块、复盘投影/导出、原子批量更新、最近到期调度、持久化通知记录 |
+
+`ToolWindowTheme.xaml` 保留稳定的 `SolidColorBrush` 实例，各画刷颜色通过 `DynamicResource <Role>Color` 间接绑定。`ThemeManager` 对 light、dark 和 high-contrast 都写入完整语义调色板，因此 XAML 中已有的 `StaticResource` 画刷引用也会随颜色资源失效通知同步变化；从深色切回浅色不是空操作。窗口根前景、表面、输入、状态 tint/line、强调前景和阴影均来自同一组角色，主题切换不改变布局、焦点、键盘或 UI Automation 语义。
 | AI | 模型验证、单项与今日安排结构化协议、本地安排、无 Key 交换、加密完整配置包、预设加载 |
 | Storage / Secrets | 设置/位置、专注模块、原子写入、维护事务、每日备份、白名单诊断、Windows 凭据 |
 | SystemIntegration | HKCU 自启、离线帮助、前台同屏全屏检测、窗口点击穿透、RegisterHotKey / WM_HOTKEY、GitHub Release 检查与校验下载 |
@@ -137,7 +139,9 @@ AutomaticBackupService 复用 DataMaintenanceService 的模块依赖、JSON/路�
 
 GitHubReleaseUpdateClient 固定读取 `mawenshui/windows-ai-desktop-pet` 的 latest stable Release，只接受三段稳定 SemVer、精确安装器文件名和 `SHA256SUMS.txt`。元数据/清单各限 1 MiB、安装器限 200 MiB；只接受无用户信息的 HTTPS，网络和读取均有独立超时。下载先写 `.download`，SHA-256 匹配后原子替换目标文件，失败删除临时文件且不改变当前安装。
 
-HttpClient 默认使用 Windows 系统代理。元数据路由固定为 GitHub 官方 API、`gh-proxy.com` API 代理；安装器及清单路由固定为 `gh-proxy.com`、`ghfast.top`、`ghproxy.net` 和 GitHub 官方地址。单条线路在独立超时、响应或校验失败后继续下一条；结果只向界面暴露“GitHub 官方”或“智能加速线路”，不展示域名和代理术语。所有请求均匿名，不读取或发送旧版更新凭据。
+默认 `HttpClientHandler` 显式启用 `HttpClient.DefaultProxy`，因此元数据、清单和安装器使用同一套 Windows 用户代理与标准 `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` 环境链。元数据路由固定为 GitHub 官方 API、`gh-proxy.com` API 代理；安装器及清单路由固定为 `gh-proxy.com`、`ghfast.top`、`ghproxy.net` 和 GitHub 官方地址。单条线路在独立超时、响应或校验失败后继续下一条；结果只向界面暴露“GitHub 官方”或“智能加速线路”，不展示域名。所有请求均匿名，不读取或发送旧版更新凭据。
+
+更新失败分为 network unavailable、source unavailable 与 invalid metadata。GitHub 官方 latest API 的匿名 404 归入 source unavailable，表示仓库未公开或没有正式 Release；界面不会将它误报为本机代理或所有线路断开。自动更新不接受用户 Token，因此发布仓库必须公开。其他连接/超时失败继续遍历内置线路，成功后的固定仓库、标签、资产、重定向、大小、digest 与 SHA-256 边界保持不变。
 
 客户端只接受精确 `v<SemVer>` 标签、固定仓库的 HTTPS Release 页面和 GitHub 返回的规范化 `browser_download_url`；资产大小必须在边界内。重定向只允许原请求主机及显式 GitHub 交付主机。若 Release 资产带 `sha256:` digest，必须为 64 位十六进制并与清单哈希一致；最终文件仍重新计算 SHA-256。任一不一致都会删除临时文件并阻止安装。
 

@@ -2,20 +2,50 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:AiPet.ToolWindow">
     <!-- Cream-paper palette: calm enough to sit beside the pet all day. -->
-    <SolidColorBrush x:Key="Paper" Color="#FFFFFCF8" />
-    <SolidColorBrush x:Key="Canvas" Color="#FFFAF7F2" />
-    <SolidColorBrush x:Key="Card" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="Soft" Color="#FFF3EDE6" />
-    <SolidColorBrush x:Key="Line" Color="#FFE6DBCF" />
-    <SolidColorBrush x:Key="Muted" Color="#FF786F67" />
-    <SolidColorBrush x:Key="Ink" Color="#FF33302E" />
-    <SolidColorBrush x:Key="AccentTint" Color="#FFFCEADE" />
-    <SolidColorBrush x:Key="AccentSoft" Color="#FFF7DCC9" />
-    <SolidColorBrush x:Key="Accent" Color="#FFB45E32" />
-    <SolidColorBrush x:Key="AccentHover" Color="#FFA95129" />
-    <SolidColorBrush x:Key="AccentPressed" Color="#FF934622" />
-    <SolidColorBrush x:Key="Success" Color="#FF4F7A60" />
-    <SolidColorBrush x:Key="Error" Color="#FFAE4F4F" />
+    <!-- Brushes stay stable while their colors change. Controls and style
+         setters may therefore keep StaticResource brush references without
+         retaining colors from the previous theme. -->
+    <Color x:Key="PaperColor">#FFFFFCF8</Color>
+    <Color x:Key="CanvasColor">#FFFAF7F2</Color>
+    <Color x:Key="CardColor">#FFFFFFFF</Color>
+    <Color x:Key="SoftColor">#FFF3EDE6</Color>
+    <Color x:Key="LineColor">#FFE6DBCF</Color>
+    <Color x:Key="MutedColor">#FF786F67</Color>
+    <Color x:Key="InkColor">#FF33302E</Color>
+    <Color x:Key="AccentTintColor">#FFFCEADE</Color>
+    <Color x:Key="AccentSoftColor">#FFF7DCC9</Color>
+    <Color x:Key="AccentColor">#FFB45E32</Color>
+    <Color x:Key="AccentHoverColor">#FFA95129</Color>
+    <Color x:Key="AccentPressedColor">#FF934622</Color>
+    <Color x:Key="AccentForegroundColor">#FFFFFFFF</Color>
+    <Color x:Key="FieldHoverLineColor">#FFD6C4B5</Color>
+    <Color x:Key="ErrorTintColor">#FFFFF3F0</Color>
+    <Color x:Key="SuccessTintColor">#FFF2F7F3</Color>
+    <Color x:Key="ShadowColor">#FF6A5140</Color>
+    <Color x:Key="SuccessColor">#FF4F7A60</Color>
+    <Color x:Key="ErrorColor">#FFAE4F4F</Color>
+    <SolidColorBrush x:Key="Paper" Color="{DynamicResource PaperColor}" />
+    <SolidColorBrush x:Key="Canvas" Color="{DynamicResource CanvasColor}" />
+    <SolidColorBrush x:Key="Card" Color="{DynamicResource CardColor}" />
+    <SolidColorBrush x:Key="Soft" Color="{DynamicResource SoftColor}" />
+    <SolidColorBrush x:Key="Line" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="Muted" Color="{DynamicResource MutedColor}" />
+    <SolidColorBrush x:Key="Ink" Color="{DynamicResource InkColor}" />
+    <SolidColorBrush x:Key="AccentTint" Color="{DynamicResource AccentTintColor}" />
+    <SolidColorBrush x:Key="AccentSoft" Color="{DynamicResource AccentSoftColor}" />
+    <SolidColorBrush x:Key="Accent" Color="{DynamicResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentHover" Color="{DynamicResource AccentHoverColor}" />
+    <SolidColorBrush x:Key="AccentPressed" Color="{DynamicResource AccentPressedColor}" />
+    <SolidColorBrush x:Key="AccentForeground" Color="{DynamicResource AccentForegroundColor}" />
+    <SolidColorBrush x:Key="FieldHoverLine" Color="{DynamicResource FieldHoverLineColor}" />
+    <SolidColorBrush x:Key="ErrorTint" Color="{DynamicResource ErrorTintColor}" />
+    <SolidColorBrush x:Key="SuccessTint" Color="{DynamicResource SuccessTintColor}" />
+    <SolidColorBrush x:Key="Success" Color="{DynamicResource SuccessColor}" />
+    <SolidColorBrush x:Key="Error" Color="{DynamicResource ErrorColor}" />
+    <SolidColorBrush x:Key="SubtleLine" Color="{DynamicResource LineColor}" Opacity="0.48" />
+    <SolidColorBrush x:Key="FaintLine" Color="{DynamicResource LineColor}" Opacity="0.33" />
+    <SolidColorBrush x:Key="ErrorLine" Color="{DynamicResource ErrorColor}" Opacity="0.48" />
+    <SolidColorBrush x:Key="SuccessLine" Color="{DynamicResource SuccessColor}" Opacity="0.48" />
     <local:ShellIconConverter x:Key="ShellIconConverter" />
 
     <!-- Tool-window scrollbars stay quiet at rest, but expose a comfortable
@@ -103,15 +133,15 @@
 
     <DropShadowEffect x:Key="CardShadow" x:Shared="False"
                       BlurRadius="12" ShadowDepth="2" Direction="270"
-                      Opacity="0.11" Color="#FF6A5140" />
+                      Opacity="0.11" Color="{DynamicResource ShadowColor}" />
     <DropShadowEffect x:Key="PopoverShadow" x:Shared="False"
                       BlurRadius="30" ShadowDepth="8" Direction="270"
-                      Opacity="0.18" Color="#FF59483C" />
+                      Opacity="0.18" Color="{DynamicResource ShadowColor}" />
 
     <Style x:Key="PrimaryButton" TargetType="Button">
         <Setter Property="MinHeight" Value="44" />
         <Setter Property="Padding" Value="17,9" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource AccentForeground}" />
         <Setter Property="Background" Value="{StaticResource Accent}" />
         <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
         <Setter Property="BorderThickness" Value="1" />
@@ -195,13 +225,13 @@
 
     <Style x:Key="DangerSecondaryButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
         <Setter Property="Foreground" Value="{StaticResource Error}" />
-        <Setter Property="BorderBrush" Value="#88AE4F4F" />
+        <Setter Property="BorderBrush" Value="{StaticResource ErrorLine}" />
         <Setter Property="AutomationProperties.HelpText" Value="此操作会改变或清理本地数据，执行前会再次确认" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#FFFFF3F0" />
+                <Setter Property="Background" Value="{StaticResource ErrorTint}" />
                 <Setter Property="BorderBrush" Value="{StaticResource Error}" />
-                <Setter Property="Foreground" Value="#FF8D3434" />
+                <Setter Property="Foreground" Value="{StaticResource Error}" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -285,7 +315,7 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Chrome" Property="BorderBrush" Value="#FFD6C4B5" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource FieldHoverLine}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
@@ -305,7 +335,7 @@
         <Setter Property="CornerRadius" Value="11" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="BorderBrush" Value="#FFD6C4B5" />
+                <Setter Property="BorderBrush" Value="{StaticResource FieldHoverLine}" />
             </Trigger>
             <Trigger Property="IsKeyboardFocusWithin" Value="True">
                 <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
@@ -526,9 +556,9 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Border x:Name="Box" Width="18" Height="18" HorizontalAlignment="Left"
-                                Background="{StaticResource Card}" BorderBrush="#FFD6C4B5"
+                                Background="{StaticResource Card}" BorderBrush="{StaticResource FieldHoverLine}"
                                 BorderThickness="1" CornerRadius="5">
-                            <Path x:Name="Check" Data="M3,8 L7,12 14,4" Stroke="White"
+                            <Path x:Name="Check" Data="M3,8 L7,12 14,4" Stroke="{StaticResource AccentForeground}"
                                   StrokeThickness="2" StrokeStartLineCap="Round"
                                   StrokeEndLineCap="Round" Visibility="Collapsed" />
                         </Border>
@@ -636,7 +666,7 @@
 
     <Style x:Key="ShortcutCard" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Card}" />
-        <Setter Property="BorderBrush" Value="#99E6DBCF" />
+        <Setter Property="BorderBrush" Value="{StaticResource SubtleLine}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="11" />
         <Setter Property="Effect" Value="{StaticResource CardShadow}" />
@@ -652,7 +682,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
                     <Border x:Name="Row" Padding="11,9" Background="{StaticResource Card}"
-                            BorderBrush="#66E6DBCF" BorderThickness="1" CornerRadius="11"
+                            BorderBrush="{StaticResource FaintLine}" BorderThickness="1" CornerRadius="11"
                             local:HoverLift.IsEnabled="True">
                         <ContentPresenter />
                     </Border>
