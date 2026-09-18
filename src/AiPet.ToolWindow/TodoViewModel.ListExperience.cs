@@ -136,8 +136,8 @@ public sealed partial class TodoViewModel
                 && (item.Recurrence.Kind != RecurrenceKind.None || item.AdditionalReminderTimes.Count > 0)
                 && item.ReminderAt is not null);
 
-        SetDueTodayCommand = DraftCommand(_ => SetDueShortcut(_now().ToLocalTime().Date));
-        SetDueTomorrowCommand = DraftCommand(_ => SetDueShortcut(_now().ToLocalTime().Date.AddDays(1)));
+        SetDueTodayCommand = DraftCommand(_ => SetDueShortcut(_now().Date));
+        SetDueTomorrowCommand = DraftCommand(_ => SetDueShortcut(_now().Date.AddDays(1)));
         ClearDueCommand = DraftCommand(_ =>
         {
             EditorDueDate = null;
@@ -145,7 +145,10 @@ public sealed partial class TodoViewModel
         });
         SetReminderInThirtyMinutesCommand = DraftCommand(_ =>
         {
-            var target = _now().ToLocalTime().AddMinutes(30);
+            // The injected clock already represents the user's wall clock.
+            // Re-converting it through the runner's local zone makes shortcuts
+            // depend on the machine that happens to execute the code.
+            var target = _now().AddMinutes(30);
             if (target.Second > 0 || target.Millisecond > 0) target = target.AddMinutes(1);
             target = new DateTimeOffset(target.Year, target.Month, target.Day, target.Hour, target.Minute, 0, target.Offset);
             EditorReminderDate = target.Date;
@@ -153,7 +156,7 @@ public sealed partial class TodoViewModel
         });
         SetReminderTomorrowCommand = DraftCommand(_ =>
         {
-            EditorReminderDate = _now().ToLocalTime().Date.AddDays(1);
+            EditorReminderDate = _now().Date.AddDays(1);
             EditorReminderTime = "09:00";
         });
         ClearReminderDateCommand = DraftCommand(_ =>

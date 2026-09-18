@@ -38,7 +38,9 @@ public sealed class FocusSessionTests : IDisposable
     [Fact]
     public void Elapsed_plan_completes_exactly_once_and_is_summarized_by_local_end_date()
     {
-        var now = new DateTimeOffset(2026, 9, 17, 23, 58, 0, TimeSpan.FromHours(8));
+        // Use an offset that differs from both UTC CI and the usual developer
+        // zone to prove daily summaries use the recorded local end date.
+        var now = new DateTimeOffset(2026, 9, 17, 23, 58, 0, TimeSpan.FromHours(14));
         long ticks = 0;
         var service = CreateService(() => now, () => ticks);
         var changed = 0;

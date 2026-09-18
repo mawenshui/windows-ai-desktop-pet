@@ -677,7 +677,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
             return;
         }
 
-        var now = _now().ToLocalTime();
+        var now = _now();
         var today = now.Date;
         var nextWeek = today.AddDays(7);
         var allItems = _store.Load();

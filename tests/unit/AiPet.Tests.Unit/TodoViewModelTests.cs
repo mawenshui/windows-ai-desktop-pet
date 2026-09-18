@@ -478,7 +478,9 @@ public sealed class TodoViewModelTests : IDisposable
     [Fact]
     public void Thirty_minute_reminder_shortcut_crosses_midnight_and_urgency_is_not_color_only()
     {
-        var late = new DateTimeOffset(2026, 8, 28, 23, 50, 20, TimeSpan.FromHours(8));
+        // Deliberately differs from common CI and developer machine zones so
+        // injected wall-clock shortcuts cannot silently depend on the runner.
+        var late = new DateTimeOffset(2026, 8, 28, 23, 50, 20, TimeSpan.FromHours(14));
         var store = new TodoStore(Path.Combine(_root, "late"), () => late);
         var vm = new TodoViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
             () => new TodoAiConnection("https://example.test", "model", "key"), () => late);
@@ -663,7 +665,7 @@ public sealed class TodoViewModelTests : IDisposable
     public async Task Journal_date_refresh_finalizes_previous_day_and_selects_today()
     {
         var root = Path.Combine(_root, "journal-rollover");
-        var clock = new DateTimeOffset(2026, 9, 14, 23, 59, 0, TimeSpan.FromHours(8));
+        var clock = new DateTimeOffset(2026, 9, 14, 23, 59, 0, TimeSpan.FromHours(14));
         var store = new TodoStore(root, () => clock);
         store.Create(new TodoItem { Title = "临睡前完成", Status = TodoStatus.Completed, CompletedAt = clock });
         var journal = new DailyJournalStore(root, () => clock);

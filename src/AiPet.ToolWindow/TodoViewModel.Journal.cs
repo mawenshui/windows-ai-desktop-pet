@@ -106,7 +106,7 @@ public sealed partial class TodoViewModel
     public ICommand ConfirmDeleteJournalCommand { get; private set; } = null!;
     public ICommand CancelDeleteJournalCommand { get; private set; } = null!;
 
-    private DateOnly TodayDate => DateOnly.FromDateTime(_now().ToLocalTime().DateTime);
+    private DateOnly TodayDate => DateOnly.FromDateTime(_now().DateTime);
 
     private void InitializeJournalCommands()
     {

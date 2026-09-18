@@ -264,7 +264,7 @@ public sealed partial class TodoViewModel
 
     private TodayPlanRequest CreateTodayPlanRequest()
     {
-        var localNow = _now().ToLocalTime();
+        var localNow = _now();
         var items = TodayPlanCandidates
             .Where(candidate => candidate.IsSelected)
             .Select(candidate => new TodayPlanItemInput(

@@ -398,12 +398,13 @@ public sealed class FocusSessionService
 
     public FocusDailySummary Summarize(DateOnly date, TimeZoneInfo? timeZone = null)
     {
-        timeZone ??= TimeZoneInfo.Local;
         lock (_gate)
         {
             var sessions = _document.Sessions.Where(session =>
                 session.EndedAt is { } ended
-                && DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(ended, timeZone).DateTime) == date).ToArray();
+                && DateOnly.FromDateTime(timeZone is null
+                    ? ended.DateTime
+                    : TimeZoneInfo.ConvertTime(ended, timeZone).DateTime) == date).ToArray();
             return new FocusDailySummary(
                 sessions.Count(session => session.Status == FocusSessionStatus.Completed),
                 sessions.Where(session => session.Status is FocusSessionStatus.Completed or FocusSessionStatus.EndedEarly)
