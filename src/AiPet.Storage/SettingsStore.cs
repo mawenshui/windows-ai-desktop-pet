@@ -8,7 +8,7 @@ namespace AiPet.Storage;
 public sealed class AppSettings
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 6;
+    public int SchemaVersion { get; set; } = 7;
 
     [JsonPropertyName("pet")]
     public PetSettings Pet { get; set; } = new();
@@ -250,7 +250,7 @@ public sealed class SettingsStore
             var text = File.ReadAllText(SettingsPath);
             var s = JsonSerializer.Deserialize<AppSettings>(text, Options);
             if (s is null) return Defaults();
-            if (s.SchemaVersion < 6)
+            if (s.SchemaVersion < 7)
             {
                 if (s.SchemaVersion < 3)
                     RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v3.bak", text);
@@ -258,7 +258,9 @@ public sealed class SettingsStore
                     RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v4.bak", text);
                 if (s.SchemaVersion < 5)
                     RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v5.bak", text);
-                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v6.bak", text);
+                if (s.SchemaVersion < 6)
+                    RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v6.bak", text);
+                RecoverableAtomicFile.WriteAllText(SettingsPath + ".pre-v7.bak", text);
                 s = Normalize(s);
                 Save(s);
             }
@@ -304,7 +306,7 @@ public sealed class SettingsStore
 
     private static AppSettings Normalize(AppSettings settings)
     {
-        settings.SchemaVersion = 6;
+        settings.SchemaVersion = 7;
         settings.Pet ??= new PetSettings();
         settings.ToolWindow ??= new ToolWindowSettings();
         settings.Autostart ??= new AutostartSettings();

@@ -1,10 +1,10 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前正式版本 **0.25.2**；本版升级 SQLite 安全依赖并新增显式授权、全程脱敏的真实 AI 验证入口，产品功能与数据格式保持兼容。项目不发布预览版；[v0.25.2](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.25.2) 已作为普通正式版和 Latest 发布。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.26.0**；本版新增完全离线、严格受限的本地 2D 角色包库，明确不制作商城、付费、账号、广告、在线角色下载、商业 DLC、3D、音频或可执行插件。项目不发布预览版；正式发布状态以 [GitHub Release](https://github.com/mawenshui/windows-ai-desktop-pet/releases) 与本轮验证报告为准。
 
 ## 当前能力
 
-- RGS 四种桌宠、四页工具窗、常驻与置顶、页内选择、托盘、自启和离线帮助。
+- RGS 四种内置桌宠、安全本地 2D 角色包、四页工具窗、常驻与置顶、页内选择、托盘、自启和离线帮助。
 - 授权本地搜索：名称或相对路径、类别/范围、通配符/正则、匹配原因、固定结果、可选本地最近使用排序及 50 条分页。
 - 搜索结果操作区：搜索框可一键清空并保持输入焦点；单击或键盘选择结果后可打开、定位、复制路径或加入快捷入口，已加入目标会显示状态并阻止重复提交。
 - 主页结果操作、快捷入口和状态分行；搜索框 `Down` 进入首条结果、首条 `Up` 返回输入，搜索内 Esc 优先清空。
@@ -21,7 +21,8 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前正式版本 **
 - 待办页提供“专注陪伴”：15/25/50 分钟快捷时长或 5～180 分钟自定义时长，可关联当前未完成待办，支持暂停、继续、提前结束和到时后另行完成关联待办。
 - 专注运行或暂停时桌宠停止自主漫游、随机气泡和朝向跟随；可选让桌宠点击穿透，并可从托盘立即恢复交互。正式提醒仍可显示。
 - 可选在其他应用覆盖桌宠所在显示器时自动隐藏桌宠；最大化窗口、本应用窗口、最小化或不可见窗口不会触发，退出全屏不会覆盖用户手动隐藏。
-- 四个 RGS 内置角色在设置中使用真实首帧卡片，包含中文名、选中状态、CC0-1.0 信息和本地许可入口；保存失败或资源异常不会切成空白角色。
+- “桌宠角色库”统一展示内置与用户导入角色；从已解压文件夹离线预览包名、作者、SPDX、角色数、帧数、容量和短指纹，明确确认后才以 staging 事务复制，切换或移除失败不会留下空白桌宠或半导入目录。
+- 本地包只接受固定 manifest、`SOURCE.txt`、`License.txt` 和 PNG，拒绝未知字段、越界/链接路径、非法许可、图片与内存预算超限；来源 URL 不访问，任何代码都不执行。
 - 单日复盘可由用户显式导出为 UTF-8 无 BOM、LF 的 `YYYY-MM-DD.md`；不会默认写 Documents、授权搜索目录或把内容发送给 AI，也不包含任何 Codex/Claude 等 Agent 状态指示。
 - 持久化提醒中心支持标题本地查找、待处理/历史/全部计数、处理优先/最近记录排序、原生单选与统一操作带；可用 Enter/F2 查看详情、`Ctrl+Enter` 完成、`Ctrl+Shift+Enter` 稍后，静默时段有草稿、实时校验和夜间/午休/关闭预设；“已提交”不代表“已看到”。
 - 多组 AI 配置、模型列表内容验证、主动最小草稿生成验证/取消；完整配置包可加密迁移全部配置、当前项、自定义 Provider 预设和 API Key，导入后直接启用，同时保留无 Key 兼容迁移。
@@ -34,7 +35,7 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前正式版本 **
 - 每次正式启动检查一次固定公开仓库的稳定 GitHub Release；可选 1～168 小时周期检查，检查与下载共用 Windows 用户代理及标准环境代理，官方元数据不畅时自动切换内置 API 线路，安装器按三条内置线路与官方地址逐级恢复。用户无需填写代理模板或 Token；匿名 404 会明确提示更新源未公开或没有正式 Release，临时失败保留已发现版本，下载须通过 Release digest（存在时）与 SHA-256 清单并由用户确认安装。
 - 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，自动避让未选事项的既有安排，再逐项确认、整批原子写入并撤销最近一批。
 
-外部 2D 角色包导入仍只有隔离试验工程；PDF/Office 正文、OCR、语义检索、云同步、通用聊天、3D 和商城未接入。见[当前状态](docs/CURRENT_STATUS.md)及[0.25.0 设计与验收](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)。
+PDF/Office 正文、OCR、语义检索、云同步、通用聊天、在线角色下载、3D、音频、商城、支付、账号和广告未接入。见[当前状态](docs/CURRENT_STATUS.md)及[0.26.0 安全本地角色包设计](docs/0.26.0－安全本地角色包设计.md)。
 
 ## 使用与开发
 
@@ -52,14 +53,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。`test-live-ai.ps1` 只有在用户明确授权 `-AllowSavedCredential` 时才读取当前活动 AI 配置的 Windows 凭据，执行模型列表、结构化待办草稿与今日安排草稿验证；它不输出 Key、端点、模型或响应正文，也不写入用户数据。正式发布只强制 automated 与 package-smoke：前者证明构建和自动化回归，后者证明便携运行、安装、安装后启动与卸载。ui、system、performance、signatures、hardware 仍可按需收集为诊断证据，但不阻断版本升级和正式 Release。
 
-0.25.2 的源码、自动化和分发状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测、真实 AI 与可选诊断见[0.25.2 验证报告](docs/release/0.25.2-test-report.md)。可选诊断的 FAIL/SKIP 会保留原始结果，但不再阻断正式发布。
+0.26.0 的源码、自动化和分发状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测与可选诊断见[0.26.0 验证报告](docs/release/0.26.0-test-report.md)。可选诊断的 FAIL/SKIP 会保留原始结果，但不阻断正式发布。
 
 常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的 automated 与 package-smoke 均为 PASS，并验证两个资产及清单哈希一致。Release workflow 会在 GitHub 托管 Windows runner 上重跑这两组门禁；不会创建部署环境或 Pre-release。
 
 ## 文档与发布产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.25.2 版本说明](docs/RELEASE_NOTES_0.25.2.md) · [验证报告](docs/release/0.25.2-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.25.0 功能设计](docs/0.25.0－专注陪伴、低打扰与角色库设计.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.26.0 版本说明](docs/RELEASE_NOTES_0.26.0.md) · [验证报告](docs/release/0.26.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.26.0 功能设计](docs/0.26.0－安全本地角色包设计.md)
 
-0.25.2 的资产哈希只在从正式提交打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
+0.26.0 的资产哈希只在从当前源码打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

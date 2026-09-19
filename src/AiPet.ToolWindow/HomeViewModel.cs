@@ -99,7 +99,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     public ObservableCollection<SearchScopeOption> SearchScopes { get; } = new();
     public IReadOnlyList<string> Categories { get; } =
         new[] { "全部", "文件夹", "文档", "应用", "图片", "视频", "音频" };
-    public IReadOnlyList<PetCharacterOption> PetCharacters { get; } = new[]
+    public ObservableCollection<PetCharacterOption> PetCharacters { get; } = new()
     {
         new PetCharacterOption("hero", "红帽勇者"),
         new PetCharacterOption("base", "方块伙伴"),
@@ -474,27 +474,32 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
             {
                 _selectedCharacter = value;
                 OnPC();
-                CharacterChanged?.Invoke(value);
+                RaisePetSelectionStateChanged();
+                ApplyPetSelection(option);
                 return;
             }
             var previousCharacter = _selectedCharacter;
             try
             {
                 var settings = _settings.Load();
+                var previousPackage = settings.Pet.Id;
                 var previousPreference = settings.Pet.PreferredCharacter;
-                settings.Pet.PreferredCharacter = value;
+                settings.Pet.Id = option.PackageId;
+                settings.Pet.PreferredCharacter = option.CharacterId;
                 _settings.Save(settings);
                 try
                 {
-                    CharacterChanged?.Invoke(value);
+                    ApplyPetSelection(option);
                 }
                 catch
                 {
                     _selectedCharacter = previousCharacter;
                     OnPC();
+                    RaisePetSelectionStateChanged();
                     try
                     {
                         settings = _settings.Load();
+                        settings.Pet.Id = previousPackage;
                         settings.Pet.PreferredCharacter = previousPreference;
                         _settings.Save(settings);
                         Status = "桌宠形象切换失败；原形象和偏好均已恢复";
@@ -507,7 +512,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
                 }
                 _selectedCharacter = value;
                 OnPC();
-                Status = "桌宠形象已切换并保存";
+                RaisePetSelectionStateChanged();
+                Status = "桌宠角色已切换并保存";
             }
             catch
             {
@@ -584,6 +590,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         OpenHelpCommand = new RelayCommand(_ => OpenHelp());
         InitializeContentSearchCommands();
         InitializeEssentialCommands();
+        InitializePetPackCommands();
     }
 
     private void RaiseCommandStates()
@@ -1805,6 +1812,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     public event Action<ShortcutItem?>? EditShortcutRequested;
     public event Action<ShortcutItem?>? RelocateShortcutRequested;
     public event Action<string>? CharacterChanged;
+    public event Action<PetCharacterSelection>? PetSelectionChanged;
     public event Action<AppearanceSettings>? AppearanceChanged;
     public event Action<AppearanceSettings, FocusSettings>? LowDistractionSettingsChanged;
     private void OnPC([CallerMemberName] string? n = null) =>
@@ -1845,7 +1853,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         return path;
     }
 
-    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache | DataModule.Notifications | DataModule.ProviderPresets | DataModule.Journal | DataModule.FocusSessions)
+    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache | DataModule.Notifications | DataModule.ProviderPresets | DataModule.Journal | DataModule.FocusSessions | DataModule.PetPacks)
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
         Maintenance.QueueRestore(source, modules);
@@ -1980,9 +1988,35 @@ internal sealed record AiConfigurationSnapshot(
 public sealed class PetCharacterOption : INotifyPropertyChanged
 {
     private ImageSource? _preview;
-    public PetCharacterOption(string id, string displayName) { Id = id; DisplayName = displayName; }
+    public PetCharacterOption(string id, string displayName)
+        : this(id, "rgs-8dir", id, displayName, "RGS 8-Direction Characters", "RGS · CC0-1.0", true)
+    {
+    }
+
+    public PetCharacterOption(
+        string id,
+        string packageId,
+        string characterId,
+        string displayName,
+        string packageDisplayName,
+        string licenseText,
+        bool isBuiltIn)
+    {
+        Id = id;
+        PackageId = packageId;
+        CharacterId = characterId;
+        DisplayName = displayName;
+        PackageDisplayName = packageDisplayName;
+        LicenseText = licenseText;
+        IsBuiltIn = isBuiltIn;
+    }
     public string Id { get; }
+    public string PackageId { get; }
+    public string CharacterId { get; }
     public string DisplayName { get; }
+    public string PackageDisplayName { get; }
+    public bool IsBuiltIn { get; }
+    public string AutomationName => $"{DisplayName}，{PackageDisplayName}，{LicenseText}";
     public ImageSource? Preview
     {
         get => _preview;
@@ -1993,9 +2027,10 @@ public sealed class PetCharacterOption : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new(nameof(Preview)));
         }
     }
-    public string LicenseText => "RGS · CC0-1.0";
+    public string LicenseText { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
 }
+public sealed record PetCharacterSelection(string PackageId, string CharacterId, string PackageRoot);
 public sealed record AiConfigurationOption(string Id, string DisplayName);
 public sealed record SearchRangeCandidateOption(string DisplayName, string Path);
 public sealed record AppearanceOption(string Id, string DisplayName);

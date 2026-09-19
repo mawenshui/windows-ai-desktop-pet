@@ -113,6 +113,34 @@ public sealed class MaintenanceTransactionTests : IDisposable
         Assert.Equal("anonymous journal",Assert.Single(new AiPet.Todos.DailyJournalStore(target).Load().Entries).Note);
     }
     [Fact]
+    public void Settings_backup_and_restore_include_account_local_pet_packs()
+    {
+        var settings = new SettingsStore(_root);
+        settings.Save(new AppSettings
+        {
+            Pet = new PetSettings { Id = "fixture-pack", PreferredCharacter = "friend" },
+        });
+        var pack = Path.Combine(_root, "pet-packs", "fixture-pack");
+        Directory.CreateDirectory(Path.Combine(pack, "frames", "friend"));
+        File.WriteAllText(Path.Combine(pack, "pet.json"), "{\"id\":\"fixture-pack\"}");
+        File.WriteAllText(Path.Combine(pack, "SOURCE.txt"), "fixture source evidence");
+        File.WriteAllText(Path.Combine(pack, "License.txt"), "fixture license text");
+        File.WriteAllBytes(Path.Combine(pack, "frames", "friend", "idle_down_01.png"), new byte[] { 1, 2, 3 });
+
+        var archive = new DataMaintenanceService(_root).Backup(
+            Path.Combine(_root, "pet-packs.zip"),
+            DataModule.Settings);
+        var target = Path.Combine(_root, "pet-packs-restored");
+        var result = new DataMaintenanceService(target).Restore(archive, DataModule.Settings);
+
+        Assert.Empty(result.Errors);
+        Assert.Contains(DataModule.Settings, result.Completed);
+        Assert.Contains(DataModule.PetPacks, result.Completed);
+        Assert.Equal("fixture-pack", new SettingsStore(target).Load().Pet.Id);
+        Assert.True(File.Exists(Path.Combine(target, "pet-packs", "fixture-pack", "License.txt")));
+        Assert.True(File.Exists(Path.Combine(target, "pet-packs", "fixture-pack", "frames", "friend", "idle_down_01.png")));
+    }
+    [Fact]
     public void Interrupted_restore_recovers_the_pre_operation_snapshot()
     {
         var directory=Path.Combine(_root,".maintenance","interrupted"); Directory.CreateDirectory(Path.Combine(directory,"before"));

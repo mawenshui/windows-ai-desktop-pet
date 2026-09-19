@@ -1,6 +1,12 @@
 # GitHub Release 状态
 
-日期：2026-09-18。仓库 `mawenshui/windows-ai-desktop-pet` 已建立 36 个正式 GitHub Release。所有既有 Release 均不是 Draft 或 Pre-release；标题统一为“Windows AI 桌面宠物 `<版本>` 正式版”，正文为 UTF-8 中文，v0.25.2 是唯一 Latest。`CHANGELOG.md` 另保留没有创建 Release 的历史 0.25.0，因此版本记录数为 37。
+日期：2026-09-19。0.26.0 源码功能已实现，远端状态将在必需门禁、提交、标签和 Release 实际完成后更新；不得用以下历史发布记录推断 0.26.0 已发布。仓库此前已建立 36 个正式 GitHub Release，v0.25.2 仍是已核实的 Latest。
+
+## 0.26.0 当前状态
+
+- 安全本地 2D 角色包功能、schema 7 与文档已进入源码；首轮 380/380 自动化通过。
+- 最终自动化、package-smoke、提交、远端 `main`、`v0.26.0` 标签、普通 GitHub Release 和三项远端资产：PENDING。
+- 0.26.0 不创建 Draft、Pre-release、Preview、Alpha、Beta 或 RC；未完成项不会写成通过。
 
 ## 0.25.2 当前状态
 

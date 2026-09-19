@@ -1000,7 +1000,7 @@
                                 <Border Style="{StaticResource SectionCard}" Margin="0,0,0,12">
                                     <StackPanel>
                                         <TextBlock Text="每日自动备份" Style="{StaticResource SectionLabel}" />
-                                        <TextBlock Text="每天最多创建一次本地备份；包含设置、窗口位置、待办、提醒、每日复盘和快捷入口，不含 API Key、搜索索引或日志。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                        <TextBlock Text="每天最多创建一次本地备份；包含设置、待办、提醒、每日复盘、本地角色包和快捷入口，不含 API Key、搜索索引或日志。" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
                                         <CheckBox Content="启用每日自动备份" IsChecked="{Binding AutomaticBackupEnabled, Mode=TwoWay}" MinHeight="40" AutomationProperties.Name="启用每日自动备份" />
                                         <Grid Margin="0,4,0,8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -1047,14 +1047,19 @@
                                 </Border>
                                 <Border x:Name="AppearanceSettingsSection" Style="{StaticResource SectionCard}" Margin="0,0,0,12" AutomationProperties.Name="外观设置分组">
                                     <StackPanel>
-                                        <TextBlock Text="桌宠形象" Style="{StaticResource SectionLabel}" />
-                                        <TextBlock Text="选择后立即应用 · RGS CC0 角色资源" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,0,10" />
-                                        <ListBox x:Name="CharacterList" Style="{StaticResource InlineChoiceList}" ItemsSource="{Binding PetCharacters}" SelectedValuePath="Id" SelectedValue="{Binding SelectedCharacter, Mode=TwoWay}" AutomationProperties.Name="桌宠预设形象">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="从文件夹导入…" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,6" Click="ImportPetPack_Click" AutomationProperties.Name="从本地文件夹导入角色包" />
+                                            <StackPanel>
+                                                <TextBlock Text="桌宠角色库" Style="{StaticResource SectionLabel}" />
+                                                <TextBlock Text="本机数据包 · 内置角色始终保留" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,8,10" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                        <ListBox x:Name="CharacterList" Style="{StaticResource InlineChoiceList}" ItemsSource="{Binding PetCharacters}" SelectedValuePath="Id" SelectedValue="{Binding SelectedCharacter, Mode=TwoWay}" AutomationProperties.Name="本机桌宠角色库">
                                             <ListBox.ItemContainerStyle>
                                                 <Style TargetType="ListBoxItem" BasedOn="{StaticResource InlineChoiceItem}">
-                                                    <Setter Property="MinHeight" Value="96" />
+                                                    <Setter Property="MinHeight" Value="108" />
                                                     <Setter Property="Padding" Value="10" />
-                                                    <Setter Property="AutomationProperties.Name" Value="{Binding DisplayName}" />
+                                                    <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
                                                 </Style>
                                             </ListBox.ItemContainerStyle>
                                             <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ListBox.ItemsPanel>
@@ -1067,6 +1072,7 @@
                                                         </Border>
                                                         <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding PackageDisplayName}" Foreground="{StaticResource Muted}" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                                                             <TextBlock Text="{Binding LicenseText}" Foreground="{StaticResource Muted}" FontSize="10" Margin="0,3,0,0" />
                                                             <TextBlock Text="已选" Foreground="{StaticResource AccentPressed}" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0">
                                                                 <TextBlock.Style>
@@ -1081,10 +1087,46 @@
                                                 </DataTemplate>
                                             </ListBox.ItemTemplate>
                                         </ListBox>
-                                        <DockPanel Margin="1,7,0,0">
-                                            <Button DockPanel.Dock="Right" Content="查看本地许可" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Command="{Binding OpenPetLicenseCommand}" />
-                                            <TextBlock Text="资源来源：RGS_Dev · CC0-1.0" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                        </DockPanel>
+                                        <Border Background="{StaticResource AccentTint}" BorderBrush="{StaticResource AccentSoft}" BorderThickness="1" CornerRadius="10" Padding="10,8" Margin="0,8,0,0">
+                                            <DockPanel>
+                                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,0,0">
+                                                    <Button Content="查看许可" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="10,5" Command="{Binding OpenPetLicenseCommand}" />
+                                                    <Button Content="移除角色包…" Style="{StaticResource DangerSecondaryButton}" MinHeight="36" Padding="10,5" Margin="6,0,0,0" Command="{Binding RequestRemovePetPackCommand}" Click="RequestRemovePetPack_Click" Visibility="{Binding SelectedPetCanRemove, Converter={StaticResource BoolToVisibility}}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding SelectedPetSourceSummary}" Foreground="{StaticResource Ink}" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            </DockPanel>
+                                        </Border>
+                                        <Border Background="{StaticResource Soft}" BorderBrush="{StaticResource SubtleLine}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,8,0,0"
+                                                Visibility="{Binding HasPendingPetPackPreview, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="角色包导入预览" AutomationProperties.LiveSetting="Polite">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="58" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <Border Width="52" Height="52" Background="{StaticResource Paper}" CornerRadius="9" VerticalAlignment="Top">
+                                                    <Image Source="{Binding PendingPetPackPreviewImage}" Width="46" Height="46" Stretch="Uniform" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                                    <TextBlock Text="导入前确认" Foreground="{StaticResource AccentPressed}" FontSize="10" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PendingPetPackTitle}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding PendingPetPackDetails}" Foreground="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                    <TextBlock Text="{Binding PendingPetPackFingerprint}" Foreground="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                    <TextBlock Text="只复制声明文件且不会执行代码；应用未验证素材权属，请确认你有权使用和备份。" Foreground="{StaticResource Muted}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                                        <Button x:Name="CancelPetPackImportButton" Content="取消" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Command="{Binding CancelPetPackImportCommand}" />
+                                                        <Button Content="确认导入" Style="{StaticResource PrimaryButton}" MinHeight="36" Padding="12,5" Margin="7,0,0,0" Command="{Binding ConfirmPetPackImportCommand}" AutomationProperties.Name="确认导入本地角色包" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <Border Background="{StaticResource Soft}" BorderBrush="{StaticResource SubtleLine}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,8,0,0"
+                                                Visibility="{Binding ShowRemovePetPackConfirmation, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding RemovePetPackPrompt}" Foreground="{StaticResource Ink}" FontSize="11" TextWrapping="Wrap" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                                    <Button x:Name="CancelRemovePetPackButton" Content="保留" Style="{StaticResource SecondaryButton}" MinHeight="36" Padding="11,5" Command="{Binding CancelRemovePetPackCommand}" />
+                                                    <Button Content="确认移除" Style="{StaticResource DangerSecondaryButton}" MinHeight="36" Padding="11,5" Margin="7,0,0,0" Command="{Binding ConfirmRemovePetPackCommand}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                        <TextBlock Text="{Binding PetLibraryStatus}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="1,7,0,0" AutomationProperties.LiveSetting="Polite" />
                                         <CheckBox Content="登录 Windows 后自动启动" IsChecked="{Binding AutostartEnabled, Mode=TwoWay}" Command="{Binding ToggleAutostartCommand}" Margin="0,3,0,0" />
                                         <TextBlock Text="外观与动态效果" Style="{StaticResource SectionLabel}" Margin="0,14,0,7" />
                                         <Border Style="{StaticResource InlineSegmentGroup}">

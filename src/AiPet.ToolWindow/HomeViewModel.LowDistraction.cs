@@ -87,6 +87,13 @@ public sealed partial class HomeViewModel
     {
         try
         {
+            if (TryGetSelectedPetLicensePath(out var selectedLicense, out var selectedPackage))
+            {
+                Process.Start(new ProcessStartInfo(selectedLicense) { UseShellExecute = true });
+                Status = $"已打开“{selectedPackage}”的本地许可文件";
+                return;
+            }
+
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
             for (var level = 0; level < 10 && directory is not null; level++, directory = directory.Parent)
             {

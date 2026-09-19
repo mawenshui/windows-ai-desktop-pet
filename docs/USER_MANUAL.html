@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.25.2 用户手册</title><style>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Windows AI Desktop Pet 0.26.0 用户手册</title><style>
     :root { color-scheme: light; font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; color: #241f1c; background: #f7f4f1; }
     body { margin: 0; line-height: 1.7; }
     main { width: min(760px, calc(100% - 40px)); margin: 32px auto; padding: 32px; background: #fffdfc; border: 1px solid #ded7d2; border-radius: 20px; box-shadow: 0 16px 42px rgb(36 31 28 / .10), 0 3px 10px rgb(36 31 28 / .06); }
@@ -12,15 +12,17 @@
     th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ded7d2; }
     @media(max-width:600px) { main { box-sizing: border-box; padding: 20px; } h1 { font-size: 24px; } }
 </style></head><body><main><h1>Windows AI Desktop Pet 用户手册</h1>
-<p>适用版本：<strong>0.25.2 正式版</strong>；修订：2026-09-18。项目不提供预览版；本版本已发布为普通 GitHub Release 和 Latest。</p>
+<p>适用版本：<strong>0.26.0</strong>；修订：2026-09-19。项目不提供预览版；正式发布状态以当前 Release 与验证报告为准。</p>
 <h2>1. 安装与退出</h2>
-<p>完整解压 windows-ai-desktop-pet-v0.25.2-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.25.2-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
+<p>完整解压 windows-ai-desktop-pet-v0.26.0-portable.zip 后运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.26.0-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。</p>
 <p>关闭工具窗只是收起。托盘“退出”才结束应用，自启默认关闭，可在设置或托盘启用。便携目录移动后重新检查自启。便携版和安装版默认共用当前 Windows 账户数据。</p>
-<p>交互卸载会询问是否清理个人数据，默认“否”。选择“是”删除已识别的设置、待办、提醒队列、每日复盘、专注记录、快捷引用、索引、日志、维护快照、设置中记录的本应用 AI 凭据和旧版本遗留的更新凭据；目标原文件及未知文件保留。先退出桌宠；清理失败会停止卸载并提示。丢失设置中未记录的旧凭据需自行在 Windows 凭据管理器处理。静默卸载始终保留个人数据。卸载移除指向本次安装位置的自启项；指向其他便携位置的配置不受影响。</p>
+<p>交互卸载会询问是否清理个人数据，默认“否”。选择“是”删除已识别的设置、待办、提醒队列、每日复盘、专注记录、本地角色包副本、快捷引用、索引、日志、维护快照及记录的本应用凭据；原始导入文件夹、目标原文件及未知文件保留。静默卸载始终保留个人数据。</p>
 <h2>2. 桌宠与工具窗</h2>
 <p>单击桌宠打开或收起工具窗，双击播放动作，拖动移动位置。工具窗跟随宠物定位并记忆位置。隐藏后通过托盘恢复。四页为主页、待办、维护、设置；常驻与置顶独立保存。Esc、关闭按钮和显式收起始终可用。</p>
 <p>选项直接显示在按钮组或列表，Tab 聚焦、方向键/Home/End 选择，Ctrl+Tab / Ctrl+Shift+Tab 循环切页。<kbd>Alt+1</kbd>～<kbd>Alt+4</kbd> 可直接进入四页；<kbd>Ctrl+L</kbd> 返回搜索，<kbd>Ctrl+N</kbd> 打开待办编辑器，待办页 <kbd>Ctrl+F</kbd> 通常聚焦清单查找，在提醒区域内则聚焦提醒查找，编辑时 <kbd>Ctrl+Enter</kbd> 保存，<kbd>F1</kbd> 打开包内离线手册。AI 有未保存修改时，鼠标、键盘和所有定向入口都先确认；取消会保留原编辑页面。</p>
-<p>设置顶部有外观、快捷键、更新、搜索、AI 五项目录。四个内置 RGS 角色以真实正面首帧卡片展示中文名、选中状态和 CC0-1.0 许可，可打开包内本地许可；角色卡不联网也不播放额外预览动画。切换保存成功后才应用，资源异常会回退到可显示角色。系统/浅色/深色/高对比度主题会同步更新整个工具窗的背景、卡片、输入、文字、状态色、边框与阴影，切回浅色不会保留深色边缘。</p>
+<p>设置顶部有外观、快捷键、更新、搜索、AI 五项目录。“桌宠角色库”把内置 RGS 与已导入本地包放在同一列表，卡片显示真实首帧、角色名、包名、许可和选中状态，可打开当前包的本地许可。切换保存成功后才原子应用，包缺失、损坏或角色无效会回退内置角色。系统/浅色/深色/高对比度主题会同步更新整个工具窗的背景、卡片、输入、文字、状态色、边框与阴影。</p>
+<p>导入时选择已解压且根目录含 <code>pet.json</code>、<code>SOURCE.txt</code>、<code>License.txt</code> 和 <code>frames</code> 的文件夹。应用离线校验身份、HTTPS 来源证据、SPDX 许可、固定动作/方向、PNG 与容量预算，显示摘要和短指纹；只有“确认导入”后才复制。应用不访问来源 URL、不运行代码、不修改源文件夹。移除外部包会先切回内置角色，只删除应用数据中的副本。</p>
+<p>不支持 ZIP/RAR/7z、在线下载、商城、账号、支付、广告、商业角色 DLC、3D、音频、自动更新或可执行插件。SPDX 与来源摘要不是权属审核；导入者仍需确认素材的使用和备份权利。</p>
 <p>“低打扰”提供两个默认关闭且需显式保存的开关：其他应用同屏全屏时隐藏桌宠、专注时允许桌宠点击穿透。普通最大化和本应用窗口不触发全屏隐藏；应用只恢复自己隐藏的桌宠。点击穿透生效时可从托盘恢复交互，打开设置也会恢复当前会话交互。</p>
 <p>默认按 Ctrl+Alt+Space 可从其他普通窗口显示桌宠、打开主页并聚焦搜索；Ctrl+Alt+T 打开待办页、新建一条待办并聚焦标题。设置 → 快捷唤出可停用或修改两个组合键，格式为修饰键加普通键，例如 <code>Ctrl+Shift+F12</code>。两个组合不能相同；若任一组合被系统或其他程序占用，本应用会停用两者并显示原因，避免只生效一半。修改后按钮标记“有修改”，成功保存并应用后显示“已保存”；格式或写入失败时输入仍保留。托盘“立即搜索”“快速记待办”始终可用。修改快捷键不会绕过 AI 未保存编辑确认。</p>
 <h2>3. 搜索</h2>
@@ -82,11 +84,11 @@
 <p>更新线路已经内置，无需填写代理地址、加速模板或 GitHub Token。应用会优先检查 GitHub 官方元数据，连接不畅时自动切换智能加速；下载时也会逐条尝试内置线路并最终回退官方地址。若 GitHub 官方返回匿名 404，则会明确提示“更新源未公开或尚无正式 Release”，不会再误报为本机代理或所有线路故障；匿名自动更新要求发布仓库为 Public。</p>
 <p>发现新版本后选择“下载并准备安装”。后续检查如果临时断网，已发现版本和下载入口会保留；只有明确确认当前已是最新版本时才清除。应用只接受固定仓库、精确版本标签和文件名匹配的安装器，并读取同一 Release 的 <code>SHA256SUMS.txt</code>；Release 提供 digest 时还会交叉核对。校验失败会删除临时文件并保留当前版本。校验通过后仍会询问，确认后才启动安装器并退出。便携版用户也会下载安装器；如希望继续使用便携版，可取消并手动下载便携包。</p>
 <h2>9. 维护与隐私</h2>
-<p>备份先选模块并查看大小。可包括设置、位置、待办与提醒队列、每日复盘、专注记录、快捷入口与图标、AI 预设和实际 LocalAppData 日志。索引是可重建数据，不复制正在使用的 SQLite；普通维护备份始终不含 Key，与设置页中用户主动创建的加密完整 AI 配置包不同。备份包含个人正文和路径，请妥善保存。</p>
-<p>每日自动备份默认开启，应用正常启动时检查，距最近一次不足 24 小时则不重复创建。默认保留 7 份，可在维护页设置为 1～30 份；开关或保留份数改变后按钮显示“保存设置（有修改）”，成功后显示“已保存”。也可“立即创建”或打开备份文件夹。自动包位于 <code>%APPDATA%/WindowsAiDesktopPet/automatic-backups</code>，包含设置、窗口位置、待办/提醒、每日复盘、专注记录、快捷入口/图标和 Provider 预设，不含 API Key、搜索索引或诊断日志。只有新包校验并写入成功后才清理超出上限的旧包；失败时原数据和旧备份保留。</p>
+<p>备份先选模块并查看大小。可包括设置、位置、待办与提醒队列、每日复盘、专注记录、本地角色包、快捷入口与图标、AI 预设和实际 LocalAppData 日志。索引是可重建数据，不复制正在使用的 SQLite；普通维护备份始终不含 Key。备份包含个人正文、路径和用户导入素材，请确认素材权利并妥善保存。</p>
+<p>每日自动备份默认开启，应用正常启动时检查，距最近一次不足 24 小时则不重复创建。默认保留 7 份，可在维护页设置为 1～30 份；也可“立即创建”或打开备份文件夹。自动包位于 <code>%APPDATA%/WindowsAiDesktopPet/automatic-backups</code>，包含设置、窗口位置、待办/提醒、每日复盘、专注记录、本地角色包、快捷入口/图标和 Provider 预设，不含 API Key、搜索索引或诊断日志。只有新包校验并写入成功后才清理超出上限的旧包；失败时原数据和旧备份保留。</p>
 <p>恢复先验证清单、哈希、schema、容量及路径，再显示模块当前/传入大小。快捷项与图标、待办与提醒队列成组处理。确认后退出应用；下次启动在后台服务建立前执行切换，保留恢复前快照，失败或中断可回滚。旧备份没有队列时清除陈旧队列；含排队状态却缺队列的备份会拒绝。跨设备文件路径仍需重新定位，凭据不随备份迁移。</p>
 <p>恢复上限 512 MB、单项 64 MB、10,000 个数据文件，拒绝越界/链接、未知模块、无效 JSON 和凭据字段。不要手工修改备份 ZIP。恢复回滚失败会停止启动保护原数据，保留 .maintenance 供排查。</p>
-<p>“退出并重建缓存”会先显示独立确认，默认按钮是“保留并返回”。确认后清理无引用图标并立即退出；下次启动移除 index.db/WAL/SHM 和实际日志后重建。设置、待办、每日复盘、专注记录、快捷入口、正在引用的自定义图标和凭据不会删除，授权仍保留。损坏 JSON 不会被空列表保存覆盖；.previous、待办迁移前 .pre-v3.bak / .pre-v4.bak 和设置迁移前 .pre-v4.bak / .pre-v5.bak / .pre-v6.bak 可辅助恢复。</p>
+<p>“退出并重建缓存”会先显示独立确认，默认按钮是“保留并返回”。确认后清理无引用图标并立即退出；下次启动移除 index.db/WAL/SHM 和实际日志后重建。设置、待办、每日复盘、专注记录、本地角色包、快捷入口、正在引用的自定义图标和凭据不会删除，授权仍保留。损坏 JSON 不会被空列表保存覆盖；.previous 与 .pre-v3.bak～.pre-v7.bak 可辅助恢复。</p>
 <p>默认数据 %APPDATA%/WindowsAiDesktopPet，日志 %LOCALAPPDATA%/WindowsAiDesktopPet/logs。维护页底部播报最近操作状态；失败只说明数据是否保留、常见原因和下一步，不显示原始异常或完整路径。诊断 JSON 仅有版本、系统、模块计数和稳定状态码，不含 Key、完整路径、待办或 AI 原文。没有自动云上传。</p>
 <h2>10. 常见问题</h2>
 <table>
@@ -142,7 +144,7 @@
 </tr>
 <tr>
 <td align="left">数据损坏或维护失败</td>
-<td align="left">保留原文件、.previous、.pre-v3.bak、.pre-v4.bak、.pre-v5.bak、.pre-v6.bak 和 .maintenance，检查备份，不继续手改</td>
+<td align="left">保留原文件、.previous、.pre-v3.bak～.pre-v7.bak 和 .maintenance，检查备份，不继续手改</td>
 </tr>
 <tr>
 <td align="left">帮助打不开</td>

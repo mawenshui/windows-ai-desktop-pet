@@ -170,6 +170,12 @@ public sealed class HomePageLayoutTests
         Assert.Contains("ItemsSource=\"{Binding PetCharacters}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("<UniformGrid Columns=\"2\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Source=\"{Binding Preview}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"从文件夹导入…\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ConfirmPetPackImportCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Command=\"{Binding ConfirmRemovePetPackCommand}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding PetLibraryStatus}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("不会执行代码", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("角色商店", xaml, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding HidePetDuringFullscreen, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding ClickThroughPetDuringFocus, Mode=TwoWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Command=\"{Binding SaveLowDistractionSettingsCommand}\"", xaml, StringComparison.Ordinal);

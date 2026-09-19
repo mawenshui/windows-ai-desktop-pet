@@ -52,6 +52,7 @@ public partial class App : System.Windows.Application
     private ReminderScheduler? _reminderScheduler;
     private GlobalHotkeyService? _globalHotkeys;
     private SettingsStore? _settingsStore;
+    private PetPackLibrary? _petPackLibrary;
     private HomeViewModel? _homeVm;
     private DispatcherTimer? _fullscreenTimer;
     private bool _userPetHidden;
@@ -186,12 +187,39 @@ public partial class App : System.Windows.Application
                 Environment.GetEnvironmentVariable("AIPET_UI_E2E_NOW"),
                 out var uiE2eNow))
             todoNow = () => uiE2eNow;
+        var builtInPackageRoot = System.IO.Path.GetDirectoryName(petJson)
+            ?? throw new InvalidOperationException("pet.json 缺少父目录");
+        PetPackScanResult petPackScan;
+        try
+        {
+            _petPackLibrary = new PetPackLibrary(_settingsStore.AppDataDir, builtInPackageRoot);
+            petPackScan = _petPackLibrary.Scan();
+        }
+        catch (Exception ex)
+        {
+            DebugLog($"[App] pet library initialization failed: {ex.GetType().Name}");
+            System.Windows.MessageBox.Show("内置角色包安全校验失败，请重新安装完整资源。", "Windows AI Desktop Pet", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
+
+        var selectionFellBack = false;
+        var activePackage = petPackScan.Packages.FirstOrDefault(package =>
+            string.Equals(package.Id, settingsV.Pet.Id, StringComparison.Ordinal));
+        if (activePackage is null)
+        {
+            activePackage = petPackScan.Packages.First(package => package.IsBuiltIn);
+            selectionFellBack = true;
+        }
+        manifest = activePackage.Manifest;
+        var petPackageRoot = activePackage.RootPath;
         var preferred = settingsV.Pet.PreferredCharacter;
         if (string.IsNullOrEmpty(preferred) || !manifest.FrameInventory?.Characters.Contains(preferred) == true)
-            preferred = manifest.FrameInventory?.Preferred ?? "hero";
+        {
+            preferred = activePackage.PreferredCharacter;
+            selectionFellBack = true;
+        }
 
-        var petPackageRoot = System.IO.Path.GetDirectoryName(petJson)
-            ?? throw new InvalidOperationException("pet.json 缺少父目录");
         PetFrameCache? cache = null;
         var candidates = new[] { preferred, manifest.FrameInventory?.Preferred }
             .Concat(manifest.FrameInventory?.Characters ?? new List<string>())
@@ -208,12 +236,23 @@ public partial class App : System.Windows.Application
         }
         if (cache is null)
         {
-            System.Windows.MessageBox.Show("内置桌宠角色首帧无法读取，请重新安装完整资源。", "Windows AI Desktop Pet", MessageBoxButton.OK, MessageBoxImage.Error);
-            Shutdown(1);
-            return;
+            activePackage = petPackScan.Packages.First(package => package.IsBuiltIn);
+            manifest = activePackage.Manifest;
+            petPackageRoot = activePackage.RootPath;
+            preferred = activePackage.PreferredCharacter;
+            cache = new PetFrameCache(petPackageRoot, manifest, preferred);
+            selectionFellBack = true;
+            if (cache.GetFrame("idle", Direction8.Down, 0) is null)
+            {
+                System.Windows.MessageBox.Show("内置桌宠角色首帧无法读取，请重新安装完整资源。", "Windows AI Desktop Pet", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(1);
+                return;
+            }
         }
-        if (!string.Equals(settingsV.Pet.PreferredCharacter, preferred, StringComparison.Ordinal))
+        if (!string.Equals(settingsV.Pet.Id, activePackage.Id, StringComparison.Ordinal)
+            || !string.Equals(settingsV.Pet.PreferredCharacter, preferred, StringComparison.Ordinal))
         {
+            settingsV.Pet.Id = activePackage.Id;
             settingsV.Pet.PreferredCharacter = preferred;
             try { _settingsStore.Save(settingsV); } catch { /* Runtime fallback remains usable for this launch. */ }
         }
@@ -294,21 +333,18 @@ public partial class App : System.Windows.Application
                 todoNow: todoNow,
                 journalStore: _dailyJournalStore,
                 focusService: _focusSessionService);
-            var previews = new Dictionary<string, System.Windows.Media.ImageSource?>(StringComparer.Ordinal);
-            foreach (var character in manifest.FrameInventory?.Characters ?? new List<string>())
+            fromXaml.ConfigurePetLibrary(
+                _petPackLibrary!,
+                petPackScan,
+                activePackage.Id,
+                preferred,
+                selectionFellBack);
+            fromXaml.PetSelectionChanged += selection =>
             {
-                try
-                {
-                    previews[character] = new PetFrameCache(petPackageRoot, manifest, character)
-                        .GetFrame("idle", Direction8.Down, 0);
-                }
-                catch
-                {
-                    previews[character] = null;
-                }
-            }
-            fromXaml.SetPetCharacterPreviews(previews);
-            fromXaml.CharacterChanged += character => _pet?.SetCharacter(character);
+                var package = _petPackLibrary!.Resolve(selection.PackageId);
+                var nextCache = new PetFrameCache(package.RootPath, package.Manifest, selection.CharacterId);
+                _pet?.SetPackage(nextCache, package.Manifest, selection.CharacterId);
+            };
             fromXaml.AppearanceChanged += appearance =>
             {
                 _tool?.ApplyTheme(appearance.Theme);
@@ -965,9 +1001,11 @@ public partial class App : System.Windows.Application
                 if (System.IO.File.Exists(p)) { petJsonPath = p; break; }
             }
             if (petJsonPath is null) throw new InvalidOperationException("no pet.json found under " + petsRoot);
-            var manifest = PetManifestLoader.Load(petJsonPath);
+            var package = PetPackValidator.Validate(Path.GetDirectoryName(petJsonPath)!, isBuiltIn: true);
+            var manifest = package.Manifest;
             Line("[OK ] assets/pets: package resolved");
             Line($"[OK ] pet.json: id={manifest.Id}, characters=[{string.Join(",", manifest.FrameInventory?.Characters ?? new())}], totalFrames={manifest.FrameInventory?.TotalFrames}");
+            Line($"[OK ] pet pack policy: license={package.License}, files={package.Files.Count}, fingerprint={package.Fingerprint[..12]}");
         }
         catch (Exception ex) { ok = false; Line($"[FAIL] pet.json: {ex.Message}"); }
 

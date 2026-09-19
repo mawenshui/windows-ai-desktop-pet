@@ -820,6 +820,44 @@ public partial class PetToolWindow : Window
         finally { _suppressAutoHide = false; }
     }
 
+    private void ImportPetPack_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "选择包含 pet.json 的本地角色包文件夹",
+            Multiselect = false,
+        };
+        var previous = _suppressAutoHide;
+        _suppressAutoHide = true;
+        try
+        {
+            if (dialog.ShowDialog(this) == true && DataContext is HomeViewModel vm)
+            {
+                vm.PreviewPetPackImport(dialog.FolderName);
+                if (vm.HasPendingPetPackPreview)
+                    Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+                    {
+                        CancelPetPackImportButton.Focus();
+                        Keyboard.Focus(CancelPetPackImportButton);
+                    }));
+            }
+        }
+        finally
+        {
+            _suppressAutoHide = previous;
+            Activate();
+        }
+    }
+
+    private void RequestRemovePetPack_Click(object sender, RoutedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            CancelRemovePetPackButton.Focus();
+            Keyboard.Focus(CancelRemovePetPackButton);
+        }));
+    }
+
     private void ShortcutBar_DragOver(object sender, DragEventArgs e)
     {
         e.Effects = HasDroppableShortcutTarget(e.Data)
@@ -1280,7 +1318,12 @@ public partial class PetToolWindow : Window
         }
         else if (key == Key.Escape)
         {
-            if (ShellTabs.SelectedIndex == 1
+            if (DataContext is HomeViewModel petPackHome && petPackHome.HandlePetPackEscape())
+            {
+                CharacterList.Focus();
+                Keyboard.Focus(CharacterList);
+            }
+            else if (ShellTabs.SelectedIndex == 1
                 && DataContext is HomeViewModel journalHome
                 && journalHome.Todo.HandleJournalEscape())
             {

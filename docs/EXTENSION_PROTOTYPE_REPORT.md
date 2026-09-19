@@ -1,4 +1,4 @@
-> 历史评估：本文保留 0.13.0 当时的试验数据。EXT-07 已在 0.17.0 按更严格边界迁入正式产品，原型代码已移除；EXT-08 仍未接入。当前计划与状态见 [0.17.0－功能扩展计划](0.17.0－功能扩展计划.md) 和 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
+> 历史评估：本文保留 0.13.0 当时的试验数据。EXT-07 已在 0.17.0 迁入正式产品；EXT-08 已在 0.26.0 按更严格的 PACK-01～12 合同迁入 `AiPet.Pet`，原型入口改为复用正式校验器做容量测量。当前设计与状态见 [0.26.0 安全本地角色包设计](0.26.0－安全本地角色包设计.md) 和 [CURRENT_STATUS.md](CURRENT_STATUS.md)。
 
 # EXT-07 / EXT-08 隔离原型评估
 
@@ -35,4 +35,4 @@ pwsh -NoProfile -File scripts/test.ps1 -CI
 dotnet run --project tests/prototypes/AiPet.Prototypes/AiPet.Prototypes.csproj -c Release --no-build -- build/prototype-evaluation assets/pets/RGS_8Directional
 ```
 
-本文只记录 0.13.0 原型结论。EXT-07 的当前产品行为以 PRD SRCH-07 和 0.17.0 验证报告为准；EXT-08 最终是否转产品仍取决于后续 RFC。
+本文只记录 0.13.0 原型结论。EXT-07 的当前产品行为以 PRD SRCH-07 为准；EXT-08 的当前产品行为以 PRD PACK-01～12、0.26.0 设计和本轮验证报告为准，本文的“保留隔离原型”不再代表现状。

@@ -19,8 +19,8 @@ namespace AiPet.Pet;
 /// </summary>
 public partial class PetWindow : Window
 {
-    private readonly PetFrameCache _frames;
-    private readonly PetManifest _manifest;
+    private PetFrameCache _frames;
+    private PetManifest _manifest;
     private readonly SettingsStore _settings;
     private bool _enableRoaming = true;
     private bool _enableBubbleAnimation = true;
@@ -118,12 +118,7 @@ public partial class PetWindow : Window
         _settings = settings;
         ApplyAppearancePreferences(settings.Load().Appearance);
 
-        _fps = manifest.Render?.Fps is > 0 ? manifest.Render.Fps : 12;
-        if (manifest.FrameInventory?.FramesPerAction is { } fpa
-            && fpa.TryGetValue("idle", out var idleFrames) && idleFrames > 0)
-        {
-            _frameCount = idleFrames;
-        }
+        ApplyAnimationContract("idle");
 
         // Frame animation: advance at fps, loop idle / play once for jump.
         _frameTimer = new DispatcherTimer(DispatcherPriority.Render)
@@ -377,6 +372,59 @@ public partial class PetWindow : Window
         if (!_quietMode) ShowBubble("新造型准备好了", autoHide: true);
     }
 
+    /// <summary>
+    /// Atomically switches both the package contract and its decoded-frame
+    /// cache. The first visible frame is decoded before the old package is
+    /// discarded, so a malformed runtime resource cannot leave a stale or
+    /// empty pet on screen.
+    /// </summary>
+    public void SetPackage(PetFrameCache frames, PetManifest manifest, string character)
+    {
+        ArgumentNullException.ThrowIfNull(frames);
+        ArgumentNullException.ThrowIfNull(manifest);
+
+        if (!string.Equals(frames.Character, character, StringComparison.Ordinal))
+            frames.SetCharacter(character);
+        if (frames.GetFrame("idle", Direction8.Down, 0) is null)
+            throw new InvalidDataException("角色包首帧无法读取。");
+
+        var previousFrames = _frames;
+        var previousManifest = _manifest;
+        var previousAction = _currentAction;
+        var previousFrame = _currentFrame;
+        var previousPlayOnce = _playOnce;
+        var previousReturn = _returnToAction;
+        var previousFps = _fps;
+        var previousFrameCount = _frameCount;
+        try
+        {
+            _frames = frames;
+            _manifest = manifest;
+            _currentAction = "idle";
+            _currentFrame = 0;
+            _playOnce = false;
+            _returnToAction = null;
+            ApplyAnimationContract("idle");
+            RenderFrame();
+        }
+        catch
+        {
+            _frames = previousFrames;
+            _manifest = previousManifest;
+            _currentAction = previousAction;
+            _currentFrame = previousFrame;
+            _playOnce = previousPlayOnce;
+            _returnToAction = previousReturn;
+            _fps = previousFps;
+            _frameCount = previousFrameCount;
+            _frameTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / _fps);
+            RenderFrame();
+            throw;
+        }
+
+        if (!_quietMode) ShowBubble("新角色包准备好了", autoHide: true);
+    }
+
     public string CurrentCharacter => _frames.Character;
 
     /// <summary>
@@ -457,8 +505,7 @@ public partial class PetWindow : Window
                 {
                     _currentAction = _returnToAction;
                     _returnToAction = null;
-                    if (_currentAction == "idle") _frameCount = 4;
-                    else if (_currentAction == "jump") _frameCount = 8;
+                    _frameCount = FrameCountFor(_currentAction);
                 }
             }
         }
@@ -503,8 +550,7 @@ public partial class PetWindow : Window
         _currentAction = action;
         _currentFrame = 0;
         _playOnce = true;
-        if (action == "jump") _frameCount = 8;
-        else if (action == "death") _frameCount = 7;
+        _frameCount = FrameCountFor(action);
     }
 
     public void SetLoopingAction(string action)
@@ -513,8 +559,32 @@ public partial class PetWindow : Window
         _returnToAction = null;
         _playOnce = false;
         _currentFrame = 0;
-        if (action == "idle") _frameCount = 4;
-        else if (action == "jump") _frameCount = 8;
+        _frameCount = FrameCountFor(action);
+    }
+
+    private void ApplyAnimationContract(string action)
+    {
+        _fps = _manifest.Render?.Fps is > 0 ? _manifest.Render.Fps : 12;
+        _frameCount = FrameCountFor(action);
+        if (_frameTimer is not null)
+            _frameTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / _fps);
+    }
+
+    private int FrameCountFor(string action)
+    {
+        if (string.Equals(action, "death", StringComparison.Ordinal))
+        {
+            var global = _manifest.FrameInventory?.GlobalActions?
+                .FirstOrDefault(candidate => string.Equals(candidate.Name, action, StringComparison.Ordinal));
+            if (global?.Frames is > 0) return global.Frames;
+            return 7;
+        }
+
+        if (_manifest.FrameInventory?.FramesPerAction is { } frames
+            && frames.TryGetValue(action, out var count)
+            && count > 0)
+            return count;
+        return string.Equals(action, "jump", StringComparison.Ordinal) ? 8 : 4;
     }
 
     // -------- Head direction --------

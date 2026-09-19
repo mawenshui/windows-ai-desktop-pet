@@ -10,8 +10,8 @@ public enum DataModule
 {
     None = 0, Settings = 1, Layout = 2, Todos = 4, Shortcuts = 8,
     SearchIndex = 16, IconCache = 32, Logs = 64, Notifications = 128, ProviderPresets = 256,
-    Journal = 512, FocusSessions = 1024,
-    AllNonSecret = Settings | Layout | Todos | Shortcuts | SearchIndex | IconCache | Logs | Notifications | ProviderPresets | Journal | FocusSessions,
+    Journal = 512, FocusSessions = 1024, PetPacks = 2048,
+    AllNonSecret = Settings | Layout | Todos | Shortcuts | SearchIndex | IconCache | Logs | Notifications | ProviderPresets | Journal | FocusSessions | PetPacks,
 }
 public sealed record DataModulePreview(DataModule Module, string DisplayName, bool Exists, long Bytes);
 public sealed record RestorePreview(DataModule Module, string DisplayName, long CurrentBytes, long IncomingBytes, int FileCount);
@@ -30,6 +30,13 @@ public sealed partial class DataMaintenanceService
         [DataModule.ProviderPresets]="provider-presets.json",
         [DataModule.Journal]="journal.json",
         [DataModule.FocusSessions]="focus-sessions.json",
+        [DataModule.PetPacks]="pet-packs",
+    };
+    private static readonly HashSet<DataModule> DirectoryModules = new()
+    {
+        DataModule.IconCache,
+        DataModule.Logs,
+        DataModule.PetPacks,
     };
     public const long MaximumBackupBytes = 512L * 1024 * 1024;
     private const long MaximumEntryBytes = 64L * 1024 * 1024;
@@ -115,7 +122,9 @@ public sealed partial class DataMaintenanceService
             if (parts.Any(part => part is "." or ".." || part.Contains(':') || part.EndsWith(' ') || part.EndsWith('.')) || name.StartsWith('/'))
                 throw new InvalidDataException("备份包含越界或无效路径。");
             if (name.EndsWith('/')) continue;
-            if (name != "backup-manifest.json" && !ModulePaths.Values.Any(path => name.Equals(path, StringComparison.OrdinalIgnoreCase) || (path is "icons" or "logs" && name.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase))))
+            if (name != "backup-manifest.json" && !ModulePaths.Any(pair =>
+                    name.Equals(pair.Value, StringComparison.OrdinalIgnoreCase)
+                    || DirectoryModules.Contains(pair.Key) && name.StartsWith(pair.Value + "/", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidDataException("备份包含未知模块。");
             total += entry.Length;
             if (entry.Length > MaximumEntryBytes || total > MaximumBackupBytes || files.ContainsKey(name)) throw new InvalidDataException("备份容量、数量或重复路径无效。");
@@ -143,6 +152,9 @@ public sealed partial class DataMaintenanceService
             if (name.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && !name.Contains('/')) ValidateJson(name, bytes);
             if (name.StartsWith("icons/", StringComparison.OrdinalIgnoreCase) && !new[] { ".png", ".ico", ".jpg", ".jpeg", ".bmp" }.Contains(Path.GetExtension(name).ToLowerInvariant()))
                 throw new InvalidDataException("图标格式不支持。");
+            if (name.StartsWith("pet-packs/", StringComparison.OrdinalIgnoreCase)
+                && !new[] { ".json", ".txt", ".png" }.Contains(Path.GetExtension(name).ToLowerInvariant()))
+                throw new InvalidDataException("角色包备份包含不支持的文件格式。");
         }
         return files;
     }
@@ -156,7 +168,7 @@ public sealed partial class DataMaintenanceService
         if (json.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("模块必须是 JSON 对象。");
         if (name != "layout.json")
         {
-            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" or "journal.json" or "focus-sessions.json" ? 1 : name == "settings.json" ? 6 : name == "todos.json" ? 4 : 3;
+            var max = name is "shortcuts.json" or "notifications.json" or "provider-presets.json" or "journal.json" or "focus-sessions.json" ? 1 : name == "settings.json" ? 7 : name == "todos.json" ? 4 : 3;
             if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || schema.GetInt32() < 1 || schema.GetInt32() > max) throw new InvalidDataException("模块 schema 不受支持。");
             if (name is "todos.json" or "shortcuts.json" && (!json.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array))
                 throw new InvalidDataException("事项列表无效。");
@@ -175,7 +187,7 @@ public sealed partial class DataMaintenanceService
         else if (element.ValueKind == JsonValueKind.Array) foreach (var child in element.EnumerateArray()) RejectSecrets(child);
     }
     private static bool Belongs(string name, DataModule module) => name.Equals(ModulePaths[module], StringComparison.OrdinalIgnoreCase) ||
-        (module is DataModule.IconCache or DataModule.Logs && name.StartsWith(ModulePaths[module] + "/", StringComparison.OrdinalIgnoreCase));
+        (DirectoryModules.Contains(module) && name.StartsWith(ModulePaths[module] + "/", StringComparison.OrdinalIgnoreCase));
     public IReadOnlyList<RestorePreview> PreviewRestore(string source)
     {
         var files = ReadArchive(source);
@@ -338,7 +350,7 @@ public sealed partial class DataMaintenanceService
     private static string DisplayName(DataModule module) => module switch
     {
         DataModule.Settings=>"应用设置", DataModule.Layout=>"窗口位置", DataModule.Todos=>"待办与提醒",
-        DataModule.Shortcuts=>"快捷入口", DataModule.SearchIndex=>"搜索索引", DataModule.IconCache=>"自定义图标", DataModule.Logs=>"诊断日志", DataModule.Notifications=>"提醒队列与历史", DataModule.ProviderPresets=>"AI 服务预设", DataModule.Journal=>"每日复盘", DataModule.FocusSessions=>"专注记录", _=>module.ToString(),
+        DataModule.Shortcuts=>"快捷入口", DataModule.SearchIndex=>"搜索索引", DataModule.IconCache=>"自定义图标", DataModule.Logs=>"诊断日志", DataModule.Notifications=>"提醒队列与历史", DataModule.ProviderPresets=>"AI 服务预设", DataModule.Journal=>"每日复盘", DataModule.FocusSessions=>"专注记录", DataModule.PetPacks=>"本地角色包", _=>module.ToString(),
     };
     private static DataModule WithDependencies(DataModule modules)
     {
@@ -346,6 +358,7 @@ public sealed partial class DataMaintenanceService
         modules &= ~DataModule.SearchIndex;
         if (modules.HasFlag(DataModule.Shortcuts)) modules |= DataModule.IconCache;
         if ((modules & (DataModule.Todos | DataModule.Notifications)) != 0) modules |= DataModule.Todos | DataModule.Notifications;
+        if (modules.HasFlag(DataModule.Settings)) modules |= DataModule.PetPacks;
         return modules;
     }
 }

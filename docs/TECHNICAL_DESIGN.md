@@ -1,6 +1,6 @@
 # 技术设计与实现基线
 
-日期：2026-09-18；软件：0.25.2 源码版本。本文以当前代码为准；[0.25.0 功能设计](0.25.0－专注陪伴、低打扰与角色库设计.md)和[0.25.2 验证报告](release/0.25.2-test-report.md)分别说明功能基线与本轮验收状态。
+日期：2026-09-19；软件：0.26.0 源码版本。本文以当前代码为准；[0.26.0 安全本地角色包设计](0.26.0－安全本地角色包设计.md)说明需求、合同与验收边界，本轮验证报告记录实际门禁结果。
 
 ## 1. 技术与模块
 
@@ -9,17 +9,17 @@ WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.31、System.Text.Js
 | 模块 | 当前职责 |
 | :--- | :--- |
 | App | STA、单实例、启动维护、服务装配、专注/全屏/点击穿透协调、托盘、全局快捷键、自动备份、提醒提交和退出 |
-| Pet / Common | RGS 帧缓存、角色首帧预览、手势、漫游、低打扰模式、完成反馈、工作区定位、manifest 与方向映射 |
-| ToolWindow | 四页、主题、Home/Todo ViewModel、专注阶段 UI、角色卡、低打扰草稿、搜索结果系统动作适配、AI/维护对话框、快捷管理窗、提醒投影、静默草稿与每日复盘视图 |
+| Pet / Common | RGS 与本地角色包严格校验/事务库、帧缓存、运行时包切换、角色首帧预览、手势、漫游、低打扰模式、完成反馈、工作区定位、manifest 与方向映射 |
+| ToolWindow | 四页、主题、Home/Todo ViewModel、专注阶段 UI、本机角色库/导入预览/移除确认、低打扰草稿、搜索结果系统动作适配、AI/维护对话框、快捷管理窗、提醒投影、静默草稿与每日复盘视图 |
 | Search | SQLite 名称/受控正文索引、授权、目录扫描、watcher、范围任务串行化、排序、摘要和分页 |
 | Shortcuts | JSON、引用/图标、分组固定、批量预览/撤销、失效扫描 |
 | Todos | 待办 schema 4、复盘 schema 1、专注 schema 1、会话状态机/恢复/聚合、日历规则、今日时间块、复盘投影/导出、原子批量更新、最近到期调度、持久化通知记录 |
 
 `ToolWindowTheme.xaml` 保留稳定的 `SolidColorBrush` 实例，各画刷颜色通过 `DynamicResource <Role>Color` 间接绑定。`ThemeManager` 对 light、dark 和 high-contrast 都写入完整语义调色板，因此 XAML 中已有的 `StaticResource` 画刷引用也会随颜色资源失效通知同步变化；从深色切回浅色不是空操作。窗口根前景、表面、输入、状态 tint/line、强调前景和阴影均来自同一组角色，主题切换不改变布局、焦点、键盘或 UI Automation 语义。
 | AI | 模型验证、单项与今日安排结构化协议、本地安排、无 Key 交换、加密完整配置包、预设加载 |
-| Storage / Secrets | 设置/位置、专注模块、原子写入、维护事务、每日备份、白名单诊断、Windows 凭据 |
+| Storage / Secrets | schema 7 设置/位置、专注与角色包模块、原子写入、维护事务、每日备份、白名单诊断、Windows 凭据 |
 | SystemIntegration | HKCU 自启、离线帮助、前台同屏全屏检测、窗口点击穿透、RegisterHotKey / WM_HOTKEY、GitHub Release 检查与校验下载 |
-| tests/prototypes | 严格 2D 宠物包子集原型，应用不引用、不打包 |
+| tests/prototypes | 对正式角色包校验器的容量测量入口，不再维护重复产品候选代码 |
 
 ## 2. 启动、窗口与退出
 
@@ -99,7 +99,11 @@ App 订阅同一会话快照并驱动三项独立效果：PetWindow 安静模式
 
 `ForegroundFullscreenDetector` 只读取前台 HWND 的可见/最小化状态、DWM 扩展边界和监视器工作矩形，排除本进程；2 DIP 容差内覆盖桌宠所在监视器才判定真全屏。App 每 500 ms 采样并要求连续两次一致；分别保存用户手动隐藏和全屏抑制原因，只撤销自己造成的隐藏。`WindowClickThrough` 只增删 `WS_EX_TRANSPARENT` 位并保留其他扩展样式；打开设置、托盘恢复、结束专注和退出都会尝试清除。
 
-角色卡由 App 为 manifest 中每个声明角色创建独立 `PetFrameCache`，只取 `idle/down/0` 冻结图片。HomeViewModel 在切换前核对角色 ID 与预览，再原子保存设置，成功后通过事件调用 PetWindow 的纯运行时切换；保存失败恢复原选择。启动时按已选角色、manifest preferred、首个可解码角色依次回退，所有候选失败则停止启动并提示重装资源。
+角色库由 `PetPackValidator`、`PetPackLibrary`、HomeViewModel 与 App 分层组成。校验器只接受固定顶层字段、`SOURCE.txt`、`License.txt` 和清单声明的 PNG；ID、三段 SemVer、HTTPS 来源、SPDX 白名单、固定 idle/jump 与五个原绘方向均严格验证。单帧限制 512×512/4 MiB，单包限制 1,000 帧、32 MiB 编码和 128 MiB RGBA 解码估算；PNG 经 WPF 解码器读出像素，所有路径拒绝越界、ADS 与重解析点。
+
+`PetPackLibrary` 把用户确认的已解压文件夹复制到同卷 `.staging-<guid>`，只复制白名单文件，并在复制前后比较按相对路径排序的 SHA-256 内容指纹。重复 ID、预览后变化或任何校验失败均清理 staging。扫描逐目录隔离错误；内置 `rgs-8dir` 不位于用户库且不可移除。来源 URL 只作为证据字段读取，运行时从不发起请求，也没有脚本、插件或任意状态机解释入口。
+
+App 根据 `pet.id + preferredCharacter` 解析活动描述符并创建 `PetFrameCache`。HomeViewModel 将内置与外部角色投影到同一原生 ListBox，只取 `idle/down/0` 冻结预览；切换先保存设置，再让 `PetWindow.SetPackage` 验证首帧并原子替换 manifest、缓存、FPS 与帧数，失败恢复旧状态。活动包缺失、损坏或角色无效时回退并持久化内置包；移除外部包前必须先成功切回内置角色。设置 schema 7 在旧版本升级前保留 `.pre-v7.bak`。
 
 ## 6. AI
 
@@ -119,7 +123,7 @@ GET models 验证响应对象/data 数组/所选模型；最小生成验证独�
 
 ## 7. 维护与恢复
 
-备份格式 v2 保存文件 SHA-256，兼容 v1 读取。容量 512 MiB、单项 64 MiB、10,000 文件；拒绝路径越界/ADS/链接/未知模块、异常 JSON/schema、凭据字段。SQLite 是派生数据，不复制活跃数据库。模块包括设置、位置、待办/通知、每日复盘、专注会话、快捷项/图标、预设及实际 LocalAppData 日志。设置 schema 6 增加低打扰字段并在升级前保留 `.pre-v6.bak`；既有 `.pre-v4.bak`、`.pre-v5.bak` 规则保持。
+备份格式 v2 保存文件 SHA-256，兼容 v1 读取。容量 512 MiB、单项 64 MiB、10,000 文件；拒绝路径越界/ADS/链接/未知模块、异常 JSON/schema、凭据字段。SQLite 是派生数据，不复制活跃数据库。模块包括设置、位置、待办/通知、每日复盘、专注会话、本地角色包、快捷项/图标、预设及实际 LocalAppData 日志。设置 schema 7 保留包与角色选择并在升级前写 `.pre-v7.bak`；既有版本迁移备份规则保持。恢复设置时角色包作为依赖共同恢复，包内只允许 JSON、TXT 与 PNG。
 
 QueueRestore 校验并复制待恢复包、记录哈希。用户确认退出，下次启动校验全部输入后保留每个模块 before 快照和 journal，再切换。失败整体 rollback；发现 applying 日志则启动恢复快照。恢复快捷项重写图标为当前根路径；恢复设置清除旧授权索引。旧待办备份不含通知时创建空队列，排队待办缺配套队列时拒绝。
 
@@ -135,7 +139,7 @@ GlobalHotkeyGesture 只接受至少一个 Ctrl/Alt/Shift/Win 修饰键与一个�
 
 全局快捷键和自动备份分别保存最后一次成功加载/写入的非敏感字段基线。计算属性驱动按钮的“有修改/已保存”标签和 CanExecute；规范化或持久化成功后才推进基线，校验与写入失败保持输入和 dirty 状态。
 
-AutomaticBackupService 复用 DataMaintenanceService 的模块依赖、JSON/路径/凭据校验和备份格式 v2。正常启动读取设置后在后台执行；文件名保存 UTC 毫秒时间，24 小时内最多一次，成功后才按 1～30 份上限删除旧包。范围固定为设置、位置、待办/通知、每日复盘、专注会话、快捷项/图标及 Provider 预设，排除凭据、搜索索引和日志。校验、写入或保留清理失败时返回失败状态并保留旧包；卸载明确清理个人数据时删除 automatic-backups。
+AutomaticBackupService 复用 DataMaintenanceService 的模块依赖、JSON/路径/凭据校验和备份格式 v2。正常启动读取设置后在后台执行；文件名保存 UTC 毫秒时间，24 小时内最多一次，成功后才按 1～30 份上限删除旧包。范围固定为设置、位置、待办/通知、每日复盘、专注会话、本地角色包、快捷项/图标及 Provider 预设，排除凭据、搜索索引和日志。校验、写入或保留清理失败时返回失败状态并保留旧包；卸载明确清理个人数据时删除 automatic-backups。
 
 ## 9. GitHub Release 在线更新
 
@@ -149,7 +153,7 @@ GitHubReleaseUpdateClient 固定读取 `mawenshui/windows-ai-desktop-pet` 的 la
 
 正常模式装配完成后调用 StartUpdateChecks，一次进程生命周期只启动一个初始检查。周期检查默认关闭，可设 1～168 小时；取消随应用退出。发现更新只显示版本和下载操作，不自动下载；后续失败或取消保留已发现版本，明确返回最新版本才清除。下载校验通过后 App 再次询问用户，用户确认且处理完未保存 AI 编辑后才以 `/SP-` 启动安装器并退出。preview/ui-e2e 不访问网络。
 
-周期启用与间隔使用单独的已保存基线；无差异时禁用保存，校验或写入失败不推进基线。设置 schema 6 继续兼容读取 schema 5 的旧 `accelerationTemplate` 字段，但规范化后总是清空且业务从不读取；固定的旧更新凭据只保留原卸载清理路径，不再参与运行时请求。
+周期启用与间隔使用单独的已保存基线；无差异时禁用保存，校验或写入失败不推进基线。设置 schema 7 继续兼容读取旧 `accelerationTemplate` 字段，但规范化后总是清空且业务从不读取；固定的旧更新凭据只保留原卸载清理路径，不再参与运行时请求。
 
 ## 10. 发布证据
 

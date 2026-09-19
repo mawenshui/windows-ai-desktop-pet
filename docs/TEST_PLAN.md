@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.25.2，2026-09-18；测试结果以[本次报告](release/0.25.2-test-report.md)为准。实现、进程内 WPF 渲染、独立桌面输入、真实外部服务和物理设备验收分别记录。
+基线：0.26.0，2026-09-19；测试结果以本轮验证报告为准。实现、进程内 WPF 渲染、独立桌面输入、真实外部服务和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -16,7 +16,7 @@
 | scripts/smoke-release.ps1 | 便携运行、安装、安装后运行、静默卸载及安装路径自启清理；签名按实际配置报告 |
 | scripts/collect-release-evidence.ps1 -Gate ... | 绑定当前版本/提交/输入指纹/环境/时间/资产的证据；正式发布只强制 automated 与 package-smoke |
 | scripts/verify-release.ps1 | 验证干净工作区、两组必需新鲜证据、资产及清单哈希 |
-| tests/prototypes/AiPet.Prototypes | EXT-08 严格 2D 宠物包隔离评估和 20,000/100,000 元数据测量 |
+| tests/prototypes/AiPet.Prototypes | 复用正式角色包校验器的容量测量，不维护重复产品候选代码 |
 
 从仓库根使用 pwsh -NoProfile -File 运行 PowerShell 入口。单元工程包含进程内 WPF 和文件/SQLite 边界集成用例；目录命名不表示全部为纯内存单元测试。尚未设置覆盖率、格式或漏洞扫描阈值，不伪装为已执行。
 
@@ -32,6 +32,7 @@
 | FOCUS-01～09 | FocusSession、TodoViewModel、DailyJournal、MaintenanceTransaction；开始/暂停/继续/提前结束/正常到时、唯一活动会话、5～180 分钟、关联与无关联、Todo 非自动完成、单调/墙钟恢复、回拨暂停、幂等到时、聚合/Markdown、revision/损坏/容量和备份恢复 |
 | QUIET-01～08 | PetWindow、App 状态协调、FullscreenWindowPolicy、WindowClickThrough 与 WPF 合同；自动化覆盖几何容差、设置草稿和入口合同，真实安静模式、正式提醒、点击穿透、真全屏/最大化/副屏、手动隐藏恢复与失败路径单列桌面验收 |
 | CHAR-01～06 | HomeViewModel、PetFrameCache、设置迁移和 WPF 合同；四角色首帧、许可文本、保存后应用、保存失败保持、坏 ID/坏帧回退；键盘、200% 缩放和高对比度单列桌面验收 |
+| PACK-01～12 / EXT-08 | PetPackLibrary、HomeViewModel、PetWindow、SettingsStore、MaintenanceTransaction、EssentialFeature、HomePageLayout；严格字段/路径/链接/SPDX/来源/动作/方向/帧/图片预算，预览指纹、staging 导入、重复与篡改拒绝、无效包隔离、包/角色原子切换、内置回退、移除确认、schema 6→7、手动/自动备份恢复和不商业化 UI 合同 |
 | TODAY-01～06 | TodayPlan、TodoStore、TodoViewModel、HomePageLayout；只发送选中项正文、未选项匿名占用时间、AI/本地冲突避让、精确刻钟边界、过期整批拒绝、前 12 条批量选择/清除与旧草稿失效 |
 | EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离；提醒投影的待处理/历史语义、失效目标和清理保留边界 |
 | AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留；获用户授权时以脱敏 live runner 分别核对真实模型列表、单项结构化草稿和今日安排草稿 |
@@ -39,9 +40,9 @@
 | DATA-01/02/04/05 / EXT-02 | MaintenanceTransaction、FutureFeature、RecoverableAtomicFile、HomePageLayout/HomePageExperience；路径/容量/schema/hash、中途失败/中断回滚、FocusSessions 等真实模块成组恢复、损坏后写保护、危险层级/明确确认、独立状态通道、成功不泄露路径与失败不拼接原异常 |
 | HOTKEY-01/02 / EXT-09 | EssentialFeature、PetToolWindowLifecycle、HomePageLayout；组合键规范化/拒绝/去重、设置持久化、快速待办定向及标题焦点、托盘等价入口；真实跨程序按键与占用释放单列实测 |
 | DATA-03 / EXT-10 | EssentialFeature、SettingsStore、FutureFeature；24 小时节流、1～30 份保留、模块包含/排除、损坏输入失败保留、schema 4 与 `.pre-v4.bak` |
-| UPDATE-01～04 | GitHubReleaseUpdate、SettingsStore、HomeViewModel/HomePageLayout；稳定版本、固定仓库/标签/资产、Windows/环境代理处理器、内置元数据与下载线路顺序、网络失败与匿名 404 更新源分类、匿名请求、失败保留已发现版本、HTTPS/大小/重定向/digest/清单、临时文件清理、启动一次、周期设置、专业输入移除、状态 live region、schema 6 兼容旧模板与迁移备份 |
+| UPDATE-01～04 | GitHubReleaseUpdate、SettingsStore、HomeViewModel/HomePageLayout；稳定版本、固定仓库/标签/资产、Windows/环境代理处理器、内置元数据与下载线路顺序、网络失败与匿名 404 更新源分类、匿名请求、失败保留已发现版本、HTTPS/大小/重定向/digest/清单、临时文件清理、启动一次、周期设置、专业输入移除、状态 live region、schema 7 兼容旧模板与迁移备份 |
 | EXT-00 | test-release-evidence.ps1；缺失、过期、未来时间、版本/提交/输入不符、FAIL/SKIP、缺检查及资产错误必须失败 |
-| EXT-08 | PrototypeTests；宠物包路径/缺帧/超大/未知字段/许可/重复/损坏回退。原 EXT-07 正文试验已迁入 SRCH-07 正式回归 |
+| EXT-08 | 已迁入 PACK-01～12 正式回归；prototype 仅保留调用正式校验器的容量测量。原 EXT-07 正文试验已迁入 SRCH-07 正式回归 |
 | AUTO/TRAY/HELP | 自启、托盘重建合同、帮助路径与 smoke；真实重登录/Explorer 单列 |
 
 外部服务默认 fake HTTP；完整配置包使用匿名伪 Key，并断言密文、普通设置和错误信息不出现该值。无实际 API Key、待办标题、搜索原文或个人路径进入测试 fixture/诊断。渲染截图只使用匿名测试数据，build 目录不作为源码交付；不得将锁屏、PIN 或其他程序截为桌宠证据。

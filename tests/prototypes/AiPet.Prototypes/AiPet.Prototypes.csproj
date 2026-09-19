@@ -9,6 +9,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../src/AiPet.Pet/AiPet.Pet.csproj" />
     <ProjectReference Include="../../../src/AiPet.Search/AiPet.Search.csproj" />
   </ItemGroup>
 </Project>

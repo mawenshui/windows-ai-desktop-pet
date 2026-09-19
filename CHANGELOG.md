@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.26.0] - 2026-09-19
+
+### Added
+
+- 新增完全离线的本地 2D 角色包库：从已解压文件夹预览，明确确认后以 staging 事务导入，并可在现有设置页切换、查看许可或移除。
+- 角色包采用固定动作/方向与 SPDX 白名单合同，限制 1,000 帧、32 MiB 编码、128 MiB 解码估算和 512×512 PNG；逐帧真实解码并以 SHA-256 内容指纹防止预览后篡改。
+
+### Changed
+
+- 设置升级为 schema 7，继续使用 `pet.id` 与 `preferredCharacter` 保存包和角色；外部包损坏、缺失或当前角色无效时安全回退内置包。
+- 本地角色包进入手动备份、每日自动备份、恢复事务与用户授权的卸载清理；内置 RGS 包始终保留且不可移除。
+
+### Security
+
+- 角色包只复制声明的 `pet.json`、`SOURCE.txt`、`License.txt` 和 PNG，不访问来源 URL、不执行脚本，并拒绝未知能力、越界路径、链接/重解析点、非法许可和资源预算超限。
+- 本版不包含商城、付费、账号、广告、云同步、在线下载、商业角色 DLC、3D、音频或通用插件。
+
+### Tests
+
+- 新增角色包合同、导入事务、重复/篡改/损坏隔离、切换与移除回退、schema 迁移、维护备份恢复和 WPF 交互合同回归；应用 smoke 同步执行内置包严格校验。
+
 ## [0.25.2] - 2026-09-18
 
 ### Security

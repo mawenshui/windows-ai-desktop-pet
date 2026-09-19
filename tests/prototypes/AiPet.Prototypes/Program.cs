@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using AiPet.Prototypes;
+using AiPet.Pet;
 using AiPet.Search;
 
 if (args.Length!=2) throw new ArgumentException("Usage: prototype-runner <isolated-output-directory> <builtin-pack-directory>");
@@ -19,8 +19,8 @@ foreach (var size in new[] {20000,100000})
     for(var attempt=0;attempt<20;attempt++) { stopwatch.Restart(); if(index.Search("fixture",null,50).Count!=50) throw new Exception("Search sample mismatch."); timings.Add(stopwatch.Elapsed.TotalMilliseconds); }
     searchMeasurements.Add(new {rows=size,buildMs,firstPageP95Ms=timings.OrderBy(value=>value).ElementAt(18)});
 }
-stopwatch.Restart(); var pack=StrictPetPack.Preview(args[1]); var packMs=stopwatch.Elapsed.TotalMilliseconds;
+stopwatch.Restart(); var pack=PetPackValidator.Validate(args[1],isBuiltIn:true); var packMs=stopwatch.Elapsed.TotalMilliseconds;
 var report=new {schemaVersion=1,generatedAtUtc=DateTimeOffset.UtcNow,environment=new {os=Environment.OSVersion.VersionString,framework=Environment.Version.ToString(),processors=Environment.ProcessorCount},
     experimentalOnly=true,metadata=searchMeasurements,
-    pack=new {pack.Id,pack.Frames,pack.DecodedBytes,pack.License,pack.Fingerprint,previewMs=packMs},limits=new {StrictPetPack.MaximumDecodedBytes}};
+    pack=new {pack.Id,pack.Frames,pack.DecodedBytes,pack.License,pack.Fingerprint,previewMs=packMs},limits=new {PetPackValidator.MaximumDecodedBytes}};
 var json=JsonSerializer.Serialize(report,new JsonSerializerOptions {WriteIndented=true}); File.WriteAllText(Path.Combine(output,"prototype-results.json"),json); Console.WriteLine(json);

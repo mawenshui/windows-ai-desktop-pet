@@ -31,7 +31,7 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal(536, loaded.ToolWindow.Height);
         Assert.False(loaded.ToolWindow.StayOpen);
         Assert.True(loaded.ToolWindow.AlwaysOnTop);
-        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.Equal(7, loaded.SchemaVersion);
         Assert.False(loaded.Appearance.HidePetDuringFullscreen);
         Assert.False(loaded.Focus.ClickThroughPet);
         Assert.True(loaded.Hotkeys.Enabled);
@@ -140,21 +140,22 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("qwen", profile.ProviderId);
         Assert.Equal("qwen-plus", profile.Model);
         Assert.Equal("legacy", loaded.Ai.ActiveProfileId);
-        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.Equal(7, loaded.SchemaVersion);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
         Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
         Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v7.bak"));
     }
 
     [Fact]
-    public void Schema_v3_upgrades_to_v6_with_new_defaults_and_migration_backups()
+    public void Schema_v3_upgrades_to_v7_with_new_defaults_and_migration_backups()
     {
         var store = new SettingsStore(_root);
         File.WriteAllText(store.SettingsPath, "{\"schemaVersion\":3,\"pet\":{\"preferredCharacter\":\"base\"}}");
 
         var loaded = store.Load();
 
-        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.Equal(7, loaded.SchemaVersion);
         Assert.Equal("base", loaded.Pet.PreferredCharacter);
         Assert.True(loaded.Hotkeys.Enabled);
         Assert.True(loaded.Backup.AutomaticEnabled);
@@ -162,6 +163,7 @@ public class SettingsStoreTests : IDisposable
         Assert.True(File.Exists(store.SettingsPath + ".pre-v4.bak"));
         Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
         Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v7.bak"));
         Assert.False(File.Exists(store.SettingsPath + ".pre-v3.bak"));
     }
 
@@ -173,12 +175,13 @@ public class SettingsStoreTests : IDisposable
 
         var loaded = store.Load();
 
-        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.Equal(7, loaded.SchemaVersion);
         Assert.Equal(9, loaded.Backup.RetentionCount);
         Assert.False(loaded.Updates.PeriodicEnabled);
         Assert.Equal(24, loaded.Updates.IntervalHours);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v5.bak"));
         Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v7.bak"));
         Assert.False(File.Exists(store.SettingsPath + ".pre-v4.bak"));
     }
 
@@ -190,11 +193,28 @@ public class SettingsStoreTests : IDisposable
 
         var loaded = store.Load();
 
-        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.Equal(7, loaded.SchemaVersion);
         Assert.True(loaded.Appearance.HidePetDuringFullscreen);
         Assert.False(loaded.Focus.ClickThroughPet);
         Assert.True(File.Exists(store.SettingsPath + ".pre-v6.bak"));
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v7.bak"));
         Assert.False(File.Exists(store.SettingsPath + ".pre-v5.bak"));
+    }
+
+    [Fact]
+    public void Schema_v6_preserves_pet_package_selection_when_upgrading_to_v7()
+    {
+        var store = new SettingsStore(_root);
+        File.WriteAllText(store.SettingsPath,
+            "{\"schemaVersion\":6,\"pet\":{\"id\":\"local-companion\",\"preferredCharacter\":\"friend\"}}");
+
+        var loaded = store.Load();
+
+        Assert.Equal(7, loaded.SchemaVersion);
+        Assert.Equal("local-companion", loaded.Pet.Id);
+        Assert.Equal("friend", loaded.Pet.PreferredCharacter);
+        Assert.True(File.Exists(store.SettingsPath + ".pre-v7.bak"));
+        Assert.False(File.Exists(store.SettingsPath + ".pre-v6.bak"));
     }
 
     [Theory]

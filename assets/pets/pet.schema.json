@@ -5,40 +5,80 @@
   "type": "object",
   "required": ["id", "displayName", "version", "source", "frameInventory", "render"],
   "properties": {
-    "id": { "type": "string", "minLength": 1 },
-    "displayName": { "type": "string", "minLength": 1 },
+    "$schema": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
     "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
     "source": {
       "type": "object",
-      "required": ["license", "attributionRequired"],
+      "required": ["author", "url", "license", "zipSha256"],
       "properties": {
+        "author": { "type": "string", "minLength": 1, "maxLength": 100 },
         "license": {
           "type": "string",
           "enum": ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0", "MIT", "Apache-2.0"]
         },
         "attributionRequired": { "type": "boolean" },
-        "url": { "type": "string", "format": "uri" }
-      }
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "zipSha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      },
+      "additionalProperties": true
     },
     "frameInventory": {
       "type": "object",
-      "required": ["characters", "preferred", "filePathPattern", "framesPerAction"],
+      "required": ["characters", "preferred", "actionsPerCharacter", "directions", "framesPerAction", "filePathPattern", "deathFilePathPattern", "totalFrames"],
       "properties": {
-        "characters": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+        "characters": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" }, "uniqueItems": true },
         "preferred": { "type": "string" },
-        "filePathPattern": { "type": "string", "minLength": 1 },
-        "deathFilePathPattern": { "type": "string" },
+        "actionsPerCharacter": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "enum": ["idle", "jump"] }, "uniqueItems": true },
+        "directions": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "enum": ["down", "down_right", "right", "up_right", "up"] }, "uniqueItems": true },
+        "filePathPattern": { "const": "frames/<character>/<action>_<direction>_<NN>.png" },
+        "deathFilePathPattern": { "const": "frames/_global/death_<NN>.png" },
         "framesPerAction": {
           "type": "object",
-          "additionalProperties": { "type": "integer", "minimum": 1 }
-        }
-      }
+          "required": ["idle", "jump"],
+          "properties": {
+            "idle": { "type": "integer", "minimum": 1, "maximum": 60 },
+            "jump": { "type": "integer", "minimum": 1, "maximum": 60 }
+          },
+          "additionalProperties": false
+        },
+        "globalActions": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "frames"],
+            "properties": {
+              "name": { "const": "death" },
+              "frames": { "type": "integer", "minimum": 1, "maximum": 60 },
+              "direction": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "totalFrames": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      },
+      "additionalProperties": false
     },
+    "directionModel": { "type": "object" },
+    "stateMachine": { "type": "object" },
     "render": {
       "type": "object",
-      "required": ["fps"],
-      "properties": { "fps": { "type": "integer", "minimum": 1, "maximum": 60 } }
-    }
+      "required": ["fps", "defaultScale"],
+      "properties": {
+        "fps": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "defaultScale": { "type": "number", "minimum": 0.25, "maximum": 4 },
+        "transparentBackground": { "type": "boolean" },
+        "anchor": { "type": "string" },
+        "defaultFrameSize": { "type": "array" },
+        "spritesheetFrameSize": { "type": "array" },
+        "petWindowSize": { "type": "array" },
+        "interpolation": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "notes": {}
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }
