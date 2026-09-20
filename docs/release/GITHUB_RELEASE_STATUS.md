@@ -1,11 +1,12 @@
 # GitHub Release 状态
 
-日期：2026-09-19。0.26.0 源码功能已实现，远端状态将在必需门禁、提交、标签和 Release 实际完成后更新；不得用以下历史发布记录推断 0.26.0 已发布。仓库此前已建立 36 个正式 GitHub Release，v0.25.2 仍是已核实的 Latest。
+日期：2026-09-20。0.26.0 源码功能与本地必需门禁已完成，远端状态将在资产提交、标签和 Release 实际完成后更新；不得用以下历史发布记录推断 0.26.0 已发布。仓库此前已建立 36 个正式 GitHub Release，v0.25.2 仍是已核实的 Latest。
 
 ## 0.26.0 当前状态
 
-- 安全本地 2D 角色包功能、schema 7 与文档已进入源码；首轮 380/380 自动化通过。
-- 最终自动化、package-smoke、提交、远端 `main`、`v0.26.0` 标签、普通 GitHub Release 和三项远端资产：PENDING。
+- 安全本地 2D 角色包功能、schema 7 与文档已进入源码；最终 380/380 自动化与当前资产 package-smoke 均通过。
+- 干净来源提交为 `a89d499b102a2083917c93f84c1f213a4be7faee`；便携 ZIP 为 77,074,324 字节、SHA-256 `a0350cefc81faeda203193723b1691cee69615c73fb8fb294a3fa7aecb9f3116`，安装器为 54,180,324 字节、SHA-256 `b12e538aea5337929e17e0c9a5d333f3c124b93b4b7772e99e4a11807ac656bd`。
+- 资产提交、远端 `main`、`v0.26.0` 标签、普通 GitHub Release 和三项远端资产回下载验证：PENDING。
 - 0.26.0 不创建 Draft、Pre-release、Preview、Alpha、Beta 或 RC；未完成项不会写成通过。
 
 ## 0.25.2 当前状态
