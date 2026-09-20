@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet 用户手册
 
-适用版本：**0.26.0**；修订：2026-09-19。项目不提供预览版；正式发布状态以当前 Release 与验证报告为准。
+适用版本：**0.26.0**；修订：2026-09-20。项目不提供预览版；[v0.26.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.26.0) 是普通正式版。
 
 ## 1. 安装与退出
 

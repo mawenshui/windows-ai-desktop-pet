@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.26.0**；本版新增完全离线、严格受限的本地 2D 角色包库，明确不制作商城、付费、账号、广告、在线角色下载、商业 DLC、3D、音频或可执行插件。项目不发布预览版；正式发布状态以 [GitHub Release](https://github.com/mawenshui/windows-ai-desktop-pet/releases) 与本轮验证报告为准。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前正式版 **0.26.0**；本版新增完全离线、严格受限的本地 2D 角色包库，明确不制作商城、付费、账号、广告、在线角色下载、商业 DLC、3D、音频或可执行插件。项目不发布预览版；[v0.26.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.26.0) 已作为普通正式版发布。
 
 ## 当前能力
 
@@ -53,7 +53,7 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。`test-live-ai.ps1` 只有在用户明确授权 `-AllowSavedCredential` 时才读取当前活动 AI 配置的 Windows 凭据，执行模型列表、结构化待办草稿与今日安排草稿验证；它不输出 Key、端点、模型或响应正文，也不写入用户数据。正式发布只强制 automated 与 package-smoke：前者证明构建和自动化回归，后者证明便携运行、安装、安装后启动与卸载。ui、system、performance、signatures、hardware 仍可按需收集为诊断证据，但不阻断版本升级和正式 Release。
 
-0.26.0 的源码、自动化和分发状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测与可选诊断见[0.26.0 验证报告](docs/release/0.26.0-test-report.md)。可选诊断的 FAIL/SKIP 会保留原始结果，但不阻断正式发布。
+0.26.0 的源码、自动化和正式分发状态见[当前状态](docs/CURRENT_STATUS.md)，打包、烟测、远端资产与可选诊断见[0.26.0 验证报告](docs/release/0.26.0-test-report.md)。可选诊断的 FAIL/SKIP 保留原始结果，不阻断已通过必需门禁的正式发布。
 
 常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的 automated 与 package-smoke 均为 PASS，并验证两个资产及清单哈希一致。Release workflow 会在 GitHub 托管 Windows runner 上重跑这两组门禁；不会创建部署环境或 Pre-release。
 
@@ -61,6 +61,6 @@ test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构�
 
 [PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.26.0 版本说明](docs/RELEASE_NOTES_0.26.0.md) · [验证报告](docs/release/0.26.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [成熟桌宠产品调研](docs/成熟桌宠产品调研与功能机会.md) · [0.26.0 功能设计](docs/0.26.0－安全本地角色包设计.md)
 
-0.26.0 的资产哈希只在从当前源码打包后写入 `dist/checksums/SHA256SUMS.txt` 和验证报告；未生成或未验证时不沿用历史哈希。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
+0.26.0 的资产哈希已写入 `dist/checksums/SHA256SUMS.txt` 和验证报告，并与 GitHub 返回的远端 digest 及 Release 工作流回下载结果一致。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

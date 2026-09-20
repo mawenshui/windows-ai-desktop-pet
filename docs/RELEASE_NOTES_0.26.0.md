@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet 0.26.0 版本说明
 
-日期：2026-09-20。0.26.0 是向后兼容的 MINOR 版本，不是 Alpha、Beta、RC、Preview 或 GitHub Pre-release；正式发布状态以本轮验证报告和 GitHub Release 为准。
+日期：2026-09-20。0.26.0 是向后兼容的 MINOR 版本，已作为普通 GitHub Release 发布，不是 Alpha、Beta、RC、Preview 或 Pre-release。
 
 ## 本版变化
 
