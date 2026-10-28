@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.27.1] - 2026-10-28
+
+### Changed
+
+- Make the cross-midnight habit regression test independent of the runner time zone.
+
 ## [0.27.0] - 2026-10-28
 
 ### Added

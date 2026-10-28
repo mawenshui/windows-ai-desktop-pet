@@ -1,10 +1,10 @@
 # Windows AI Desktop Pet 用户手册
 
-适用版本：**0.27.0**；修订：2026-10-28。项目仅通过正式 GitHub Release 分发，资产与校验和以对应版本的发行页为准。
+适用版本：**0.27.1**；修订：2026-10-28。项目仅通过正式 GitHub Release 分发，资产与校验和以对应版本的发行页为准。
 
 ## 1. 安装与退出
 
-从对应正式 Release 下载后，完整解压 windows-ai-desktop-pet-v0.27.0-portable.zip 并运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.27.0-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。
+从对应正式 Release 下载后，完整解压 windows-ai-desktop-pet-v0.27.1-portable.zip 并运行 WindowsAiDesktopPet.exe，保留 assets、docs 和旁边的运行时文件；或双击 windows-ai-desktop-pet-v0.27.1-setup.exe。安装器默认使用当前账户的 %LOCALAPPDATA%/Programs/WindowsAiDesktopPet，两类包均自带运行时。
 
 关闭工具窗只是收起。托盘“退出”才结束应用，自启默认关闭，可在设置或托盘启用。便携目录移动后重新检查自启。便携版和安装版默认共用当前 Windows 账户数据。
 

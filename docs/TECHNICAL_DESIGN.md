@@ -1,6 +1,6 @@
 # 技术设计与实现基线
 
-日期：2026-10-28；软件：0.27.0 源码候选。本文以当前代码为准；[0.27.0 交互优化设计](0.27.0－桌宠交互与习惯优化设计.md)说明需求与验收边界，本轮验证报告记录实际门禁结果。
+日期：2026-10-28；软件：0.27.1 源码候选。本文以当前代码为准；[0.27.1 交互优化设计](0.27.0－桌宠交互与习惯优化设计.md)说明需求与验收边界，本轮验证报告记录实际门禁结果。
 
 ## 1. 技术与模块
 
@@ -161,7 +161,7 @@ collect-release-evidence 可收集 automated、package-smoke 及其他诊断报�
 
 Release workflow 在 GitHub 托管 Windows runner 上重新执行 automated 与 package-smoke，发布已经通过验证的字节，并在上传后重新下载比对哈希。UI、system、performance、signatures 与 hardware 可继续手动诊断，但不阻断发布。修改提交或构建输入必须重取必需证据，既有历史成功不能迁移为当前 PASS。当前状态见[当前状态](CURRENT_STATUS.md)。
 
-## 11. 0.27.0 交互与本地习惯实现
+## 11. 0.27.1 交互与本地习惯实现
 
 待办快捷开始调用原有 FocusSessionService，不新建计时器或会话格式；顶部摘要复用 TodoViewModel 状态与命令。FocusFeedbackTracker 只在运行时观察同一会话的实际状态变化，启动时先建立基线；正常完成仍由既有幂等完成事件通知。`ShowPetFeedback` 属设置 schema 7 的兼容可选字段，默认开启，关闭后不显示开始、暂停、继续和完成桌宠气泡。桌宠状态文案由 PetPresence 供设置与托盘复用。
 

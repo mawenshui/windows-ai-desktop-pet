@@ -1,6 +1,6 @@
 # Windows AI Desktop Pet
 
-Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.27.0**，新增专注、搜索、桌宠状态、本机习惯和窗口边缘交互优化，正式发布仍待本轮门禁与远端验证。上一正式版 [v0.26.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.26.0) 已发布；项目不发布预览版。
+Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **0.27.1**，新增专注、搜索、桌宠状态、本机习惯和窗口边缘交互优化，正式发布仍待本轮门禁与远端验证。上一正式版 [v0.26.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.26.0) 已发布；项目不发布预览版。
 
 ## 当前能力
 
@@ -39,7 +39,7 @@ Windows 桌面宠物与本地效率工具，WPF / .NET 8。当前源码版本 **
 - 每次正式启动检查一次固定公开仓库的稳定 GitHub Release；可选 1～168 小时周期检查，检查与下载共用 Windows 用户代理及标准环境代理，官方元数据不畅时自动切换内置 API 线路，安装器按三条内置线路与官方地址逐级恢复。用户无需填写代理模板或 Token；匿名 404 会明确提示更新源未公开或没有正式 Release，临时失败保留已发现版本，下载须通过 Release digest（存在时）与 SHA-256 清单并由用户确认安装。
 - 待办支持已逾期、未安排和今天筛选；明确勾选 1～12 项后可用 AI 或完全本地方式生成今日时间块，自动避让未选事项的既有安排，再逐项确认、整批原子写入并撤销最近一批。
 
-PDF/Office 正文、OCR、语义检索、云同步、通用聊天、在线角色下载、3D、音频、商城、支付、账号和广告未接入。见[当前状态](docs/CURRENT_STATUS.md)及[0.27.0 交互优化设计](docs/0.27.0－桌宠交互与习惯优化设计.md)。
+PDF/Office 正文、OCR、语义检索、云同步、通用聊天、在线角色下载、3D、音频、商城、支付、账号和广告未接入。见[当前状态](docs/CURRENT_STATUS.md)及[0.27.1 交互优化设计](docs/0.27.0－桌宠交互与习惯优化设计.md)。
 
 ## 使用与开发
 
@@ -57,14 +57,14 @@ pwsh -NoProfile -File scripts/collect-release-evidence.ps1 -Gate package-smoke
 
 test.ps1 执行结构校验、发布门禁反例测试、完整解决方案构建和 xUnit。`test-live-ai.ps1` 只有在用户明确授权 `-AllowSavedCredential` 时才读取当前活动 AI 配置的 Windows 凭据，执行模型列表、结构化待办草稿与今日安排草稿验证；它不输出 Key、端点、模型或响应正文，也不写入用户数据。正式发布只强制 automated 与 package-smoke：前者证明构建和自动化回归，后者证明便携运行、安装、安装后启动与卸载。ui、system、performance、signatures、hardware 仍可按需收集为诊断证据，但不阻断版本升级和正式 Release。
 
-0.27.0 的源码与本轮门禁状态见[当前状态](docs/CURRENT_STATUS.md)及[0.27.0 验证报告](docs/release/0.27.0-test-report.md)。正式分发和远端资产尚待验证；可选诊断按实际结果报告。
+0.27.1 的源码与本轮门禁状态见[当前状态](docs/CURRENT_STATUS.md)及[0.27.1 验证报告](docs/release/0.27.1-test-report.md)。正式分发和远端资产尚待验证；可选诊断按实际结果报告。
 
 常规稳定发布前运行 verify-release.ps1。它要求干净的已提交代码、同版本/提交/输入指纹、72 小时内的 automated 与 package-smoke 均为 PASS，并验证两个资产及清单哈希一致。Release workflow 会在 GitHub 托管 Windows runner 上重跑这两组门禁；不会创建部署环境或 Pre-release。
 
 ## 文档与发布产物
 
-[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.27.0 版本说明](docs/RELEASE_NOTES_0.27.0.md) · [本轮验证报告](docs/release/0.27.0-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [0.27.0 功能设计](docs/0.27.0－桌宠交互与习惯优化设计.md)
+[PRD](docs/Windows桌面宠物产品需求文档_PRD.md) · [工程规范](docs/PROJECT_SPEC.md) · [技术设计](docs/TECHNICAL_DESIGN.md) · [测试计划](docs/TEST_PLAN.md) · [0.27.1 版本说明](docs/RELEASE_NOTES_0.27.1.md) · [本轮验证报告](docs/release/0.27.1-test-report.md) · [Release 清单](docs/release/GITHUB_RELEASE_STATUS.md) · [0.27.1 功能设计](docs/0.27.0－桌宠交互与习惯优化设计.md)
 
-0.27.0 资产须在干净源码提交后打包、烟测、生成 SHA-256，并验证远端下载后方能宣称发布。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
+0.27.1 资产须在干净源码提交后打包、烟测、生成 SHA-256，并验证远端下载后方能宣称发布。历史版本的实际资产、缺失项和追溯边界见 Release 清单。
 
 贡献先读 [AGENTS.md](AGENTS.md)。发行素材来自 assets/pets/RGS_8Directional，来源及 SPDX 见[资产清单](assets/README.md)；res 不参与提交或打包。

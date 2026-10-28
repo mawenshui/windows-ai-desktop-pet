@@ -796,7 +796,8 @@ public sealed class TodoViewModelTests : IDisposable
     public void Habit_check_in_before_midnight_timer_refresh_uses_new_day()
     {
         var root = Path.Combine(_root, "habit-midnight-click");
-        var clock = new DateTimeOffset(2026, 10, 20, 23, 59, 59, TimeSpan.FromHours(8));
+        var localTime = new DateTime(2026, 10, 20, 23, 59, 59);
+        var clock = new DateTimeOffset(localTime, TimeZoneInfo.Local.GetUtcOffset(localTime));
         var vm = new TodoViewModel(new TodoStore(root, () => clock),
             new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
             () => new TodoAiConnection("https://example.test", "model", "key"), () => clock);
