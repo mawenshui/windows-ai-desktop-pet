@@ -276,6 +276,16 @@ public partial class PetToolWindow : Window
             vm.ApiKey = box.Password;
     }
 
+    private void RequestClearHabits_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel { Todo.ShowHabitClearConfirmation: true }) return;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            HabitKeepButton.Focus();
+            Keyboard.Focus(HabitKeepButton);
+        }));
+    }
+
     private void BackupData_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SaveFileDialog { Filter = "AI 桌宠备份 (*.zip)|*.zip", FileName = $"aipet-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip", AddExtension = true };
@@ -1318,7 +1328,14 @@ public partial class PetToolWindow : Window
         }
         else if (key == Key.Escape)
         {
-            if (DataContext is HomeViewModel petPackHome && petPackHome.HandlePetPackEscape())
+            if (ShellTabs.SelectedIndex == 1
+                && DataContext is HomeViewModel habitHome
+                && habitHome.Todo.HandleHabitEscape())
+            {
+                HabitClearButton.Focus();
+                Keyboard.Focus(HabitClearButton);
+            }
+            else if (DataContext is HomeViewModel petPackHome && petPackHome.HandlePetPackEscape())
             {
                 CharacterList.Focus();
                 Keyboard.Focus(CharacterList);

@@ -575,6 +575,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         _now = now ?? _defaultNow;
         AttachJournal(journalStore ?? new DailyJournalStore(Path.GetDirectoryName(store.TodoPath), _now));
         AttachFocus(focusService ?? new FocusSessionService(new FocusSessionStore(Path.GetDirectoryName(store.TodoPath))));
+        AttachHabits(new HabitStore(Path.GetDirectoryName(store.TodoPath)));
         Reload();
         RaiseAllCommands();
     }
@@ -661,6 +662,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         InitializeNotificationCommands();
         InitializeJournalCommands();
         InitializeFocusCommands();
+        InitializeHabitCommands();
     }
 
     private void Reload()
@@ -1010,6 +1012,7 @@ public sealed partial class TodoViewModel : INotifyPropertyChanged
         CancelTodayPlanWork();
         CancelJournalBackgroundWork();
         CancelFocusWork();
+        CancelHabitWork();
     }
 
     public async Task WaitForBackgroundWorkAsync(TimeSpan timeout)

@@ -378,6 +378,12 @@ public sealed class PetToolWindowLifecycleTests
             tabs.SelectedIndex = 0;
             PumpDispatcher();
             window.UpdateLayout();
+            var categoryExpander = FindElement<Expander>(window, "CategoryFilterExpander");
+            Assert.NotNull(categoryExpander);
+            Assert.False(categoryExpander.IsExpanded);
+            categoryExpander.IsExpanded = true;
+            PumpDispatcher();
+            window.UpdateLayout();
             var category = FindElement<ListBox>(window, "CategoryFilterSelector");
             Assert.NotNull(category);
             category.UpdateLayout();

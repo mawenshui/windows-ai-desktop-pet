@@ -65,6 +65,7 @@ public partial class App : System.Windows.Application
     private bool _clickThroughSuppressedForSession;
     private bool _hidePetDuringFullscreen;
     private bool _clickThroughDuringFocus;
+    private readonly FocusFeedbackTracker _focusFeedbackTracker = new();
 
     public string[]? LaunchArgs { get; private set; }
 
@@ -354,6 +355,7 @@ public partial class App : System.Windows.Application
             {
                 _hidePetDuringFullscreen = appearance.HidePetDuringFullscreen;
                 _clickThroughDuringFocus = focus.ClickThroughPet;
+                _pet?.SetFocusFeedbackEnabled(focus.ShowPetFeedback);
                 ApplyFocusState(fromXaml.Todo.CurrentFocus);
                 if (!_hidePetDuringFullscreen) LeaveFullscreenSuppression();
             };
@@ -470,6 +472,7 @@ public partial class App : System.Windows.Application
         _pet.Show();
         _tray.SetPetVisible(true);
         ApplyFocusState(_homeVm?.Todo.CurrentFocus ?? new FocusSessionSnapshot(null, 0, 0, 0));
+        UpdatePetPresence();
         if (_homeVm?.Todo is { ShowFocusResult: true, CurrentFocus.IsCompleted: true })
         {
             _pet.ShowFocusCompleted();
@@ -568,6 +571,7 @@ public partial class App : System.Windows.Application
         _tool?.HideToTray();
         _pet?.Hide();
         _tray?.SetPetVisible(false);
+        UpdatePetPresence();
     }
 
     private void ShowPet()
@@ -578,6 +582,7 @@ public partial class App : System.Windows.Application
         _petWasVisibleBeforeFullscreen = false;
         if (!_pet.IsVisible) _pet.Show();
         _tray?.SetPetVisible(true);
+        UpdatePetPresence();
     }
 
     private void ShowSettings()
@@ -737,7 +742,8 @@ public partial class App : System.Windows.Application
             autostartEnabled,
             _homeVm?.Todo.IsFocusActive == true,
             _homeVm?.Todo.IsFocusPaused == true,
-            _clickThroughActive);
+            _clickThroughActive,
+            CurrentPetPresence());
     }
 
     private void ToggleFocusFromTray()
@@ -760,6 +766,7 @@ public partial class App : System.Windows.Application
     private void ApplyFocusState(FocusSessionSnapshot snapshot)
     {
         if (_pet is null) return;
+        var feedback = _focusFeedbackTracker.Observe(snapshot);
         if (snapshot.IsActive && !_focusWasActive) _clickThroughSuppressedForSession = false;
         _focusWasActive = snapshot.IsActive;
         _pet.SetQuietMode(snapshot.IsActive);
@@ -767,12 +774,17 @@ public partial class App : System.Windows.Application
             && _clickThroughDuringFocus
             && !_clickThroughSuppressedForSession;
         SetPetClickThroughSafely(shouldClickThrough);
+        if (feedback == FocusFeedbackKind.Started) _pet.ShowFocusStarted();
+        else if (feedback == FocusFeedbackKind.Paused) _pet.ShowFocusPaused();
+        else if (feedback == FocusFeedbackKind.Resumed) _pet.ShowFocusResumed();
+        UpdatePetPresence();
     }
 
     private void RestorePetInteractionForSession()
     {
         _clickThroughSuppressedForSession = true;
         SetPetClickThroughSafely(false);
+        UpdatePetPresence();
     }
 
     private void SetPetClickThroughSafely(bool enabled)
@@ -794,7 +806,15 @@ public partial class App : System.Windows.Application
                     : "点击穿透未能撤销，请再次使用托盘恢复入口或结束专注后重试。",
                 ToolTipIcon.Warning);
         }
+        UpdatePetPresence();
     }
+
+    private string CurrentPetPresence() => PetPresence.Describe(
+        _userPetHidden, _fullscreenPetSuppressed, _pet?.IsVisible == true,
+        _homeVm?.Todo.IsFocusActive == true, _homeVm?.Todo.IsFocusPaused == true,
+        _clickThroughActive);
+
+    private void UpdatePetPresence() => _homeVm?.SetPetPresenceStatus(CurrentPetPresence());
 
     private void PollForegroundFullscreen()
     {
@@ -842,6 +862,7 @@ public partial class App : System.Windows.Application
             _pet.Hide();
             _tray?.SetPetVisible(false);
         }
+        UpdatePetPresence();
     }
 
     private void LeaveFullscreenSuppression()
@@ -855,6 +876,7 @@ public partial class App : System.Windows.Application
             _pet.Show();
             _tray?.SetPetVisible(true);
         }
+        UpdatePetPresence();
     }
 
     private async Task RequestShutdownAsync()
@@ -960,7 +982,14 @@ public partial class App : System.Windows.Application
 
     private async Task RefreshJournalDateSafelyAsync()
     {
-        try { if (_homeVm is not null) await _homeVm.Todo.RefreshJournalDateAsync(); }
+        try
+        {
+            if (_homeVm is not null)
+            {
+                await _homeVm.Todo.RefreshJournalDateAsync();
+                _homeVm.Todo.RefreshHabitDay();
+            }
+        }
         catch { DebugLog("[Journal] date refresh failed"); }
     }
 

@@ -1,6 +1,6 @@
 # 测试计划与覆盖
 
-基线：0.26.0，2026-09-19；测试结果以本轮验证报告为准。实现、进程内 WPF 渲染、独立桌面输入、真实外部服务和物理设备验收分别记录。
+基线：0.27.0 源码候选，2026-10-28；测试结果以本轮验证报告为准。实现、进程内 WPF 渲染、独立桌面输入、真实外部服务和物理设备验收分别记录。
 
 ## 1. 执行入口
 
@@ -33,6 +33,7 @@
 | QUIET-01～08 | PetWindow、App 状态协调、FullscreenWindowPolicy、WindowClickThrough 与 WPF 合同；自动化覆盖几何容差、设置草稿和入口合同，真实安静模式、正式提醒、点击穿透、真全屏/最大化/副屏、手动隐藏恢复与失败路径单列桌面验收 |
 | CHAR-01～06 | HomeViewModel、PetFrameCache、设置迁移和 WPF 合同；四角色首帧、许可文本、保存后应用、保存失败保持、坏 ID/坏帧回退；键盘、200% 缩放和高对比度单列桌面验收 |
 | PACK-01～12 / EXT-08 | PetPackLibrary、HomeViewModel、PetWindow、SettingsStore、MaintenanceTransaction、EssentialFeature、HomePageLayout；严格字段/路径/链接/SPDX/来源/动作/方向/帧/图片预算，预览指纹、staging 导入、重复与篡改拒绝、无效包隔离、包/角色原子切换、内置回退、移除确认、schema 6→7、手动/自动备份恢复和不商业化 UI 合同 |
+| OPT-270-01～06 | TodoViewModel、HabitStore、PetInteractionOptimization、PetToolWindowLifecycle、AutomaticBackup、MaintenanceTransaction、HomePageLayout；快捷开始时长与 Todo 非自动完成、顶部摘要、类别默认折叠并展开绑定、状态/恢复文案、反馈转换幂等、同日/跨午夜打卡、停用历史、8 MiB 有界读取/损坏写保护、自动备份恢复、Esc 取消清空、窗口边缘几何/工作区回落与低打扰保留原目标。真实目标窗口最小化/销毁/跨屏、物理多屏/缩放另记可选桌面诊断 |
 | TODAY-01～06 | TodayPlan、TodoStore、TodoViewModel、HomePageLayout；只发送选中项正文、未选项匿名占用时间、AI/本地冲突避让、精确刻钟边界、过期整批拒绝、前 12 条批量选择/清除与旧草稿失效 |
 | EXT-06 | NotificationCenter；20 项同时到期、去重/重启、静默跨午夜、提交拒绝、清历史、独立项稍后、空闲唤醒及旧快照改期隔离；提醒投影的待处理/历史语义、失效目标和清理保留边界 |
 | AI-01～05 / EXT-03 | HomeViewModel、AiTodoClient、AiCapability；HTTP 状态、模型存在/格式、列表成功生成失败、取消、固定测试载荷/预算、无 Key 导入与活动配置保留；获用户授权时以脱敏 live runner 分别核对真实模型列表、单项结构化草稿和今日安排草稿 |

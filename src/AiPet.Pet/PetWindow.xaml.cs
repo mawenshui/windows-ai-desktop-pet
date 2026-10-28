@@ -25,6 +25,8 @@ public partial class PetWindow : Window
     private bool _enableRoaming = true;
     private bool _enableBubbleAnimation = true;
     private bool _enableFollowMotion = true;
+    private bool _enableWindowEdgeDwell;
+    private bool _showFocusFeedback = true;
     private bool _quietMode;
 
     private readonly DispatcherTimer _frameTimer;
@@ -33,6 +35,7 @@ public partial class PetWindow : Window
     private readonly DispatcherTimer _singleClickTimer;
     private readonly DispatcherTimer _idleBehaviorTimer;
     private readonly DispatcherTimer _roamTimer;
+    private readonly DispatcherTimer _edgeDwellTimer;
     private readonly Random _random = new();
     private readonly Stopwatch _roamStopwatch = new();
 
@@ -50,6 +53,9 @@ public partial class PetWindow : Window
     private bool _isRoaming;
     private bool _reminderBubbleActive;
     private bool _companionWindowVisible;
+    private readonly WindowEdgeDwellSession _edgeSession = new();
+    private Rect _edgeWorkArea;
+    private double _edgeVisualOffsetX;
     private DateTime _lastUserInteractionUtc = DateTime.UtcNow;
     private System.Windows.Point _roamStart;
     private System.Windows.Point _roamTarget;
@@ -117,6 +123,7 @@ public partial class PetWindow : Window
         _manifest = manifest;
         _settings = settings;
         ApplyAppearancePreferences(settings.Load().Appearance);
+        _showFocusFeedback = settings.Load().Focus.ShowPetFeedback;
 
         ApplyAnimationContract("idle");
 
@@ -165,6 +172,11 @@ public partial class PetWindow : Window
             Interval = TimeSpan.FromMilliseconds(33),
         };
         _roamTimer.Tick += (_, _) => AdvanceRoam();
+        _edgeDwellTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(500),
+        };
+        _edgeDwellTimer.Tick += (_, _) => FollowWindowEdge();
 
         MouseEnter += (_, _) =>
         {
@@ -210,6 +222,7 @@ public partial class PetWindow : Window
         base.OnMouseLeftButtonDown(e);
         RecordUserInteraction();
         CancelRoam();
+        DetachWindowEdge();
         CaptureMouse();
         if (e.ClickCount >= 2) _singleClickTimer.Stop();
         _isDragging = false;
@@ -266,6 +279,7 @@ public partial class PetWindow : Window
         {
             _isDragging = false;
             ClampToVisibleWorkArea();
+            if (_enableWindowEdgeDwell) TryAttachWindowEdge();
             VisualPositionChanged?.Invoke(this, EventArgs.Empty);
             PersistPosition();
             SetLoopingAction("idle");
@@ -336,6 +350,68 @@ public partial class PetWindow : Window
             workAreas);
         Left = position.X;
         Top = position.Y;
+    }
+
+    private void TryAttachWindowEdge()
+    {
+        if (!IsLoaded || _quietMode || _isRoaming) return;
+        var visual = GetVisualBounds();
+        if (!WindowEdgeTargetProbe.TryFind(this, visual, out var handle, out var target, out var work)) return;
+        if (WindowEdgeDwellPolicy.TryPlace(visual, target, work) is not { } placement) return;
+        _edgeSession.Attach(handle);
+        _edgeWorkArea = work;
+        _edgeVisualOffsetX = placement.X - target.Left;
+        Left += placement.X - visual.Left;
+        Top += placement.Y - visual.Top;
+        _edgeDwellTimer.Start();
+        ShowBubble("在窗口边缘坐一会儿", autoHide: true);
+    }
+
+    private void FollowWindowEdge()
+    {
+        if (!_edgeSession.CanFollow || !IsVisible || _isDragging) return;
+        try
+        {
+            if (!WindowEdgeTargetProbe.TryRead(this, _edgeSession.Target, out var target, out var work)
+                || work != _edgeWorkArea)
+            {
+                LeaveWindowEdge();
+                return;
+            }
+            var visual = GetVisualBounds();
+            var placement = WindowEdgeDwellPolicy.PlaceOnTop(
+                visual.Width, visual.Height, target.Left + _edgeVisualOffsetX, target, work);
+            if (placement is null)
+            {
+                LeaveWindowEdge();
+                return;
+            }
+            var deltaX = placement.Value.X - visual.Left;
+            var deltaY = placement.Value.Y - visual.Top;
+            if (Math.Abs(deltaX) < 0.5 && Math.Abs(deltaY) < 0.5) return;
+            Left += deltaX;
+            Top += deltaY;
+            VisualPositionChanged?.Invoke(this, EventArgs.Empty);
+        }
+        catch { LeaveWindowEdge(); }
+    }
+
+    private void LeaveWindowEdge()
+    {
+        var visual = GetVisualBounds();
+        var desktop = WindowEdgeDwellPolicy.PlaceOnDesktop(visual, _edgeWorkArea);
+        DetachWindowEdge();
+        Left += desktop.X - visual.Left;
+        Top += desktop.Y - visual.Top;
+        ClampToVisibleWorkArea();
+        PersistPosition();
+        VisualPositionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void DetachWindowEdge()
+    {
+        _edgeSession.Detach();
+        _edgeDwellTimer?.Stop();
     }
 
     private void TriggerClick()
@@ -634,7 +710,7 @@ public partial class PetWindow : Window
 
     private void TryRunIdleBehavior()
     {
-        if (_quietMode || !IsVisible || _isDragging || _isRoaming || _companionWindowVisible || IsMouseOver)
+        if (_quietMode || !IsVisible || _isDragging || _isRoaming || _edgeSession.Target != IntPtr.Zero || _companionWindowVisible || IsMouseOver)
             return;
         if (DateTime.UtcNow - _lastUserInteractionUtc < TimeSpan.FromSeconds(12))
             return;
@@ -689,6 +765,8 @@ public partial class PetWindow : Window
         _enableRoaming = settings.EnablePetRoaming;
         _enableBubbleAnimation = settings.EnableBubbleAnimation;
         _enableFollowMotion = settings.EnableFollowMotion;
+        _enableWindowEdgeDwell = settings.EnableWindowEdgeDwell;
+        if (!_enableWindowEdgeDwell && _edgeSession.Target != IntPtr.Zero) LeaveWindowEdge();
         if (!_enableRoaming) CancelRoam();
         if (!_enableFollowMotion || _quietMode) { _directionTimer.Stop(); _currentDirection = Direction8.Down; RenderFrame(); }
         else if (IsLoaded) _directionTimer.Start();
@@ -698,8 +776,10 @@ public partial class PetWindow : Window
     {
         if (_quietMode == enabled) return;
         _quietMode = enabled;
+        _edgeSession.SetQuiet(enabled);
         if (enabled)
         {
+            _edgeDwellTimer.Stop();
             CancelRoam();
             _idleBehaviorTimer.Stop();
             _directionTimer.Stop();
@@ -710,14 +790,35 @@ public partial class PetWindow : Window
             return;
         }
 
+        if (_edgeSession.CanFollow)
+        {
+            // Recheck the original window before resuming; never scan for a replacement.
+            FollowWindowEdge();
+            if (_edgeSession.CanFollow) _edgeDwellTimer.Start();
+        }
         if (_enableFollowMotion) _directionTimer.Start();
         ScheduleNextIdleBehavior();
     }
 
     public void ShowFocusCompleted()
     {
-        if (SystemParameters.ClientAreaAnimation) TriggerOneShot("jump", "idle");
-        ShowBubble("本次专注完成", autoHide: true, TimeSpan.FromSeconds(4), isReminder: false);
+        ShowFocusFeedback("本次专注完成", animate: true);
+    }
+
+    public void SetFocusFeedbackEnabled(bool enabled) => _showFocusFeedback = enabled;
+
+    public void ShowFocusStarted() => ShowFocusFeedback("专注开始，我会安静陪伴", animate: false);
+
+    public void ShowFocusPaused() => ShowFocusFeedback("专注已暂停", animate: false);
+
+    public void ShowFocusResumed() => ShowFocusFeedback("继续专注", animate: false);
+
+    private void ShowFocusFeedback(string message, bool animate)
+    {
+        if (!_showFocusFeedback || _reminderBubbleActive) return;
+        if (animate && _enableBubbleAnimation && SystemParameters.ClientAreaAnimation && !SystemParameters.HighContrast)
+            TriggerOneShot("jump", "idle");
+        ShowBubble(message, autoHide: true, TimeSpan.FromSeconds(3), isReminder: false);
     }
 
     private void AdvanceRoam()
@@ -776,6 +877,7 @@ public partial class PetWindow : Window
         _singleClickTimer.Stop();
         _idleBehaviorTimer.Stop();
         _roamTimer.Stop();
+        _edgeDwellTimer.Stop();
         base.OnClosed(e);
     }
 }

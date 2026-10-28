@@ -1,23 +1,23 @@
 # 技术设计与实现基线
 
-日期：2026-09-19；软件：0.26.0 源码版本。本文以当前代码为准；[0.26.0 安全本地角色包设计](0.26.0－安全本地角色包设计.md)说明需求、合同与验收边界，本轮验证报告记录实际门禁结果。
+日期：2026-10-28；软件：0.27.0 源码候选。本文以当前代码为准；[0.27.0 交互优化设计](0.27.0－桌宠交互与习惯优化设计.md)说明需求与验收边界，本轮验证报告记录实际门禁结果。
 
 ## 1. 技术与模块
 
-WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.31、System.Text.Json、Windows Forms NotifyIcon；测试采用 xUnit 2.9.2、Test.Sdk 17.11.1、runner 2.8.2。不新增外部运行时依赖。SQLite 提供程序传递解析到 SQLitePCLRaw 2.1.12，避开 `SQLitePCLRaw.lib.e_sqlite3 <= 2.1.11` 的 CVE-2025-6965。global.json 允许 SDK 主版本滚动，不能称为锁死 SDK。Directory.Build.props 从根 VERSION 读取所有程序集版本；安装器和手册使用同一软件版本。
+WPF / .NET 8，win-x64 自包含。Microsoft.Data.Sqlite 8.0.31、System.Text.Json、Windows Forms NotifyIcon；测试采用 xUnit 2.9.2、Test.Sdk 17.11.1、runner 2.8.2。不新增外部运行时依赖。SQLite 提供程序传递解析到 SQLitePCLRaw 2.1.12，避开 `SQLitePCLRaw.lib.e_sqlite3 <= 2.1.11` 的 CVE-2025-6965。global.json 以有效 SDK feature band `8.0.100` 为下限并允许主版本滚动，不能称为锁死 SDK。Directory.Build.props 从根 VERSION 读取所有程序集版本；安装器和手册使用同一软件版本。
 
 | 模块 | 当前职责 |
 | :--- | :--- |
 | App | STA、单实例、启动维护、服务装配、专注/全屏/点击穿透协调、托盘、全局快捷键、自动备份、提醒提交和退出 |
-| Pet / Common | RGS 与本地角色包严格校验/事务库、帧缓存、运行时包切换、角色首帧预览、手势、漫游、低打扰模式、完成反馈、工作区定位、manifest 与方向映射 |
-| ToolWindow | 四页、主题、Home/Todo ViewModel、专注阶段 UI、本机角色库/导入预览/移除确认、低打扰草稿、搜索结果系统动作适配、AI/维护对话框、快捷管理窗、提醒投影、静默草稿与每日复盘视图 |
+| Pet / Common | RGS 与本地角色包严格校验/事务库、帧缓存、运行时包切换、角色首帧预览、手势、漫游、低打扰模式、状态/反馈、窗口边缘附着与工作区回落、manifest 与方向映射 |
+| ToolWindow | 四页、主题、Home/Todo ViewModel、专注快捷入口与固定摘要、本机习惯打卡、角色库、低打扰草稿、搜索类别折叠/结果动作、AI/维护对话框、提醒投影与每日复盘视图 |
 | Search | SQLite 名称/受控正文索引、授权、目录扫描、watcher、范围任务串行化、排序、摘要和分页 |
 | Shortcuts | JSON、引用/图标、分组固定、批量预览/撤销、失效扫描 |
-| Todos | 待办 schema 4、复盘 schema 1、专注 schema 1、会话状态机/恢复/聚合、日历规则、今日时间块、复盘投影/导出、原子批量更新、最近到期调度、持久化通知记录 |
+| Todos | 待办 schema 4、复盘/专注/习惯 schema 1、会话状态机/恢复/聚合、手动习惯日期记录、日历规则、今日时间块、复盘投影/导出、原子批量更新、最近到期调度、持久化通知记录 |
 
 `ToolWindowTheme.xaml` 保留稳定的 `SolidColorBrush` 实例，各画刷颜色通过 `DynamicResource <Role>Color` 间接绑定。`ThemeManager` 对 light、dark 和 high-contrast 都写入完整语义调色板，因此 XAML 中已有的 `StaticResource` 画刷引用也会随颜色资源失效通知同步变化；从深色切回浅色不是空操作。窗口根前景、表面、输入、状态 tint/line、强调前景和阴影均来自同一组角色，主题切换不改变布局、焦点、键盘或 UI Automation 语义。
 | AI | 模型验证、单项与今日安排结构化协议、本地安排、无 Key 交换、加密完整配置包、预设加载 |
-| Storage / Secrets | schema 7 设置/位置、专注与角色包模块、原子写入、维护事务、每日备份、白名单诊断、Windows 凭据 |
+| Storage / Secrets | schema 7 设置/位置、专注、角色包与习惯模块、原子写入、维护事务、每日备份、白名单诊断、Windows 凭据 |
 | SystemIntegration | HKCU 自启、离线帮助、前台同屏全屏检测、窗口点击穿透、RegisterHotKey / WM_HOTKEY、GitHub Release 检查与校验下载 |
 | tests/prototypes | 对正式角色包校验器的容量测量入口，不再维护重复产品候选代码 |
 
@@ -160,3 +160,11 @@ GitHubReleaseUpdateClient 固定读取 `mawenshui/windows-ai-desktop-pet` 的 la
 collect-release-evidence 可收集 automated、package-smoke 及其他诊断报告。release-evidence 绑定版本、提交、输入指纹、时间、环境和资产哈希；verify-release 只强制 automated 与 package-smoke，拒绝 dirty、必需报告缺失/过期/FAIL/SKIP、缺项、错资产和错 SHA256SUMS。输入包含源码、测试、脚本、配置、素材、workflow、VERSION、Directory.Build.props 和离线手册。
 
 Release workflow 在 GitHub 托管 Windows runner 上重新执行 automated 与 package-smoke，发布已经通过验证的字节，并在上传后重新下载比对哈希。UI、system、performance、signatures 与 hardware 可继续手动诊断，但不阻断发布。修改提交或构建输入必须重取必需证据，既有历史成功不能迁移为当前 PASS。当前状态见[当前状态](CURRENT_STATUS.md)。
+
+## 11. 0.27.0 交互与本地习惯实现
+
+待办快捷开始调用原有 FocusSessionService，不新建计时器或会话格式；顶部摘要复用 TodoViewModel 状态与命令。FocusFeedbackTracker 只在运行时观察同一会话的实际状态变化，启动时先建立基线；正常完成仍由既有幂等完成事件通知。`ShowPetFeedback` 属设置 schema 7 的兼容可选字段，默认开启，关闭后不显示开始、暂停、继续和完成桌宠气泡。桌宠状态文案由 PetPresence 供设置与托盘复用。
+
+HabitStore 使用独立 `habits.json` schema 1、revision 和 RecoverableAtomicFile，文件读取限制 8 MiB、100 项及每项 3650 个不重复日期；损坏或超限时拒绝写入而保留原文件。TodoViewModel 以本地日期显示累计与近 7 天，并在打卡命令前先刷新跨日行。DataMaintenanceService 的 Habits 模块覆盖手动/每日备份、恢复事务与授权清理，不进入 AI、索引或诊断。主页类别 Expander 仅改变布局，搜索授权范围及索引逻辑不变。
+
+WindowEdgeTargetProbe 只调用窗口可见性、最小化、进程 ID、边界和显示器几何接口，不读窗口文字或内容。WindowEdgeDwellPolicy 在 WPF DIP 下验证上沿贴合、重叠和工作区安全范围；附着后只跟随原句柄，同屏移动可更新，最小化、销毁、跨屏或无效几何落到原工作区底部。低打扰模式停止轮询但保留原句柄，结束时先验证原目标再恢复；拖动立即清除附着。物理多屏及缩放仍需按实际环境诊断。

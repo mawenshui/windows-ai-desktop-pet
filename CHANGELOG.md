@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file. The format follows Keep a Changelog principles and Semantic Versioning.
 
+## [0.27.0] - 2026-10-28
+
+### Added
+
+- 待办清单所选普通待办可直接开始当前时长的专注，活动计时摘要固定在待办页顶部。
+- 新增本机手动习惯打卡、今日撤销/启停、累计与近 7 天进度，并纳入手动/每日备份、恢复和授权清理。
+- 可选窗口上沿停留与同屏跟随，默认关闭；失效安全回落，专注低打扰期间暂停跟随。
+
+### Changed
+
+- 主页搜索类别按需展开且持续显示当前类别，已授权范围保持可见；设置与托盘统一桌宠状态、原因和恢复入口。
+- 专注开始、暂停、继续和完成反馈可关闭；状态转换幂等，重启不重播既有阶段。
+- 修正 `global.json` SDK feature band 为有效的 `8.0.100`，保留原滚动策略。
+
+### Security
+
+- 习惯文件限制容量和记录数量，损坏或超限时保留原件并拒绝覆盖；窗口边缘探测只读取几何，不读取内容。
+
 ## [0.26.0] - 2026-09-20
 
 ### Added

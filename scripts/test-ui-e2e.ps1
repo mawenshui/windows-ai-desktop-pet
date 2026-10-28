@@ -186,11 +186,11 @@ function Test-KeyboardChoice([string]$SelectorName) {
     [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
     Start-Sleep -Milliseconds 150
     $selection=$selector.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
-    $first=@($selection.GetCurrentSelection())
+    $first=@($selection.Current.GetSelection())
     if ($first.Count -ne 1) { throw "Keyboard selection missing: $SelectorName" }
     [System.Windows.Forms.SendKeys]::SendWait('{END}')
     Start-Sleep -Milliseconds 150
-    $last=@($selection.GetCurrentSelection())
+    $last=@($selection.Current.GetSelection())
     if ($last.Count -ne 1 -or $first[0].Equals($last[0])) { throw "Keyboard did not change selection: $SelectorName" }
     $selectorEvidence.Add(@{selector=$SelectorName;input='keyboard';status='PASS'})
 }
@@ -288,6 +288,7 @@ try {
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).SelectedSearchScopeId -ne 'apps') { throw 'Search scope did not update.' }
     Test-KeyboardChoice 'SearchScopeSelector'
     $stage = 'inline-result-category'
+    Expand-Element '展开结果类别筛选'
     Select-VisibleChoice 'CategoryFilterSelector' '图片'
     if ((Get-Content $probePath -Raw | ConvertFrom-Json).Category -ne '图片') { throw 'Result category did not update.' }
     Test-KeyboardChoice 'CategoryFilterSelector'
@@ -298,7 +299,9 @@ try {
     Assert-AppForeground
     $searchBox = Find-Element '本地搜索'
     $searchBox.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait('result-action-fixture')
+    # SendKeys can be held in an active IME composition on Chinese Windows.
+    # ValuePattern commits the fixture text to the real WPF TextBox.
+    $searchBox.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('result-action-fixture')
     Start-Sleep -Milliseconds 600
     Select-VisibleChoice 'ResultsList' 'result-action-fixture.txt' -SkipEvidence
     foreach ($buttonId in @('OpenSelectedResultButton','RevealSelectedResultButton','CopySelectedResultPathButton','AddSelectedResultToShortcutsButton')) {

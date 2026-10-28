@@ -91,12 +91,16 @@ public sealed class AppearanceSettings
     public bool EnableFollowMotion { get; set; } = true;
     [JsonPropertyName("hidePetDuringFullscreen")]
     public bool HidePetDuringFullscreen { get; set; }
+    [JsonPropertyName("enableWindowEdgeDwell")]
+    public bool EnableWindowEdgeDwell { get; set; }
 }
 
 public sealed class FocusSettings
 {
     [JsonPropertyName("clickThroughPet")]
     public bool ClickThroughPet { get; set; }
+    [JsonPropertyName("showPetFeedback")]
+    public bool ShowPetFeedback { get; set; } = true;
 }
 
 public sealed class FeatureSettings

@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using AiPet.Common;
 
 namespace AiPet.App;
 
@@ -11,7 +12,8 @@ public sealed record TrayState(
     bool AutostartEnabled,
     bool FocusActive = false,
     bool FocusPaused = false,
-    bool PetClickThrough = false);
+    bool PetClickThrough = false,
+    string PetStatus = "桌宠状态正在确认…");
 
 /// <summary>
 /// WinForms <see cref="NotifyIcon"/> wrapper. The context menu is refreshed
@@ -28,6 +30,7 @@ public sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _focusToggleItem;
     private readonly ToolStripMenuItem _focusEndItem;
     private readonly ToolStripMenuItem _restorePetInteractionItem;
+    private readonly ToolStripMenuItem _petStatusItem;
     private ToolStripMenuItem? _reminderActions;
     private readonly Icon _applicationIcon;
     private readonly Func<TrayState>? _stateProvider;
@@ -59,6 +62,8 @@ public sealed class TrayIcon : IDisposable
         _petVisibilityItem = new ToolStripMenuItem("隐藏桌宠") { CheckOnClick = false, Image = CreateMenuGlyph("pet") };
         _petVisibilityItem.Click += (_, _) => PetVisibilityClicked?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(_petVisibilityItem);
+        _petStatusItem = new ToolStripMenuItem("桌宠状态正在确认…") { Enabled = false };
+        _menu.Items.Add(_petStatusItem);
 
         _toolWindowItem = new ToolStripMenuItem("显示工具窗口") { CheckOnClick = false, Image = CreateMenuGlyph("window") };
         _toolWindowItem.Click += (_, _) => ToolWindowClicked?.Invoke(this, EventArgs.Empty);
@@ -165,6 +170,7 @@ public sealed class TrayIcon : IDisposable
         _fallbackState = state;
         _petVisibilityItem.Checked = state.PetVisible;
         _petVisibilityItem.Text = state.PetVisible ? "隐藏桌宠" : "显示桌宠";
+        _petStatusItem.Text = state.PetStatus;
         _toolWindowItem.Checked = state.ToolWindowVisible;
         _toolWindowItem.Text = state.ToolWindowVisible ? "收起工具窗口" : "显示工具窗口";
         _autostartItem.Checked = state.AutostartEnabled;

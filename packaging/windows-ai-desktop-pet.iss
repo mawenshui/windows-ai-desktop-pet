@@ -80,7 +80,7 @@ begin
   { Silent uninstall always preserves personal data. Interactive default is also Keep. }
   if not UninstallSilent then
   begin
-    if MsgBox('是否同时清理当前账户的设置、待办、提醒队列、快捷入口、索引、日志及已记录的 AI 凭据？此操作无法撤销。选择“否”保留数据。', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    if MsgBox('是否同时清理当前账户的设置、待办、提醒、复盘、专注、习惯打卡、本地角色包副本、快捷入口、索引、日志及已记录的 AI 凭据？此操作无法撤销。选择“否”保留数据。', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
     begin
       if (not Exec(ExpandConstant('{app}\WindowsAiDesktopPet.exe'), '--remove-local-data --confirmed-by-uninstaller', '', SW_HIDE, ewWaitUntilTerminated, ExitCode)) or (ExitCode <> 0) then
       begin

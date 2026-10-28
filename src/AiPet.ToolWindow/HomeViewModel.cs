@@ -76,6 +76,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         _enableRegexSearch = loaded.Search.EnableRegexSearch;
         _selectedSearchScopeId = loaded.Search.LastScopeId;
         _enableContentSearch = loaded.Features.EnableContentSearch;
+        _enableWindowEdgeDwell = loaded.Appearance.EnableWindowEdgeDwell;
         _search.SetContentSearchEnabled(_enableContentSearch);
         _searchOnboardingCompleted = loaded.Search.OnboardingCompleted;
         _searchOnboardingCandidateSource = searchOnboardingCandidates;
@@ -280,6 +281,8 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
     public bool EnableBubbleAnimation { get => _enableBubbleAnimation; set { if (_enableBubbleAnimation == value) return; _enableBubbleAnimation = value; OnPC(); SaveAppearancePreferences(); } }
     private bool _enableFollowMotion = true;
     public bool EnableFollowMotion { get => _enableFollowMotion; set { if (_enableFollowMotion == value) return; _enableFollowMotion = value; OnPC(); SaveAppearancePreferences(); } }
+    private bool _enableWindowEdgeDwell;
+    public bool EnableWindowEdgeDwell { get => _enableWindowEdgeDwell; set { if (_enableWindowEdgeDwell == value) return; _enableWindowEdgeDwell = value; OnPC(); SaveAppearancePreferences(); } }
 
     private void SaveAppearancePreferences()
     {
@@ -289,6 +292,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         settings.Appearance.EnablePetRoaming = EnablePetRoaming;
         settings.Appearance.EnableBubbleAnimation = EnableBubbleAnimation;
         settings.Appearance.EnableFollowMotion = EnableFollowMotion;
+        settings.Appearance.EnableWindowEdgeDwell = EnableWindowEdgeDwell;
         _settings.Save(settings);
         AppearanceChanged?.Invoke(settings.Appearance);
         OnPCFor(nameof(SelectedTheme));
@@ -1853,7 +1857,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         return path;
     }
 
-    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache | DataModule.Notifications | DataModule.ProviderPresets | DataModule.Journal | DataModule.FocusSessions | DataModule.PetPacks)
+    public DataMaintenanceResult RestoreLocalData(string source, DataModule modules = DataModule.Settings | DataModule.Layout | DataModule.Todos | DataModule.Shortcuts | DataModule.IconCache | DataModule.Notifications | DataModule.ProviderPresets | DataModule.Journal | DataModule.FocusSessions | DataModule.PetPacks | DataModule.Habits)
     {
         if (_settings is null) throw new InvalidOperationException("应用服务尚未就绪。");
         Maintenance.QueueRestore(source, modules);
@@ -1934,6 +1938,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         _enablePetRoaming = loaded.Appearance.EnablePetRoaming;
         _enableBubbleAnimation = loaded.Appearance.EnableBubbleAnimation;
         _enableFollowMotion = loaded.Appearance.EnableFollowMotion;
+        _enableWindowEdgeDwell = loaded.Appearance.EnableWindowEdgeDwell;
         _selectedSearchScopeId = loaded.Search.LastScopeId;
         _searchOnboardingCompleted = loaded.Search.OnboardingCompleted;
         OnPCFor(nameof(SelectedCharacter));
@@ -1947,6 +1952,7 @@ public sealed partial class HomeViewModel : INotifyPropertyChanged
         OnPCFor(nameof(EnablePetRoaming));
         OnPCFor(nameof(EnableBubbleAnimation));
         OnPCFor(nameof(EnableFollowMotion));
+        OnPCFor(nameof(EnableWindowEdgeDwell));
         InitializeSearchOnboardingCandidates();
         ReloadShortcuts();
         ReloadRanges();

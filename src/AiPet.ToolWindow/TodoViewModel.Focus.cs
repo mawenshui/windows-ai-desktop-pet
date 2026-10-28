@@ -75,6 +75,7 @@ public sealed partial class TodoViewModel
     public ICommand UseSelectedTodoForFocusCommand { get; private set; } = null!;
     public ICommand ClearFocusTodoCommand { get; private set; } = null!;
     public ICommand StartFocusCommand { get; private set; } = null!;
+    public ICommand StartSelectedTodoFocusCommand { get; private set; } = null!;
     public ICommand PauseFocusCommand { get; private set; } = null!;
     public ICommand ResumeFocusCommand { get; private set; } = null!;
     public ICommand RequestEndFocusCommand { get; private set; } = null!;
@@ -92,6 +93,11 @@ public sealed partial class TodoViewModel
         UseSelectedTodoForFocusCommand = new RelayCommand(_ => UseSelectedTodoForFocus(), _ => IsFocusIdle && SelectedTodo is { IsCompleted: false, IsReminder: false });
         ClearFocusTodoCommand = new RelayCommand(_ => ClearFocusAssociation(), _ => IsFocusIdle && _focusTodoId is not null);
         StartFocusCommand = new RelayCommand(_ => StartFocus(), parameter => IsFocusIdle && TryReadFocusDuration(out var ignored));
+        StartSelectedTodoFocusCommand = new RelayCommand(_ =>
+        {
+            UseSelectedTodoForFocus();
+            StartFocus();
+        }, _ => IsFocusIdle && SelectedTodo is { IsCompleted: false, IsReminder: false } && TryReadFocusDuration(out var duration));
         PauseFocusCommand = new RelayCommand(_ => ApplyFocusTransition(service => service.Pause()), _ => IsFocusRunning);
         ResumeFocusCommand = new RelayCommand(_ => ApplyFocusTransition(service => service.Resume()), _ => IsFocusPaused);
         RequestEndFocusCommand = new RelayCommand(_ => SetFocusEndConfirmation(true), _ => IsFocusActive);
@@ -290,6 +296,7 @@ public sealed partial class TodoViewModel
         foreach (var command in new[]
         {
             UseSelectedTodoForFocusCommand, ClearFocusTodoCommand, StartFocusCommand, PauseFocusCommand,
+            StartSelectedTodoFocusCommand,
             ResumeFocusCommand, RequestEndFocusCommand, ConfirmEndFocusCommand, CancelEndFocusCommand,
             CompleteFocusTodoCommand, CloseFocusResultCommand,
         }.OfType<RelayCommand>()) command.RaiseCanExecuteChanged();

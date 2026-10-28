@@ -17,7 +17,7 @@ public sealed class AutomaticBackupService
     public const int DefaultRetentionCount = 7;
     public static readonly DataModule IncludedModules = DataModule.Settings | DataModule.Layout |
         DataModule.Todos | DataModule.Shortcuts | DataModule.Notifications | DataModule.ProviderPresets |
-        DataModule.Journal | DataModule.FocusSessions | DataModule.PetPacks;
+        DataModule.Journal | DataModule.FocusSessions | DataModule.PetPacks | DataModule.Habits;
 
     private readonly string _root;
     private readonly string? _logDirectory;

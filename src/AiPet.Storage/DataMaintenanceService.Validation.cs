@@ -60,7 +60,7 @@ public sealed partial class DataMaintenanceService
                 if(root.TryGetProperty(module,out var value)) Require(value.ValueKind==JsonValueKind.Object);
             if(root.TryGetProperty("appearance",out var appearance))
                 Require(Boolean(appearance,"enablePetRoaming") && Boolean(appearance,"enableBubbleAnimation") && Boolean(appearance,"enableFollowMotion") && Boolean(appearance,"hidePetDuringFullscreen"));
-            if(root.TryGetProperty("focus",out var focus)) Require(Boolean(focus,"clickThroughPet"));
+            if(root.TryGetProperty("focus",out var focus)) Require(Boolean(focus,"clickThroughPet") && Boolean(focus,"showPetFeedback"));
             if(root.TryGetProperty("search",out var search) && search.TryGetProperty("ranges",out var ranges)) Require(ranges.ValueKind==JsonValueKind.Array && ranges.GetArrayLength()<=1000 && ranges.EnumerateArray().All(range=>range.ValueKind==JsonValueKind.String && !string.IsNullOrWhiteSpace(range.GetString())));
             if(root.TryGetProperty("ai",out var ai) && ai.TryGetProperty("profiles",out var profiles))
                 Require(profiles.ValueKind==JsonValueKind.Array && profiles.GetArrayLength()<=100 && profiles.EnumerateArray().All(profile=>profile.ValueKind==JsonValueKind.Object && Text(profile,"id",100,true) && Text(profile,"displayName",100,true) && Text(profile,"endpoint",2048,true) && Text(profile,"model",200,true)));
@@ -135,6 +135,21 @@ public sealed partial class DataMaintenanceService
             if(root.TryGetProperty("activeSessionId",out var activeId) && activeId.ValueKind!=JsonValueKind.Null)
                 Require(activeId.TryGetGuid(out var activeGuid) && activeIds.Contains(activeGuid));
             else Require(activeIds.Count==0);
+        }
+        if(name=="habits.json")
+        {
+            Require(root.TryGetProperty("revision",out var revision) && revision.TryGetInt64(out var revisionNumber) && revisionNumber>=0);
+            Require(root.TryGetProperty("entries",out var entries) && entries.ValueKind==JsonValueKind.Array && entries.GetArrayLength()<=100);
+            var ids=new HashSet<Guid>();
+            foreach(var entry in entries.EnumerateArray())
+            {
+                Require(entry.ValueKind==JsonValueKind.Object && entry.TryGetProperty("id",out var id) && id.TryGetGuid(out var guid) && guid!=Guid.Empty && ids.Add(guid));
+                Require(Text(entry,"title",80,true) && Boolean(entry,"enabled") && entry.TryGetProperty("createdAt",out var createdAt) && createdAt.TryGetDateTimeOffset(out _));
+                Require(entry.TryGetProperty("checkIns",out var checkIns) && checkIns.ValueKind==JsonValueKind.Array && checkIns.GetArrayLength()<=3650);
+                var days=new HashSet<DateOnly>();
+                foreach(var day in checkIns.EnumerateArray())
+                    Require(day.ValueKind==JsonValueKind.String && DateOnly.TryParseExact(day.GetString(),"yyyy-MM-dd",out var parsed) && days.Add(parsed));
+            }
         }
         if(name=="layout.json") foreach(var property in root.EnumerateObject()) Require(property.Value.ValueKind is JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False or JsonValueKind.Null);
     }

@@ -9,9 +9,21 @@ public sealed partial class HomeViewModel
 {
     private bool _hidePetDuringFullscreen;
     private bool _clickThroughPetDuringFocus;
+    private bool _showPetFocusFeedback = true;
     private bool _savedHidePetDuringFullscreen;
     private bool _savedClickThroughPetDuringFocus;
+    private bool _savedShowPetFocusFeedback = true;
     private string _lowDistractionStatus = "设置仅在专注会话期间生效。";
+    private string _petPresenceStatus = "桌宠状态正在确认…";
+
+    public string PetPresenceStatus => _petPresenceStatus;
+
+    public void SetPetPresenceStatus(string status)
+    {
+        if (_petPresenceStatus == status) return;
+        _petPresenceStatus = status;
+        OnPCFor(nameof(PetPresenceStatus));
+    }
 
     public bool HidePetDuringFullscreen
     {
@@ -25,9 +37,16 @@ public sealed partial class HomeViewModel
         set { if (_clickThroughPetDuringFocus == value) return; _clickThroughPetDuringFocus = value; OnPC(); RaiseLowDistractionSaveState(); }
     }
 
+    public bool ShowPetFocusFeedback
+    {
+        get => _showPetFocusFeedback;
+        set { if (_showPetFocusFeedback == value) return; _showPetFocusFeedback = value; OnPC(); RaiseLowDistractionSaveState(); }
+    }
+
     public bool HasUnsavedLowDistractionChanges => _settings is not null
         && (HidePetDuringFullscreen != _savedHidePetDuringFullscreen
-            || ClickThroughPetDuringFocus != _savedClickThroughPetDuringFocus);
+            || ClickThroughPetDuringFocus != _savedClickThroughPetDuringFocus
+            || ShowPetFocusFeedback != _savedShowPetFocusFeedback);
     public string LowDistractionSaveLabel => HasUnsavedLowDistractionChanges ? "保存低打扰设置（有修改）" : "低打扰设置已保存";
     public string LowDistractionStatus
     {
@@ -48,10 +67,13 @@ public sealed partial class HomeViewModel
     {
         _hidePetDuringFullscreen = settings.Appearance.HidePetDuringFullscreen;
         _clickThroughPetDuringFocus = settings.Focus.ClickThroughPet;
+        _showPetFocusFeedback = settings.Focus.ShowPetFeedback;
         _savedHidePetDuringFullscreen = _hidePetDuringFullscreen;
         _savedClickThroughPetDuringFocus = _clickThroughPetDuringFocus;
+        _savedShowPetFocusFeedback = _showPetFocusFeedback;
         OnPCFor(nameof(HidePetDuringFullscreen));
         OnPCFor(nameof(ClickThroughPetDuringFocus));
+        OnPCFor(nameof(ShowPetFocusFeedback));
         RaiseLowDistractionSaveState();
     }
 
@@ -63,9 +85,11 @@ public sealed partial class HomeViewModel
             var settings = _settings.Load();
             settings.Appearance.HidePetDuringFullscreen = HidePetDuringFullscreen;
             settings.Focus.ClickThroughPet = ClickThroughPetDuringFocus;
+            settings.Focus.ShowPetFeedback = ShowPetFocusFeedback;
             _settings.Save(settings);
             _savedHidePetDuringFullscreen = HidePetDuringFullscreen;
             _savedClickThroughPetDuringFocus = ClickThroughPetDuringFocus;
+            _savedShowPetFocusFeedback = ShowPetFocusFeedback;
             LowDistractionStatus = "低打扰设置已保存并应用。";
             RaiseLowDistractionSaveState();
             LowDistractionSettingsChanged?.Invoke(settings.Appearance, settings.Focus);

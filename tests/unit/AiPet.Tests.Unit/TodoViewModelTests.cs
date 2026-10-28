@@ -742,6 +742,97 @@ public sealed class TodoViewModelTests : IDisposable
         vm.CancelBackgroundWork();
     }
 
+    [Fact]
+    public void Selected_todo_quick_start_uses_current_duration_and_same_focus_state()
+    {
+        var root = Path.Combine(_root, "focus-quick-start");
+        var clock = _now;
+        var store = new TodoStore(root, () => clock);
+        var todo = store.Create(new TodoItem { Title = "写版本说明" });
+        var focus = new FocusSessionService(new FocusSessionStore(root), () => clock, () => 0, 1);
+        var vm = new TodoViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
+            () => new TodoAiConnection("https://example.test", "model", "key"), () => clock, focusService: focus);
+        vm.SelectedTodo = Assert.Single(vm.Items);
+        vm.FocusDurationMinutes = "15";
+
+        Assert.True(vm.StartSelectedTodoFocusCommand.CanExecute(null));
+        vm.StartSelectedTodoFocusCommand.Execute(null);
+
+        Assert.True(vm.IsFocusRunning);
+        Assert.Equal(todo.Id, vm.CurrentFocus.Session!.TodoId);
+        Assert.Equal(900, vm.CurrentFocus.Session.PlannedSeconds);
+        Assert.False(vm.StartSelectedTodoFocusCommand.CanExecute(null));
+        Assert.Equal(TodoStatus.Pending, Assert.Single(store.Load()).Status);
+        vm.CancelBackgroundWork();
+    }
+
+    [Fact]
+    public void Habit_day_rollover_keeps_prior_growth_and_requires_new_manual_check_in()
+    {
+        var root = Path.Combine(_root, "habit-day-rollover");
+        var clock = _now;
+        var store = new TodoStore(root, () => clock);
+        var vm = new TodoViewModel(store, new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
+            () => new TodoAiConnection("https://example.test", "model", "key"), () => clock);
+        vm.NewHabitTitle = "喝水";
+        vm.AddHabitCommand.Execute(null);
+        var row = Assert.Single(vm.Habits);
+        vm.ToggleHabitCheckInCommand.Execute(row.Id);
+        Assert.True(Assert.Single(vm.Habits).CheckedToday);
+
+        clock = clock.AddDays(1);
+        vm.RefreshHabitDay();
+
+        row = Assert.Single(vm.Habits);
+        Assert.False(row.CheckedToday);
+        Assert.Contains("累计 1 天", row.ProgressText, StringComparison.Ordinal);
+        vm.ToggleHabitEnabledCommand.Execute(row.Id);
+        Assert.False(Assert.Single(vm.Habits).Enabled);
+        Assert.False(Assert.Single(vm.Habits).CheckedToday);
+        vm.CancelBackgroundWork();
+    }
+
+    [Fact]
+    public void Habit_check_in_before_midnight_timer_refresh_uses_new_day()
+    {
+        var root = Path.Combine(_root, "habit-midnight-click");
+        var clock = new DateTimeOffset(2026, 10, 20, 23, 59, 59, TimeSpan.FromHours(8));
+        var vm = new TodoViewModel(new TodoStore(root, () => clock),
+            new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
+            () => new TodoAiConnection("https://example.test", "model", "key"), () => clock);
+        vm.NewHabitTitle = "读书";
+        vm.AddHabitCommand.Execute(null);
+        var row = Assert.Single(vm.Habits);
+        vm.ToggleHabitCheckInCommand.Execute(row.Id);
+        Assert.True(Assert.Single(vm.Habits).CheckedToday);
+
+        clock = clock.AddSeconds(2);
+        vm.ToggleHabitCheckInCommand.Execute(row.Id);
+
+        Assert.True(Assert.Single(vm.Habits).CheckedToday);
+        Assert.Contains("累计 2 天", Assert.Single(vm.Habits).ProgressText, StringComparison.Ordinal);
+        Assert.Equal(2, Assert.Single(new HabitStore(root).Load().Entries).CheckIns.Count);
+        vm.CancelBackgroundWork();
+    }
+
+    [Fact]
+    public void Habit_clear_confirmation_esc_cancels_without_deleting()
+    {
+        var root = Path.Combine(_root, "habit-clear-escape");
+        var vm = new TodoViewModel(new TodoStore(root),
+            new FakeTodoAiClient(AiTodoParseResult.NeedsClarification("unused")),
+            () => new TodoAiConnection("https://example.test", "model", "key"));
+        vm.NewHabitTitle = "阅读";
+        vm.AddHabitCommand.Execute(null);
+        vm.RequestClearHabitsCommand.Execute(null);
+        Assert.True(vm.ShowHabitClearConfirmation);
+        Assert.True(vm.HandleHabitEscape());
+        Assert.False(vm.ShowHabitClearConfirmation);
+        Assert.False(vm.HandleHabitEscape());
+        Assert.Single(new HabitStore(root).Load().Entries);
+        vm.CancelBackgroundWork();
+    }
+
     private TodoViewModel CreateViewModel(TodoStore store, ITodoAiClient ai) =>
         new(store, ai, () => new TodoAiConnection(
             "https://example.test",
