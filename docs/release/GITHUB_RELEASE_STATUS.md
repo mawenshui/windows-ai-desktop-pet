@@ -1,6 +1,13 @@
 # GitHub Release 状态
 
-日期：2026-09-20。[v0.26.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.26.0) 已作为普通正式版发布并成为 Latest。仓库现有 37 个 Release，无 Draft、无 Pre-release；0.25.0 是 CHANGELOG 中唯一保留为历史未发布状态的版本。
+日期：2026-10-28。[v0.27.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.27.1) 已作为普通正式版发布。`v0.27.0` 标签的 Windows 自动化门禁因测试时区假设失败，未创建该版本的 Release；随后用 0.27.1 修正并重新完成门禁。0.25.0 仍是 CHANGELOG 中保留的历史未发布版本。
+
+## 0.27.1 当前状态
+
+- 六项交互优化及跨时区测试修复已进入源码。发布提交与标签目标为 `da817d657b1be0dd2a0ea5910a7be24c456a8899`。
+- 本机与 [Release 工作流 40654599503](https://github.com/mawenshui/windows-ai-desktop-pet/actions/runs/40654599503) 的自动化及 package-smoke 均通过：396/396、0 跳过、便携运行、安装、安装后启动、卸载与 SHA-256 PASS。
+- Release 工作流上传后三项资产均回下载逐一比对 SHA-256；普通 Release 为 `isDraft=false`、`isPrerelease=false`。便携 ZIP 为 77,092,199 字节、SHA-256 `a0391e2ca8b96dc7081af9ad419d495d8f68f51b9deaa04931aa693d8ef79e36`；安装器为 54,187,972 字节、SHA-256 `791a997e063343919c76abdb58cb27b7709f091324dc58519ac36aaec71bd0b2`。
+- 本机独立 UI 诊断 FAIL（前台条件不足），代码签名 SKIP（无证书）；性能和物理硬件矩阵未执行。详见 [0.27.1 验证报告](0.27.1-test-report.md)。
 
 ## 0.26.0 当前状态
 

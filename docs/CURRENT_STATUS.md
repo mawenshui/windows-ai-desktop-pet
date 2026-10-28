@@ -1,6 +1,6 @@
 # 当前代码状态与文档索引
 
-日期：2026-10-28；当前源码版本：**0.27.1 候选**，上一正式版为 [v0.26.0](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.26.0)。0.27.1 已实现六项交互优化并通过完整自动化；干净源码打包/烟雾、SHA-256 和远端验证尚待本轮结果，不能宣称已发布。UI、性能、签名和物理硬件矩阵为可选诊断，执行后按实际结果记录。
+日期：2026-10-28；当前正式版为 [v0.27.1](https://github.com/mawenshui/windows-ai-desktop-pet/releases/tag/v0.27.1)。六项交互优化已实现；完整自动化、便携与安装烟雾测试、SHA-256 和远端 Release 验证均通过。独立 UI 诊断 FAIL，签名 SKIP；性能和物理硬件矩阵未执行。
 
 ## 当前实现
 
