@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "product": "Windows AI Desktop Pet",
-  "version": "0.26.0",
-  "sourceCommit": "a89d499b102a2083917c93f84c1f213a4be7faee",
+  "version": "0.27.0",
+  "sourceCommit": "e1fc292cff8e8fb7e01b3419aa4575617db8525b",
   "sourceTreeState": "clean",
-  "builtAtUtc": "2026-09-19T15:29:34.1831958+00:00",
+  "builtAtUtc": "2026-10-28T07:43:08.9197582+00:00",
   "runtime": "win-x64 self-contained",
   "signed": false,
   "sha256Manifest": "SHA256SUMS.txt"
